@@ -26,35 +26,28 @@ Mọi phản hồi lỗi từ API bắt buộc phải tuân theo cấu trúc JSO
 ### Danh mục mã lỗi chuẩn (Theo docs/product/API.md mục 1):
 | HTTP Status | Mã `code` | Trường hợp sử dụng |
 |-------------|-----------|--------------------|
-| **400** | `VALIDATION` | Body, query hoặc params không đúng schema contracts |
+| **400** | `VALIDATION` | Body, query hoặc params không đúng schema contracts; hoặc kick chính mình |
 | **401** | `UNAUTHENTICATED` | Chưa đăng nhập hoặc phiên làm việc đã hết hạn |
-| **403** | `FORBIDDEN` | Không đủ quyền hạn (không phải chủ phòng, không phải BTC giải) |
-| **403** | `CSRF` | Thiếu hoặc sai CSRF token trên request ghi |
+| **403** | `FORBIDDEN` | Không đủ quyền hạn (không phải chủ phòng, không phải BTC giải); hoặc xem/subscribe phòng private khi không có quyền |
+| **403** | `CSRF` | Thiếu, sai CSRF token hoặc sai chữ ký gắn phiên |
 | **404** | `NOT_FOUND` | Tài nguyên không tồn tại (phòng, giải đấu, người dùng) |
-| **409** | `CONFLICT` | Trùng lặp dữ liệu (username, tên đội) hoặc sai trạng thái nghiệp vụ (phòng đã đủ người, giải đã đóng đăng ký) |
-| **429** | `RATE_LIMITED` | Vượt quá tần suất cho phép (đăng nhập, đăng ký, chat) |
+| **409** | `CONFLICT` | Trùng lặp dữ liệu hoặc sai trạng thái nghiệp vụ (phòng finished, phòng đầy, giải đóng đăng ký, trận chưa đủ đội) |
+| **429** | `RATE_LIMITED` | Vượt quá tần suất cho phép (đăng nhập, đăng ký, chat, join phòng) |
 | **500** | `INTERNAL` | Lỗi không mong muốn phía máy chủ (không để lộ stack trace ở production) |
 
-## 3. Quy chuẩn phân trang (Pagination)
-- **Query đầu vào**: Sử dụng `PaginationQuerySchema` với `page` (≥ 1, mặc định 1) và `pageSize` (1–50, mặc định 10).
-- **Dữ liệu đầu ra**: Luôn đóng gói theo cấu trúc `{ items, total, page, pageSize }` (dùng helper `paginatedSchema` từ contracts).
+## 3. Quy chuẩn phân trang & Tìm kiếm
+- **Phân trang (Pagination)**:
+  - Query đầu vào: Sử dụng `PaginationQuerySchema` với `page` (≥ 1, mặc định 1) và `pageSize` (1–50, mặc định 10).
+  - Dữ liệu đầu ra: Luôn đóng gói theo cấu trúc `{ items, total, page, pageSize }` (dùng helper `paginatedSchema` từ contracts).
+- **Tìm kiếm tiếng Việt (Search)**:
+  - So khớp không dấu, không phân biệt hoa thường bằng `normalizeVi` từ `@customaov/contracts`. Cột CSDL `search_text` lưu chuỗi đã chuẩn hoá.
 
-```typescript
-import { PaginationQuerySchema } from "@customaov/contracts";
-
-app.get("/api/tournaments", async (request, reply) => {
-  const query = PaginationQuerySchema.parse(request.query);
-  const result = await tournamentService.listTournaments(db, query);
-  return reply.status(200).send(result); // { items: [...], total, page, pageSize }
-});
-```
-
-## 4. Kiểm tra quyền hạn tại Server (Authorization)
+## 4. Kiểm tra quyền hạn tại Server (Authorization) & Phòng riêng tư
 Tuyệt đối không tin tưởng client. Mọi hành vi thay đổi trạng thái phải được kiểm tra quyền hạn rõ ràng trên server:
 - **Chủ phòng (`host`)**: Chỉ người tạo/chủ phòng hiện tại mới có quyền thực hiện:
   - Chia đội (`POST /api/rooms/:code/split`)
   - Đổi chỗ người chơi (`POST /api/rooms/:code/move`)
-  - Mời người chơi ra ngoài (`POST /api/rooms/:code/kick`)
+  - Mời người chơi ra ngoài (`POST /api/rooms/:code/kick`) — cấm tự kick chính mình (trả 400).
   - Chia lane ngẫu nhiên (`POST /api/rooms/:code/random-lanes`)
   - Nhập kết quả trận đấu (`POST /api/rooms/:code/result`)
 - **Ban tổ chức giải đấu (`BTC` / `organizer`)**: Chỉ BTC mới có quyền:
@@ -64,6 +57,10 @@ Tuyệt đối không tin tưởng client. Mọi hành vi thay đổi trạng th
   - Bốc thăm nhánh đấu (`POST /api/tournaments/:slug/draw`)
   - Nhập tỉ số trận đấu (`POST /api/tournaments/:slug/matches/:matchId/score`)
 - **Khán giả (`spectator`)**: Không được phép gửi tin nhắn chat trong phòng (`POST /api/rooms/:code/messages` trả về 403 `FORBIDDEN`).
+- **Phòng riêng tư (`private`) — API.md Mục 9.1**:
+  - `GET /api/rooms/:code`: Nếu người gọi **không** phải thành viên và **không** có `?key` đúng → trả `RoomSummary & {restricted: true}` (không lộ teams, spectators, config, lastSplit, chat).
+  - Có `key` đúng hoặc là thành viên → trả `RoomDetail & {restricted: false}`.
+  - Chat phòng (`GET`/`POST /messages`): Chỉ dành riêng cho thành viên; người ngoài có key xem phòng cũng không được đọc hoặc gửi chat.
 
 ## 5. Ví dụ hoàn chỉnh một Route Handler Fastify
 ```typescript
