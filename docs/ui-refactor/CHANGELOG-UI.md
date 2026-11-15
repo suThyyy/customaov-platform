@@ -651,3 +651,50 @@ Chỉ đổi hành vi ở chế độ `api` (`VITE_DATA_SOURCE=api`). Chế đ�
 ### Còn tồn
 - Chưa kiểm thử end-to-end với backend thật + WS (E4-T03 chưa merge); giao thức theo API.md 4, 9.1, 9.5b.
 - Chưa có UI chọn mức cân bằng (`balanceLevel`) và nhập tier; server coi tier thiếu = 3.
+
+---
+
+## E5-T05 — Nối 5 tab `/tournaments/:slug` + thao tác BTC (15/11/2026)
+
+### File đã sửa / tạo mới
+- `src/api/types.ts`: `BracketSlot.placeholder?: 'bye' | 'tbd'`; `TournamentDetail` thêm `series?`, `myRole?`, `registrationDeadlineAt?` (ISO), hằng `UNSCHEDULED_LABEL`. Mock không có các field này, nên không hiện panel BTC.
+- `src/api/map.ts`: slot API `bye=true` → đội giữ chỗ "BYE", `team=null` → "Chưa xác định", đánh dấu `placeholder`; giữ `series`, `myRole`, hạn đăng ký ISO.
+- `src/api/organizer.ts` (mới): `organizerActions` (close-registration, draw, score, `PATCH /matches/:id` với giờ VN `+07:00`), `seriesOf`, `WINS_NEEDED`, `organizerErrorMessage` (409 dùng thông điệp server: LOCKED / MATCH_NOT_READY). `src/api/index.ts` export.
+- `src/api/hooks.ts`: `HookResult.reload()`: tải lại ngầm, giữ dữ liệu cũ và trạng thái `ready` (không nháy skeleton sau thao tác BTC).
+- `src/lib/tournament.ts`: `isByeMatch`, `isReadyMatch`, `isScheduled`, `matchClock`, `readyMatches`, `hasScoredMatch`. Lịch/kết quả bỏ trận BYE và trận thiếu đội. Trận "Chưa xếp lịch" xếp cuối, gom thành nhóm riêng. Xếp hạng đội bỏ qua trận BYE. Tiến độ đếm n − 1 trận khi nhánh có BYE.
+- `src/components/domain/OrganizerPanel.tsx` (mới): chỉ render khi `myRole === 'organizer'`.
+  - Nút "Đóng đăng ký" và "Bốc thăm"/"Bốc lại", cả hai qua hộp xác nhận. Bốc thăm bị khoá khi còn mở đăng ký hoặc < 2 đội; bốc lại bị ẩn khi đã có tỉ số.
+  - Danh sách trận đủ 2 đội có nút "Nhập tỉ số" (viền) và "Xếp lịch" (ghost, `datetime-local`).
+  - Có `children` để gắn phần duyệt đăng ký (E5-T03).
+- `src/components/domain/ScoreDialog.tsx` (mới): chọn tỉ số 0..N theo BO, chặn bằng `isValidSeriesScore` (cảnh báo `role="alert"`, nút Lưu bị khoá). Lỗi 409 hiện trong hộp.
+- `src/pages/TournamentDetail.tsx`:
+  - Panel BTC đặt giữa banner và tab.
+  - Nhánh đấu: slot BYE / "Chưa xác định" có vòng tròn nét đứt, không có logo, không có nút xem trận.
+  - Lịch: nhóm "Chưa xếp lịch", giờ thiếu hiện bằng chữ màu cảnh báo. `id` heading theo chỉ số.
+  - Vẫn chỉ 1 nút vàng đặc (banner); hành động BTC dùng nút viền/ghost.
+- Test:
+  - `src/pages/TournamentDetail.api.test.tsx` (mới, 9 test, giả lập `fetch`): BYE/TBD, lịch "Chưa xếp lịch", nhà vô địch, panel chỉ cho BTC, bốc lại gọi API + tải lại, đóng đăng ký, ScoreDialog chặn sai BO, 409 hiện thông báo, xếp lịch gửi `+07:00`.
+  - `src/api/map.test.ts`: thêm mapping placeholder.
+  - `src/lib/tournament.test.ts`: thêm 2 test nhánh API.
+
+### Kiểm tra
+- `npm run build` ✅; `npm run lint` ✅ (0 lỗi, 2 cảnh báo cũ ở `AppContext.tsx`); `npm test` ✅ (web 71/71, api 109/109, contracts 89/89, team-core 15/15).
+- `node scripts/e2e-auth.mjs http://localhost:5202` ✅.
+- `node scripts/screenshot.mjs E5-T05 http://localhost:5202` (mock): **36/36 ok**.
+- Kiểm tra thêm ở chế độ `api` (Vite `VITE_DATA_SOURCE=api` + Playwright `page.route` trả dữ liệu giả, script tạm đã xoá):
+  - info/bracket/schedule ở 375 và 1280 đều không cuộn ngang, không lỗi console;
+  - đúng 1 nút vàng đặc trong `main`.
+
+### Cách hoàn tác
+`git revert` commit của task E5-T05.
+
+### Còn tồn
+- Hộp xếp lịch chưa điền sẵn giờ hiện tại, vì API chỉ trả nhãn "dd/mm HH:mm" không có năm.
+- Chưa có lệnh huỷ lịch.
+- Chưa kiểm tra với backend thật: E5-T04b đang review. Mã lỗi `LOCKED`/`MATCH_NOT_READY` của engine được trả dạng `409 CONFLICT` kèm thông điệp, nên UI hiện thông điệp đó.
+
+### Review fix 1 — dùng dữ liệu suy ra từ backend
+- `src/api/map.ts`, `src/api/types.ts`: giữ `champion`, `upcoming`, `results` trong mô hình UI thay vì làm mất nhà vô địch khi ánh xạ response.
+- `src/pages/TournamentDetail.tsx`: chế độ API dùng trực tiếp `upcoming` cho tab Lịch và `results`/`champion` cho tab Kết quả; chế độ mock vẫn dùng `scheduleOf`/`podium` như trước.
+- `src/pages/TournamentDetail.api.test.tsx`, `src/api/map.test.ts`: thêm hồi quy với lịch, kết quả và nhà vô địch backend cố ý khác dữ liệu có thể suy từ bracket.
+- Kiểm tra ở gốc: `npm run build` ✅; `npm run lint` ✅ (0 lỗi, 2 cảnh báo cũ); `npm test` ✅ (team-core 15/15, contracts 89/89, web 73/73, api 109/109).

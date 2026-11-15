@@ -41,6 +41,8 @@ export interface HookResult<T> {
    * để cập nhật số liệu mà không mất state của trang (hộp thoại, tab…). Lỗi được ném ra cho nơi gọi.
    */
   refresh: () => Promise<void>
+  /** Alias của `refresh` (dùng bởi BTC panel). */
+  reload: () => Promise<void>
 }
 
 export function useResource<T>(
@@ -53,7 +55,7 @@ export function useResource<T>(
   const loadRef = useRef(load)
   loadRef.current = load
   const [attempt, setAttempt] = useState(0)
-  const [state, setState] = useState<Omit<HookResult<T>, 'retry' | 'refresh'>>(() =>
+  const [state, setState] = useState<Omit<HookResult<T>, 'retry' | 'refresh' | 'reload'>>(() =>
     cache.has(key)
       ? { status: 'ready', data: cache.get(key) as T }
       : { status: readyImmediately ? mockStatus.status : 'loading', data: fallback },
@@ -96,7 +98,7 @@ export function useResource<T>(
     setState({ status: 'ready', data })
   }, [key])
 
-  return { ...state, retry, refresh }
+  return { ...state, retry, refresh, reload: refresh }
 }
 
 const stableKey = (name: string, params?: object) => `${DATA_SOURCE}:${name}:${params ? JSON.stringify(params) : ''}`

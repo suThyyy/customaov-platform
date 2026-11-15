@@ -23,7 +23,19 @@ import {
   UsersRound,
 } from 'lucide-react'
 import { cn } from '../lib/cn'
-import { groupByDate, matchProgress, podium, scheduleOf, standings, winnerOf, type StandingTone } from '../lib/tournament'
+import {
+  groupByDate,
+  isReadyMatch,
+  isScheduled,
+  matchClock,
+  matchProgress,
+  podium,
+  scheduleOf,
+  standings,
+  winnerOf,
+  type StandingTone,
+} from '../lib/tournament'
+import { OrganizerPanel } from '../components/domain/OrganizerPanel'
 import { useAuth, useToast } from '../context/AppContext'
 import { ListStatus, SkeletonCards, SkeletonRows } from '../components/ui/ListStatus'
 import {
@@ -259,6 +271,12 @@ function TournamentView({ d, load }: { d: Detail; load: HookResult<Detail | unde
           onWithdraw={() => setWithdrawOpen(true)}
           className="mt-4"
         />
+      )}
+
+      {d.myRole === 'organizer' && (
+        <div className="mt-6">
+          <OrganizerPanel d={d} onChanged={load.reload} />
+        </div>
       )}
 
       <Tabs<DetailTab>
@@ -785,6 +803,7 @@ function MatchBox({ match, final, onPlay }: { match: BracketMatch; final?: boole
   const [a, b] = match.slots
   const decided = a.score !== null && b.score !== null
   const winner = decided ? (a.score! > b.score! ? 0 : 1) : -1
+  const ready = isReadyMatch(match)
   return (
     <div
       className={cn(
@@ -798,18 +817,37 @@ function MatchBox({ match, final, onPlay }: { match: BracketMatch; final?: boole
         <p className={cn('text-xs', final ? 'text-gold-200' : 'text-fg-muted')}>
           {match.label} · <span className="tabular">{match.time}</span>
         </p>
-        <button
-          type="button"
-          onClick={() => onPlay(match)}
-          aria-label={`Xem ${match.label}: ${a.team.name} gặp ${b.team.name}`}
-          title="Xem trận"
-          className="grid size-6 place-items-center rounded-full border border-gold/70 text-gold transition-colors hover:bg-gold hover:text-gold-ink"
-        >
-          <Play size={12} aria-hidden className="ml-px fill-current" />
-        </button>
+        {ready ? (
+          <button
+            type="button"
+            onClick={() => onPlay(match)}
+            aria-label={`Xem ${match.label}: ${a.team.name} gặp ${b.team.name}`}
+            title="Xem trận"
+            className="grid size-6 place-items-center rounded-full border border-gold/70 text-gold transition-colors hover:bg-gold hover:text-gold-ink"
+          >
+            <Play size={12} aria-hidden className="ml-px fill-current" />
+          </button>
+        ) : (
+          <span aria-hidden className="size-6" />
+        )}
       </div>
       <ul className="mt-2 flex flex-col gap-1">
-        {match.slots.map((s, i) => (
+        {match.slots.map((s, i) =>
+          s.placeholder ? (
+            // Slot API chưa có đội (API.md 9.3): BYE = đội kia đi tiếp; TBD = chờ thắng trận trước
+            <li key={s.team.id} className="flex min-h-8 items-center gap-3" data-slot={s.placeholder}>
+              <span aria-hidden className="size-6 shrink-0 rounded-full border border-dashed border-line-strong" />
+              <span
+                className={cn(
+                  'min-w-0 flex-1 text-sm break-words',
+                  s.placeholder === 'bye' ? 'font-semibold tracking-wide text-fg-subtle' : 'text-fg-muted italic',
+                )}
+              >
+                {s.placeholder === 'bye' ? 'BYE' : 'Chưa xác định'}
+              </span>
+              <span className="grid h-6 min-w-8 place-items-center rounded-btn bg-surface-3 text-sm text-fg-subtle">–</span>
+            </li>
+          ) : (
           <li key={s.team.id} className="flex min-h-8 items-center gap-3">
             <TeamLogo team={s.team} size={24} />
             <span className={cn('min-w-0 flex-1 text-sm font-medium break-words', winner >= 0 && winner !== i && 'text-fg/70')}>
@@ -824,7 +862,8 @@ function MatchBox({ match, final, onPlay }: { match: BracketMatch; final?: boole
               {s.score ?? '–'}
             </span>
           </li>
-        ))}
+          ),
+        )}
       </ul>
     </div>
   )
@@ -833,7 +872,7 @@ function MatchBox({ match, final, onPlay }: { match: BracketMatch; final?: boole
 /* ---------------- Tab Lịch thi đấu / Kết quả ---------------- */
 
 function ScheduleTab({ d }: { d: Detail }) {
-  const groups = groupByDate(scheduleOf(d))
+  const groups = groupByDate(DATA_SOURCE === 'api' ? d.upcoming : scheduleOf(d))
   if (groups.length === 0) {
     return (
       <EmptyState
@@ -846,11 +885,11 @@ function ScheduleTab({ d }: { d: Detail }) {
   }
   return (
     <div className="flex flex-col gap-6">
-      {groups.map((g) => (
-        <section key={g.date} aria-labelledby={`day-${g.date.replace('/', '-')}`}>
-          <h2 id={`day-${g.date.replace('/', '-')}`} className="flex items-center gap-2 text-base font-semibold">
+      {groups.map((g, i) => (
+        <section key={g.date} aria-labelledby={`day-${i}`}>
+          <h2 id={`day-${i}`} className="flex items-center gap-2 text-base font-semibold">
             <CalendarDays size={18} aria-hidden className="text-gold" />
-            Ngày {g.date}
+            {isScheduled(g.date) ? `Ngày ${g.date}` : g.date}
             <span className="text-sm font-normal text-fg-muted">· {g.matches.length} trận</span>
           </h2>
           <MatchList className="mt-3" matches={g.matches} showClockOnly />
@@ -861,10 +900,21 @@ function ScheduleTab({ d }: { d: Detail }) {
 }
 
 function ResultsTab({ d }: { d: Detail }) {
-  const results = scheduleOf(d)
-    .filter((m) => m.score)
-    .reverse()
-  const top = podium(d)
+  const results = DATA_SOURCE === 'api'
+    ? d.results
+    : scheduleOf(d)
+        .filter((m) => m.score)
+        .reverse()
+  const mockTop = DATA_SOURCE === 'mock' ? podium(d) : undefined
+  const champion = DATA_SOURCE === 'api' ? d.champion : mockTop?.champion
+  const championshipResult = champion ? results.find((match) => winnerOf(match)?.id === champion.id) : undefined
+  const runnerUp = DATA_SOURCE === 'api'
+    ? championshipResult && champion
+      ? championshipResult.home.id === champion.id
+        ? championshipResult.away
+        : championshipResult.home
+      : undefined
+    : mockTop?.runnerUp
   if (results.length === 0) {
     return (
       <EmptyState
@@ -877,7 +927,7 @@ function ResultsTab({ d }: { d: Detail }) {
   }
   return (
     <div className="flex flex-col gap-6">
-      {top && (
+      {champion && (
         <Card className="flex flex-col gap-4 border-gold/40 p-4 sm:flex-row sm:items-center md:p-6">
           <span aria-hidden className="grid size-14 shrink-0 place-items-center rounded-full bg-gold-tint text-gold">
             <Trophy size={28} />
@@ -885,10 +935,10 @@ function ResultsTab({ d }: { d: Detail }) {
           <div className="min-w-0">
             <p className="text-sm text-gold">Nhà vô địch {d.name}</p>
             <p className="mt-1 flex items-center gap-3 text-2xl font-bold">
-              <TeamLogo team={top.champion} size={32} />
-              {top.champion.name}
+              <TeamLogo team={champion} size={32} />
+              {champion.name}
             </p>
-            <p className="mt-1 text-sm text-fg-muted">Á quân: {top.runnerUp.name}</p>
+            {runnerUp && <p className="mt-1 text-sm text-fg-muted">Á quân: {runnerUp.name}</p>}
           </div>
         </Card>
       )}
@@ -926,7 +976,11 @@ function MatchList({
           <li key={m.id} className="rounded-btn bg-surface-2/80 p-3">
             <p className="flex flex-wrap justify-between gap-x-3 text-xs text-fg-muted">
               <span>{m.stage}</span>
-              <time className="tabular">{showClockOnly ? m.time.split(' ')[1] : m.time}</time>
+              {isScheduled(m.time) ? (
+                <time className="tabular">{showClockOnly ? matchClock(m.time) : m.time}</time>
+              ) : (
+                <span className="text-warning">{m.time}</span>
+              )}
             </p>
             <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
               <span className={cn('flex min-w-0 items-center justify-end gap-2 text-right text-sm', w && w.id !== m.home.id && 'text-fg/70')}>
