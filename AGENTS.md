@@ -72,9 +72,10 @@ diff -ru web_backup_2026-11-15/src base-frontend-web/src
 ## Cấu trúc repo
 
 - `base-frontend-web/`: ứng dụng React + Vite + TypeScript + Tailwind.
-- `base-backend-api/`: khung backend API và hướng dẫn agent; hiện chưa có package.json.
-- `database/`: hiện chỉ có `scripts/migration-template.sql` (mẫu migration). Chưa có schema hay dữ liệu thật; schema sẽ thiết kế theo PRD và mọi thay đổi schema phải qua Owner duyệt.
-- `packages/`: các package dùng chung, hiện có `team-core`.
+- `base-backend-api/` (`@customaov/api`): Fastify 5 + TypeScript + Drizzle (PGlite dev/test). Đọc `base-backend-api/AGENTS.md` và `.agent/rules` trước khi sửa.
+- `database/`: `migrations/` (drizzle-kit sinh, không sửa tay migration đã merge), `scripts/migration-template.sql`. Thay đổi schema ghi vào `docs/orchestration/DECISIONS.md`.
+- `packages/`: `team-core` (thuật toán chia đội), `contracts` (zod, hợp đồng API dùng chung FE/BE theo `docs/product/API.md`).
+- Lệnh gốc: `npm run build|lint|test` chạy đủ 4 package; `npm run dev:api` (cổng 6174), `npm run dev:web` (cổng 5174). Xem `README.md`.
 - `docs/`: `ui-refactor/` (tài liệu UI refactor), `orchestration/` (điều phối đa agent), `product/` (PRD/roadmap, khi có). Các thư mục `dac-ta`, `design-api`, `nghiep-vu`, `tich-hop`, `hdsd`, `json`, `pdf` chỉ là mẫu trình bày (xem "Quy tắc cứng").
 - Không bao giờ sửa `_old_web_DO_NOT_EDIT/` hay `web_backup_*/`.
 
