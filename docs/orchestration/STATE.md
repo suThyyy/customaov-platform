@@ -25,16 +25,22 @@ Lưu ý: lúc 10:00 Codex còn ~21% hạn mức 5 giờ (reset 12:19).
 ## Đang chạy
 | Task | Task id | Dispatch | Vai trò | Agent/model | Terminal | Cổng |
 |---|---|---|---|---|---|---|
-| E4-T01 rooms API | task_a246ededf574 | ctx_44cf513f1a8b (retry 2/3) | coder | agy gemini-4-hydrogen-medium | term_49fb4c2b-41e4-4f65-aacc-5d0caa1e691c | 6185 |
-| E3-T04 profile API | task_1f3194831f4f | ctx_df78e2e1bb60 | coder | agy gemini-4-hydrogen-medium | term_536cb6b8-20e3-4fa6-9213-87e923b03a43 | 6186 |
+| E5-T01 tournaments read API | task_428017774a10 | ctx_4fd9a678c62c | coder | agy gemini-4-hydrogen-medium | term_a86320cc-c04b-402e-8957-89237646f1ea | 6187 |
+| E3-T03 FE auth | task_285790b05819 | ctx_0ace6070d612 (retry 2/3) | coder | agy gemini-4-hydrogen-medium | term_23e93cdc-6925-4727-a0a4-9be332bb2636 | 5188/5189/6188 |
+| E4-T02 room host API | task_89e34bd74fb7 | ctx_f13ec7214a9d (retry 2/3) | coder | agy gemini-4-hydrogen-medium | term_29ff2173-907a-4a7b-9635-0683579b5cca | 6189 |
 
-**E3-T01 auth API đã merge** vào integration (~10:50; re-review Lead PASS). Test 64 api + 39 web.
-| E5-T02a UI /tournaments/new | task_74cf7f62676f | ctx_c47a8df9569c | coder | agy gemini-4-hydrogen-medium | term_c0cb9ca9-3ee4-47c8-af50-edfd64febaed | 5184 |
+**Đã merge vào integration** (đến 11:00, `ec4fe23`):
+- E3-T01 auth;
+- E3-T01b schema §9;
+- E3-T02 FE data layer (+ Lead sửa nối `map.ts`);
+- E3-T04 profile API;
+- E4-T01 rooms API (Lead gộp xung đột 1 dòng ở `app.ts`);
+- E5-T02a UI `/tournaments/new`;
+- E5-T04a bracket engine.
 
-Đã merge vào integration (10:35, `66af08d`):
-- E3-T01b;
-- E3-T02 (kèm Lead sửa nối `map.ts` cho BracketSlot mới, `800948a`);
-- E5-T04a (Lead review, vì Codex hết quota giữa chừng).
+Test hiện tại: web 43, api 83.
+
+**Còn lại để đóng E3:** E3-T03, E3-T05 (nối hồ sơ FE, chưa giao).
 
 Re-review E3-T01 và review E5-T02a: Lead (coder Google → reviewer Anthropic).
 
