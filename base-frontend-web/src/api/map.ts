@@ -11,6 +11,7 @@ import type {
 } from '@customaov/contracts'
 import type {
   Activity,
+  BracketSlot,
   ChatMessage,
   Player,
   Room,
@@ -90,6 +91,17 @@ export const mapTournament = (tournament: ApiTournamentSummary): Tournament => (
   createdAt: tournament.createdAt,
 })
 
+type ApiBracketSlot = ApiTournamentDetail['bracket'][number]['matches'][number]['slots'][number]
+
+const mapBracketSlot = (slot: ApiBracketSlot, matchId: string, side: 'a' | 'b'): BracketSlot => ({
+  team: slot.team ?? {
+    id: `${matchId}-${side}-${slot.bye ? 'bye' : 'tbd'}`,
+    name: slot.bye ? 'BYE' : 'Chưa xác định',
+    logo: '',
+  },
+  score: slot.score,
+})
+
 export const mapTournamentDetail = (detail: ApiTournamentDetail): TournamentDetail => ({
   ...mapTournament(detail),
   title: detail.title,
@@ -102,7 +114,17 @@ export const mapTournamentDetail = (detail: ApiTournamentDetail): TournamentDeta
   rules: detail.rules,
   prizes: detail.prizes,
   teamList: detail.teamList,
-  bracket: detail.bracket,
+  // API.md 9.3: slot có thể chưa có đội (TBD) hoặc là BYE. Kiểu UI cũ luôn có đội,
+  // nên thay bằng đội giữ chỗ để component nhánh đấu hiển thị nhãn tương ứng.
+  bracket: detail.bracket.map((round) => ({
+    name: round.name,
+    matches: round.matches.map((match) => ({
+      id: match.id,
+      label: match.label,
+      time: match.time,
+      slots: [mapBracketSlot(match.slots[0], match.id, 'a'), mapBracketSlot(match.slots[1], match.id, 'b')],
+    })),
+  })),
   upcoming: detail.upcoming,
   results: detail.results,
 })

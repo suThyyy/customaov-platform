@@ -4,6 +4,7 @@ export type {
   ActivityKind,
   BracketMatch,
   BracketRound,
+  BracketSlot,
   ChampionStat,
   ChatMessage,
   Lane,
