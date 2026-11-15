@@ -2,6 +2,33 @@
 
 > Lead cập nhật cuối mỗi epic và mỗi khi dừng. Mới nhất ở trên.
 
+## 15/11/2026 ~23:20 – MVP HOÀN THÀNH: cả 7 epic đã merge `main`
+
+- **`main` = `bc29b31`**. Tag `epic-1-before` … `epic-7-before` dùng để quay lại từng mốc.
+- **E7:**
+  - audit 0 P0 / 2 P1 / 2 P2;
+  - đã sửa: rate limit ghi 60/phút/người, phòng `finished` không còn hiện là "đang diễn ra", validate tham số `:username`/`:slug`, thông báo 404 tiếng Việt;
+  - `npm run dev:all` chạy cả app bằng một lệnh;
+  - `TEST_DATABASE_URL` để chạy test trên Postgres;
+  - README, `docs/product/HDSD.md`, `CHANGELOG.md`.
+- **Hồi quy cuối:**
+  - build, lint 0 lỗi;
+  - test web 135, api 170, contracts 89, team-core 15;
+  - e2e mock, screenshot 40/40;
+  - e2e api: auth đạt, phòng 10 người 7/7, giải 8 đội 14/14.
+
+**Owner cần làm khi rảnh**
+1. **Bật Docker Desktop.** Bộ test backend chưa chạy kiểm chứng trên Postgres thật. Lệnh chạy có trong README: `docker compose up -d` rồi `TEST_DATABASE_URL=... npm test --workspace @customaov/api`. Lead sẽ chạy khi có Docker.
+2. Bật "Continue automatically when limits reset" trong Orca nếu muốn (CLI không bật được).
+
+**Backlog sau MVP** (không chặn):
+- Unique tên đội tính cả đội bị từ chối.
+- Chưa có UI sửa giải; chưa có UI chọn balanceLevel hay nhập tier.
+- `RoomConfig` chưa lưu số lượt cấm, bản đồ, cách chia.
+- Các P1/P2 dữ liệu mock từ E1.
+
+**Quota:** Codex hết tới 01:53 16/11; agy Claude hết tuần; Claude Lead đã tiết kiệm từ ~20:45; Copilot 0/20.
+
 ## 15/11/2026 ~22:40 – E4, E5, E6 đã merge `main`; E7 bắt đầu
 
 - **`main` = `809af7e`**. Tag `epic-4-before`, `epic-5-before`, `epic-6-before` cùng trỏ vào `c333228`.
