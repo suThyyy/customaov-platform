@@ -8,3 +8,4 @@ web/
 web_backup_*/
 _old_web_DO_NOT_EDIT/
 .worktrees/
+.data/

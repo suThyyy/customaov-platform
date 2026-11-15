@@ -9,7 +9,12 @@ describe("loadConfig", () => {
       PORT: 6174,
       LOG_LEVEL: "info",
       NODE_ENV: "development",
+      DATABASE_URL: "./.data/pglite",
     });
+  });
+
+  it("defaults DATABASE_URL to memory:// in test environment", () => {
+    expect(loadConfig({ NODE_ENV: "test" }).DATABASE_URL).toBe("memory://");
   });
 
   it("reports invalid environment values clearly", () => {

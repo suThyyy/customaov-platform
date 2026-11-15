@@ -1,13 +1,21 @@
 import { z } from "zod";
 
-const configSchema = z.object({
-  HOST: z.string().trim().min(1).default("127.0.0.1"),
-  PORT: z.coerce.number().int().min(1).max(65_535).default(6174),
-  LOG_LEVEL: z
-    .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
-    .default("info"),
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-});
+const configSchema = z
+  .object({
+    HOST: z.string().trim().min(1).default("127.0.0.1"),
+    PORT: z.coerce.number().int().min(1).max(65_535).default(6174),
+    LOG_LEVEL: z
+      .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
+      .default("info"),
+    NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    DATABASE_URL: z.string().trim().min(1).optional(),
+  })
+  .transform((data) => ({
+    ...data,
+    DATABASE_URL:
+      data.DATABASE_URL ??
+      (data.NODE_ENV === "test" ? "memory://" : "./.data/pglite"),
+  }));
 
 export type AppConfig = z.infer<typeof configSchema>;
 
