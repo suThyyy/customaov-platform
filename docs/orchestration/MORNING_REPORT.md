@@ -2,6 +2,33 @@
 
 > Lead cập nhật cuối mỗi epic và mỗi khi dừng. Mới nhất ở trên.
 
+## 15/11/2026 ~10:00 – E2 xong và đã merge `main`; E3 đang chạy
+
+**Epic E2 (nền backend): XONG, đã merge `main`** (`35b74ed`; tag `epic-2-before` = `ef16a9a`).
+
+| Task | Nội dung | Coder | Review |
+|---|---|---|---|
+| E2-T01 | API.md + mục 9 bổ sung bảo mật/đồng thời | Lead | cross-review agy |
+| E2-T02 | Fastify 5 scaffold | codex | agy |
+| E2-T03 | `@customaov/contracts` (86 test) | codex | agy |
+| E2-T04 | Drizzle + PGlite + migration + seed khớp mock | agy hydrogen | codex FAIL lần 1 (thiếu CHECK, log lộ DATABASE_URL) → sửa → PASS |
+| E2-T05 | script gốc | agy flash | Lead |
+| E2-T06 | rule backend viết lại theo stack thật | agy flash | Lead FAIL lần 1 (lệch API.md §9) → sửa → PASS |
+
+Kiểm tra trước merge: build, lint 0 lỗi, test 15+86+33+17, e2e-auth, screenshot 32/32, API `/health` OK.
+
+**E3 đang chạy:** T01 auth API (agy sonnet), T01b schema/contracts theo §9 (agy hydrogen), T02 tầng dữ liệu FE (codex).
+
+**Quyết định mới:**
+- Lead tự review task B1 nhỏ của coder khác hãng.
+- Đổi schema theo API.md §9 (cột `active`, partial unique index, `is_bye`): làm ở E3-T01b.
+- Codex sắp cạn hạn mức 5 giờ nên chuyển task B2 sang agy claude-sonnet.
+
+**Sự cố nhỏ:**
+- Lead dùng lệnh tắt process node quá rộng (`pkill`/`taskkill`) để tắt server smoke test. Đã kiểm: chỉ tắt dev server của chính Lead, server 5174 (PID 37208) và các worker vẫn chạy. Đã ghi chú để không lặp lại.
+
+**Quota ước tính:** Codex còn ~21% (reset 12:19). agy dùng nhiều nhưng chưa báo giới hạn. Copilot 0/20.
+
 ## 15/11/2026 ~09:00 – E1 xong và đã merge `main`; E2 đang chạy
 
 **Epic**
