@@ -152,7 +152,8 @@ git merge --no-ff task/<id>-<slug>    # trên nhánh integration/mvp
 ```bash
 # Codex: gpt-5.6-sol medium, tắt priority, tự duyệt, chỉ ghi trong worktree (không sửa ~/.codex/config.toml)
 orca terminal create --worktree $W --title "<id> codex" --command \
-  "codex -m gpt-5.6-sol -c model_reasoning_effort=medium -c service_tier=default -a never -s workspace-write -c sandbox_workspace_write.network_access=true" --json
+  "codex -m gpt-5.6-sol -c model_reasoning_effort=medium -c service_tier=default --dangerously-bypass-approvals-and-sandbox" --json
+# (Không dùng -s workspace-write: sandbox chặn git commit vì .git nằm ở checkout gốc, và chặn gọi Orca CLI; xem DECISIONS.md.)
 # Antigravity
 orca terminal create --worktree $W --title "<id> agy" --command "agy --model <model_id> --dangerously-skip-permissions" --json
 # Copilot (≤ 20 lượt tới khi Owner quay lại; chỉ khi agent cùng bậc khác không khả dụng)
