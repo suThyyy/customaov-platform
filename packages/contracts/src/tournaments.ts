@@ -24,8 +24,9 @@ export const TeamSchema = z.object({
 export type Team = z.infer<typeof TeamSchema>;
 
 export const BracketSlotSchema = z.object({
-  team: TeamSchema,
+  team: TeamSchema.nullable(),
   score: z.number().int().min(0).nullable(),
+  bye: z.boolean(),
 });
 export type BracketSlot = z.infer<typeof BracketSlotSchema>;
 

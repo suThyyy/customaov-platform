@@ -56,36 +56,19 @@ const fullRed: SeedRoomMember[] = [
   { username: "nanm", side: "red", lane: "SP", ready: true, captain: false },
 ];
 
-/** Lấy n người (không gồm suthy) để mô phỏng các phòng khác. */
-function partialWithoutSuthy(
-  count: number,
-  hostUsername: string,
-): SeedRoomMember[] {
-  const pool = [...fullBlue, ...fullRed, { username: "linh", side: "blue" as const, lane: "SP" as const, ready: true, captain: false }]
-    .filter((x) => x.username !== hostUsername && x.username !== "suthy");
+const LANES: Array<SeedRoomMember["lane"]> = ["TOP", "JG", "MID", "AD", "SP"];
 
-  const hostMember: SeedRoomMember = {
-    username: hostUsername,
-    side: "blue",
-    lane: "MID",
-    ready: true,
-    captain: true,
-  };
-
-  const selected = [hostMember, ...pool].slice(0, count);
-  let redCaptainAssigned = false;
-  return selected.map((member, index) => {
-    const side: "blue" | "red" = index % 2 === 0 ? "blue" : "red";
-    const captain =
-      index === 0
-        ? true
-        : side === "red" && !redCaptainAssigned
-          ? ((redCaptainAssigned = true), true)
-          : false;
+/** Tạo n người chơi riêng biệt cho các phòng khác để không trùng active player giữa các phòng. */
+function roomPlayersFromPool(startIndex: number, count: number): SeedRoomMember[] {
+  return Array.from({ length: count }, (_, idx) => {
+    const num = startIndex + idx;
+    const side: "blue" | "red" = idx % 2 === 0 ? "blue" : "red";
     return {
-      ...member,
+      username: `player_${String(num).padStart(2, "0")}`,
       side,
-      captain,
+      lane: LANES[Math.floor(idx / 2) % LANES.length]!,
+      ready: true,
+      captain: idx === 0 || idx === 1,
     };
   });
 }
@@ -141,7 +124,7 @@ export const SEED_ROOMS: SeedRoom[] = [
     capacity: 10,
     status: "live",
     config: DEFAULT_CONFIG,
-    members: partialWithoutSuthy(10, "hieukm"),
+    members: roomPlayersFromPool(1, 10),
     messages: [
       {
         authorUsername: "hieukm",
@@ -168,7 +151,7 @@ export const SEED_ROOMS: SeedRoom[] = [
     capacity: 10,
     status: "waiting",
     config: DEFAULT_CONFIG,
-    members: partialWithoutSuthy(6, "rika"),
+    members: roomPlayersFromPool(11, 6),
     messages: [],
   },
   {
@@ -182,7 +165,7 @@ export const SEED_ROOMS: SeedRoom[] = [
     capacity: 10,
     status: "live",
     config: DEFAULT_CONFIG,
-    members: partialWithoutSuthy(10, "long2k"),
+    members: roomPlayersFromPool(17, 10),
     messages: [],
   },
   {
@@ -196,7 +179,7 @@ export const SEED_ROOMS: SeedRoom[] = [
     capacity: 10,
     status: "waiting",
     config: DEFAULT_CONFIG,
-    members: partialWithoutSuthy(9, "phuct"),
+    members: roomPlayersFromPool(27, 9),
     messages: [],
   },
 ];

@@ -6,6 +6,7 @@ export interface SeedTeamDef {
   key: string;
   name: string;
   logo: string;
+  status?: "pending" | "approved" | "rejected" | "withdrawn";
 }
 
 export interface SeedBracketMatch {
@@ -17,6 +18,7 @@ export interface SeedBracketMatch {
   scoreA: number | null;
   scoreB: number | null;
   winnerKey: string | null;
+  isBye?: boolean;
   scheduledAt: string | null;
   nextSlot: "a" | "b" | null;
 }

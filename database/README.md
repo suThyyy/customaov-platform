@@ -32,5 +32,6 @@ DATABASE_URL=postgres://customaov:customaov@127.0.0.1:54329/customaov npm run db
 
 ## Ghi chú schema
 
-- Schema gồm đúng 12 bảng theo `docs/product/API.md` mục 7, không sử dụng Postgres extension (`id` sinh bằng `crypto.randomUUID()` trong ứng dụng).
+- Schema gồm đúng 12 bảng theo `docs/product/API.md` mục 7 và bổ sung mục 9, không sử dụng Postgres extension (`id` sinh bằng `crypto.randomUUID()` trong ứng dụng).
 - Ràng buộc duy nhất không phân biệt hoa/thường cho tên đội trong giải (`tournament_teams(tournament_id, lower(name))`) được khai báo bằng unique index trên biểu thức `lower("name")`.
+- Ràng buộc đồng thời (mục 9.2): `room_members` và `tournament_team_members` dùng cột `active` kèm partial unique index (`WHERE role = 'player' AND active` và `WHERE active`); `bracket_matches` có cột `is_bye` (mục 9.3).

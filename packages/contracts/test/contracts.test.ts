@@ -128,8 +128,8 @@ const tournamentDetail = {
           label: "Chung kết",
           time: "20/11 19:00",
           slots: [
-            { team, score: null },
-            { team: team2, score: null },
+            { team, score: null, bye: false },
+            { team: team2, score: null, bye: false },
           ],
         },
       ],
@@ -211,8 +211,10 @@ const schemaCases: SchemaCase[] = [
   { name: "RoomConfig", schema: contracts.RoomConfigSchema, valid: { ...config, tools: [...config.tools] }, invalid: { ...config, format: "3v3" } },
   { name: "RoomMember", schema: contracts.RoomMemberSchema, valid: member(user), invalid: { ...member(user), tier: 6 } },
   { name: "RoomSummary", schema: contracts.RoomSummarySchema, valid: roomSummary, invalid: { ...roomSummary, playerCount: 11 } },
+  { name: "RoomRestricted", schema: contracts.RoomRestrictedSchema, valid: { ...roomSummary, restricted: true }, invalid: { ...roomSummary, restricted: false } },
   { name: "LastSplit", schema: contracts.LastSplitSchema, valid: { mode: "tier", balanceLevel: "50-50", warning: false, at: AT }, invalid: { mode: "tier", balanceLevel: "80-20", warning: false, at: AT } },
-  { name: "RoomDetail", schema: contracts.RoomDetailSchema, valid: roomDetail, invalid: { ...roomDetail, myRole: "admin" } },
+  { name: "RoomDetail", schema: contracts.RoomDetailSchema, valid: { ...roomDetail, shareUrl: "https://example.com/rooms/AOV-1024?key=abc" }, invalid: { ...roomDetail, myRole: "admin" } },
+  { name: "RoomDetailResponse", schema: contracts.RoomDetailResponseSchema, valid: { ...roomDetail, restricted: false, shareUrl: "https://example.com/rooms/AOV-1024?key=abc" }, invalid: { ...roomSummary, restricted: false } },
   { name: "RoomsQuery", schema: contracts.RoomsQuerySchema, valid: { mine: "1" }, invalid: { mine: "0" } },
   { name: "RoomsResponse", schema: contracts.RoomsResponseSchema, valid: { items: [roomSummary], total: 1, page: 1, pageSize: 10 }, invalid: { items: [roomSummary], total: -1, page: 1, pageSize: 10 } },
   { name: "CreateRoomBody", schema: contracts.CreateRoomBodySchema, valid: { title: "Phòng", mode: "normal", visibility: "public", config: { ...config, tools: [...config.tools] } }, invalid: { title: "", mode: "normal", visibility: "public", config } },
@@ -224,18 +226,18 @@ const schemaCases: SchemaCase[] = [
   { name: "KickRoomMemberBody", schema: contracts.KickRoomMemberBodySchema, valid: { userId: ID_1 }, invalid: { userId: "bad" } },
   { name: "RoomResultBody", schema: contracts.RoomResultBodySchema, valid: { winner: "blue" }, invalid: { winner: "draw" } },
   { name: "MessagesQuery", schema: contracts.MessagesQuerySchema, valid: {}, invalid: { before: "bad" } },
-  { name: "CreateMessageBody", schema: contracts.CreateMessageBodySchema, valid: { text: "Xin chào" }, invalid: { text: "" } },
+  { name: "CreateMessageBody", schema: contracts.CreateMessageBodySchema, valid: { text: "Xin chào" }, invalid: { text: "   " } },
   { name: "ChatMessage", schema: contracts.ChatMessageSchema, valid: chatMessage, invalid: { ...chatMessage, text: "" } },
   { name: "MessagesResponse", schema: contracts.MessagesResponseSchema, valid: [chatMessage], invalid: [chatMessage, { ...chatMessage, id: "bad" }] },
   { name: "ExportTeamsResponse", schema: contracts.ExportTeamsResponseSchema, valid: "Team Xanh", invalid: 1 },
   { name: "RoomMutationResponse", schema: contracts.RoomMutationResponseSchema, valid: roomDetail, invalid: null },
-  { name: "WsClientMessage", schema: contracts.WsClientMessageSchema, valid: { type: "subscribe", room: "AOV-1024" }, invalid: { type: "subscribe", room: "bad" } },
-  { name: "WsServerMessage", schema: contracts.WsServerMessageSchema, valid: { type: "chat.message", room: "AOV-1024", message: chatMessage }, invalid: { type: "unknown" } },
+  { name: "WsClientMessage", schema: contracts.WsClientMessageSchema, valid: { type: "subscribe", room: "AOV-1024", key: "secret-key" }, invalid: { type: "subscribe", room: "AOV-1024", key: "" } },
+  { name: "WsServerMessage", schema: contracts.WsServerMessageSchema, valid: { type: "error", code: "FORBIDDEN", room: "AOV-1024" }, invalid: { type: "error", code: "BAD", room: "AOV-1024" } },
   { name: "Series", schema: contracts.SeriesSchema, valid: "BO3", invalid: "BO7" },
   { name: "TournamentStatus", schema: contracts.TournamentStatusSchema, valid: "open", invalid: "waiting" },
   { name: "TeamCount", schema: contracts.TeamCountSchema, valid: 8, invalid: 12 },
   { name: "Team", schema: contracts.TeamSchema, valid: team, invalid: { ...team, id: "bad" } },
-  { name: "BracketSlot", schema: contracts.BracketSlotSchema, valid: { team, score: 1 }, invalid: { team, score: -1 } },
+  { name: "BracketSlot", schema: contracts.BracketSlotSchema, valid: { team: null, score: null, bye: true }, invalid: { team, score: -1, bye: false } },
   { name: "BracketMatch", schema: contracts.BracketMatchSchema, valid: tournamentDetail.bracket[0]!.matches[0], invalid: { ...tournamentDetail.bracket[0]!.matches[0], slots: [] } },
   { name: "BracketRound", schema: contracts.BracketRoundSchema, valid: tournamentDetail.bracket[0], invalid: { name: "", matches: [] } },
   { name: "ScheduledMatch", schema: contracts.ScheduledMatchSchema, valid: tournamentDetail.upcoming[0], invalid: { ...tournamentDetail.upcoming[0], score: [-1, 0] } },
@@ -336,12 +338,38 @@ test("moveMember rejects a player no longer in the room", () => {
 });
 
 test("room pure helpers preserve permissions, removal and export formatting", () => {
-  const teams: Teams = { blue: [member(user, "MID")], red: [member(otherUser, "JG")] };
+  const teams: Teams = {
+    blue: [member(user, "MID")],
+    red: [member(otherUser, null)],
+  };
   assert.equal(contracts.can("host", "kick"), true);
   assert.equal(contracts.can("spectator", "chat"), false);
   assert.equal(contracts.removeMember(teams, ID_2).red.length, 0);
   assert.match(
     contracts.formatTeamsText(roomSummary, teams),
-    /Phòng #AOV-1024 – Phòng cộng đồng[\s\S]*Team Xanh \(1\)[\s\S]*Sư Thầy \(MID\) ★/,
+    /Phòng #AOV-1024 – Phòng cộng đồng[\s\S]*Team Xanh \(1\)[\s\S]*Sư Thầy \(MID\) ★[\s\S]*Team Đỏ \(1\)[\s\S]*Alpha \(Chưa chọn\)/,
+  );
+});
+
+test("API.md section 9 contract rules: restricted union, trim message, unscheduled match, TBD/bye slot", () => {
+  assert.equal(
+    contracts.RoomDetailResponseSchema.safeParse({ ...roomSummary, restricted: true }).success,
+    true,
+  );
+  const msg = contracts.CreateMessageBodySchema.parse({ text: "  Xin chào  " });
+  assert.equal(msg.text, "Xin chào");
+  assert.equal(
+    contracts.ScheduledMatchSchema.safeParse({
+      id: ID_3,
+      stage: "Bán kết",
+      time: "Chưa xếp lịch",
+      home: team,
+      away: team2,
+    }).success,
+    true,
+  );
+  assert.equal(
+    contracts.BracketSlotSchema.safeParse({ team: null, score: null, bye: false }).success,
+    true,
   );
 });

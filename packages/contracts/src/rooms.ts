@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { UserSummarySchema, type UserSummary } from "./auth.js";
 import {
+  ErrorCodeSchema,
   IsoDateTimeSchema,
   PaginationQuerySchema,
   UuidSchema,
@@ -70,6 +71,11 @@ export const LastSplitSchema = z.object({
 });
 export type LastSplit = z.infer<typeof LastSplitSchema>;
 
+export const RoomRestrictedSchema = RoomSummarySchema.safeExtend({
+  restricted: z.literal(true),
+});
+export type RoomRestricted = z.infer<typeof RoomRestrictedSchema>;
+
 export const RoomDetailSchema = RoomSummarySchema.safeExtend({
   config: RoomConfigSchema,
   teams: z.object({
@@ -85,8 +91,15 @@ export const RoomDetailSchema = RoomSummarySchema.safeExtend({
       at: IsoDateTimeSchema,
     })
     .nullable(),
+  shareUrl: z.string().min(1).optional(),
 });
 export type RoomDetail = z.infer<typeof RoomDetailSchema>;
+
+export const RoomDetailResponseSchema = z.union([
+  RoomDetailSchema.safeExtend({ restricted: z.literal(false) }),
+  RoomRestrictedSchema,
+]);
+export type RoomDetailResponse = z.infer<typeof RoomDetailResponseSchema>;
 
 export const RoomsQuerySchema = PaginationQuerySchema.extend({
   q: z.string().optional(),
@@ -151,7 +164,7 @@ export type RoomResultBody = z.infer<typeof RoomResultBodySchema>;
 export const MessagesQuerySchema = z.object({ before: UuidSchema.optional() });
 export type MessagesQuery = z.infer<typeof MessagesQuerySchema>;
 
-export const CreateMessageBodySchema = z.object({ text: z.string().min(1).max(500) });
+export const CreateMessageBodySchema = z.object({ text: z.string().trim().min(1).max(500) });
 export type CreateMessageBody = z.infer<typeof CreateMessageBodySchema>;
 
 export const ChatMessageSchema = z.object({
@@ -174,7 +187,7 @@ export const RoomMutationResponseSchema = RoomDetailSchema;
 export type RoomMutationResponse = RoomDetail;
 
 export const WsClientMessageSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("subscribe"), room: RoomCodeSchema }),
+  z.object({ type: z.literal("subscribe"), room: RoomCodeSchema, key: z.string().min(1).optional() }),
   z.object({ type: z.literal("unsubscribe"), room: RoomCodeSchema }),
 ]);
 export type WsClientMessage = z.infer<typeof WsClientMessageSchema>;
@@ -187,6 +200,7 @@ export const WsServerMessageSchema = z.discriminatedUnion("type", [
     message: ChatMessageSchema,
   }),
   z.object({ type: z.literal("room.kicked"), room: RoomCodeSchema }),
+  z.object({ type: z.literal("error"), code: ErrorCodeSchema, room: RoomCodeSchema }),
 ]);
 export type WsServerMessage = z.infer<typeof WsServerMessageSchema>;
 
@@ -276,14 +290,14 @@ export const removeMember = (teams: Teams, playerId: string): Teams => ({
   red: teams.red.filter((member) => member.user.id !== playerId),
 });
 
-const LANE_ORDER: Array<Lane | null> = ["TOP", "JG", "MID", "AD", "SP"];
+const LANE_ORDER: Array<Lane | null> = ["TOP", "JG", "MID", "AD", "SP", null];
 
 export function formatTeamsText(
   room: Pick<RoomSummary, "code" | "title" | "highlight">,
   teams: Teams,
 ): string {
   const line = (member: RoomMember) =>
-    `- ${member.user.displayName} (${member.lane})${member.captain ? " ★" : ""}`;
+    `- ${member.user.displayName} (${member.lane ?? "Chưa chọn"})${member.captain ? " ★" : ""}`;
   const sorted = (list: RoomMember[]) =>
     [...list].sort(
       (a, b) => LANE_ORDER.indexOf(a.lane) - LANE_ORDER.indexOf(b.lane),

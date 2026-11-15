@@ -140,6 +140,7 @@ export const roomMembers = pgTable(
     ready: boolean("ready").notNull().default(false),
     captain: boolean("captain").notNull().default(false),
     tier: smallint("tier"),
+    active: boolean("active").notNull().default(true),
     joinedAt: timestamp("joined_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -148,6 +149,9 @@ export const roomMembers = pgTable(
   (table) => [
     primaryKey({ columns: [table.roomId, table.userId] }),
     index("room_members_user_id_idx").on(table.userId),
+    uniqueIndex("room_members_active_player_uidx")
+      .on(table.userId)
+      .where(sql`${table.role} = 'player' AND ${table.active}`),
     check("room_members_role_check", sql`${table.role} IN ('player', 'spectator')`),
     check(
       "room_members_side_check",
@@ -292,13 +296,13 @@ export const tournamentTeamMembers = pgTable(
       .notNull()
       .references(() => tournaments.id, { onDelete: "cascade" }),
     isSub: boolean("is_sub").notNull().default(false),
+    active: boolean("active").notNull().default(true),
   },
   (table) => [
     primaryKey({ columns: [table.teamId, table.userId] }),
-    unique("tournament_team_members_tournament_id_user_id_unique").on(
-      table.tournamentId,
-      table.userId,
-    ),
+    uniqueIndex("tournament_team_members_active_uidx")
+      .on(table.tournamentId, table.userId)
+      .where(sql`${table.active}`),
   ],
 );
 
@@ -325,6 +329,7 @@ export const bracketMatches = pgTable(
     winnerTeamId: uuid("winner_team_id").references(() => tournamentTeams.id, {
       onDelete: "set null",
     }),
+    isBye: boolean("is_bye").notNull().default(false),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
     nextMatchId: uuid("next_match_id"),
     nextSlot: text("next_slot"),
