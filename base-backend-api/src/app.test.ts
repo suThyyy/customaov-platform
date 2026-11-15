@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { buildApp } from "./app.js";
 import type { AppConfig } from "./config.js";
+import { createLoggedInClient, createSeededTestApp, type TestApp } from "./test/helpers.js";
 
 const testConfig: AppConfig = {
   HOST: "127.0.0.1",
@@ -15,9 +16,13 @@ const testConfig: AppConfig = {
 };
 
 const apps: ReturnType<typeof buildApp>[] = [];
+const testApps: TestApp[] = [];
 
 afterEach(async () => {
-  await Promise.all(apps.splice(0).map((app) => app.close()));
+  await Promise.all([
+    ...apps.splice(0).map((app) => app.close()),
+    ...testApps.splice(0).map((t) => t.close()),
+  ]);
 });
 
 describe("API application", () => {
@@ -39,7 +44,7 @@ describe("API application", () => {
 
     expect(response.statusCode).toBe(404);
     expect(response.json()).toEqual({
-      error: { code: "NOT_FOUND", message: "Route not found" },
+      error: { code: "NOT_FOUND", message: "Không tìm thấy đường dẫn" },
     });
   });
 
@@ -73,6 +78,49 @@ describe("API application", () => {
     expect(output).toContain("[REDACTED]");
     expect(output).not.toContain(cookie);
     expect(output).not.toContain(csrfToken);
+  });
+
+  it("rate limits write requests at 60/min per user without affecting other users", async () => {
+    const testApp = await createSeededTestApp();
+    testApps.push(testApp);
+
+    const { client: user1 } = await createLoggedInClient(testApp.app, "ratelimit1");
+    const { client: user2 } = await createLoggedInClient(testApp.app, "ratelimit2");
+
+    // 60 write requests (e.g. POST /api/rooms/AOV-1024/split which has no route-specific limit)
+    for (let i = 0; i < 60; i += 1) {
+      const res = await user1.request("POST", "/api/rooms/AOV-1024/split", {
+        payload: { mode: "random" },
+      });
+      expect(res.statusCode).not.toBe(429);
+    }
+
+    // 61st write request for user1 is blocked with 429 RATE_LIMITED + retry-after
+    const blocked = await user1.request("POST", "/api/rooms/AOV-1024/split", {
+      payload: { mode: "random" },
+    });
+    expect(blocked.statusCode).toBe(429);
+    expect(blocked.headers["retry-after"]).toBeDefined();
+    expect(blocked.json()).toMatchObject({
+      error: { code: "RATE_LIMITED" },
+    });
+
+    // user2 is not affected
+    const other = await user2.request("POST", "/api/rooms", {
+      payload: {
+        title: "Phòng user2",
+        mode: "normal",
+        visibility: "public",
+        config: {
+          format: "5v5",
+          pickMode: "draft",
+          series: "BO1",
+          tools: ["balance"],
+          notes: "",
+        },
+      },
+    });
+    expect(other.statusCode).toBe(201);
   });
 });
 

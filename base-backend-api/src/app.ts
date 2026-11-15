@@ -23,6 +23,8 @@ import { registerTournamentRoutes } from "./routes/tournaments.js";
 import { registerTournamentBracketRoutes } from "./routes/tournament-bracket.js";
 import { registerRegistrationRoutes } from "./routes/registrations.js";
 
+const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
 const REDACT_PATHS = [
   "req.headers.cookie",
   "req.headers.authorization",
@@ -144,6 +146,33 @@ export function buildApp(opts: BuildAppOptions = {}): FastifyInstance {
     registerAuthPlugin(app, deps);
     registerRealtimePlugin(app, { config, hub });
     app.register(async (instance) => {
+      const writeCheck = instance.createRateLimit({
+        max: 60,
+        timeWindow: 60_000,
+        keyGenerator: (r: FastifyRequest) =>
+          r.user ? `api-write:u:${r.user.id}` : `api-write:ip:${r.ip}`,
+      });
+      instance.addHook("preHandler", async (request, reply) => {
+        const path = request.url.split("?")[0] ?? "";
+        if (
+          !WRITE_METHODS.has(request.method) ||
+          (path !== "/api" && !path.startsWith("/api/"))
+        ) {
+          return;
+        }
+        const res = await writeCheck(request);
+        if (!res.isAllowed && res.isExceeded) {
+          const seconds = Math.ceil(res.ttl / 1000);
+          reply.header("retry-after", seconds);
+          const err = new Error(
+            `Bạn thao tác quá nhanh, thử lại sau ${seconds} giây`,
+          ) as Error & { statusCode: number; code: string };
+          err.statusCode = 429;
+          err.code = "RATE_LIMITED";
+          throw err;
+        }
+      });
+
       registerAuthRoutes(instance, deps);
       registerUserRoutes(instance, deps);
       registerRoomRoutes(instance, deps);
@@ -161,7 +190,7 @@ export function buildApp(opts: BuildAppOptions = {}): FastifyInstance {
     return reply.status(404).send({
       error: {
         code: "NOT_FOUND",
-        message: "Route not found",
+        message: "Không tìm thấy đường dẫn",
       },
     });
   });

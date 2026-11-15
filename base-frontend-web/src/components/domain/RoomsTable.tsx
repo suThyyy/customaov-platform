@@ -18,10 +18,15 @@ import { EmptyState } from './EmptyState'
 const isMember = (room: Room, userId?: string): boolean => room.isMember ?? isRoomMember(room, userId)
 
 /** Như `roomAction`, nhưng nhận biết thành viên qua `isMember` */
-const actionOf = (room: Room, userId?: string): RoomAction => (isMember(room, userId) ? 'join' : roomAction(room))
+const actionOf = (room: Room, userId?: string): RoomAction => {
+  if (room.status === 'finished') return 'view'
+  return isMember(room, userId) ? 'join' : roomAction(room)
+}
 
 export function RoomStatusBadge({ status }: { status: Room['status'] }) {
-  return status === 'live' ? <Badge tone="live">Đang diễn ra</Badge> : <Badge tone="waiting">Đang chờ</Badge>
+  if (status === 'live') return <Badge tone="live">Đang diễn ra</Badge>
+  if (status === 'finished') return <Badge tone="neutral">Đã kết thúc</Badge>
+  return <Badge tone="waiting">Đang chờ</Badge>
 }
 
 interface RoomHandlers {

@@ -109,4 +109,17 @@ describe('contract → UI maps', () => {
       recordHistory: [{ roomCode: 'AOV-1024', roomName: 'Phòng mẫu', result: 'win' }],
     })
   })
+
+  it('giữ nguyên trạng thái finished khi ánh xạ phòng', () => {
+    const room = RoomDetailSchema.parse({
+      code: 'AOV-1235', title: 'Kèo đã xong', highlight: null, thumbnail: '/room.jpg', host: user,
+      mode: 'normal', modeLabel: '5v5 · Custom', visibility: 'public', playerCount: 10, capacity: 10,
+      status: 'finished', isMember: false,
+      config: { format: '5v5', pickMode: 'draft', series: 'BO1', tools: ['chat'], notes: '' },
+      teams: { blue: [], red: [] },
+      spectators: [], myRole: null, lastSplit: null, result: { winner: 'blue', at: '2026-11-15T10:00:00.000Z' },
+    })
+
+    expect(mapRoom(room).status).toBe('finished')
+  })
 })

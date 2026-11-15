@@ -715,3 +715,28 @@ Chỉ đổi hành vi ở chế độ `api` (`VITE_DATA_SOURCE=api`). Chế đ�
 
 ### Còn tồn
 - Chưa kiểm thử end-to-end với backend thật cho toàn bộ dashboard (đã kiểm thử bằng `fetch` giả theo contracts).
+
+---
+
+## E7-T02 — Sửa lỗi từ audit E7-T01 (2 P1 + 2 P2) (15/11/2026)
+
+### File đã sửa
+- `base-backend-api/src/app.ts`, `base-backend-api/src/app.test.ts`:
+  - Thêm rate limit chung cho mọi route ghi (`POST`/`PUT`/`PATCH`/`DELETE` dưới `/api`): 60 lần/phút/người (`api-write:u:<id>` hoặc `api-write:ip:<ip>`), trả `429 RATE_LIMITED` kèm `retry-after`, giữ nguyên các giới hạn riêng hiện có.
+  - Đổi thông báo 404 route không tồn tại sang tiếng Việt (`"Không tìm thấy đường dẫn"`), cập nhật test khớp.
+- `base-backend-api/src/services/rooms.ts`, `base-backend-api/src/routes/rooms.test.ts`, `base-backend-api/src/routes/search.test.ts`:
+  - `listRooms` mặc định loại phòng `finished`, chỉ trả khi có `status=finished` hoặc `mine=1` (tìm kiếm `searchAll` cũng tự động loại phòng `finished`).
+- `base-backend-api/src/routes/users.ts`, `base-backend-api/src/routes/users.test.ts`, `base-backend-api/src/routes/tournaments.ts`, `base-backend-api/src/routes/tournaments.test.ts`:
+  - Validate `:username` (`UsernameSchema`) và `:slug` (`TournamentSummarySchema.shape.slug` tối đa 90 ký tự) bằng Zod ở tầng route, trả `400 VALIDATION` khi sai định dạng.
+- `base-frontend-web/src/mocks/types.ts`, `base-frontend-web/src/api/map.ts`, `base-frontend-web/src/lib/room.ts`, `base-frontend-web/src/components/domain/RoomsTable.tsx`, `base-frontend-web/src/api/map.test.ts`, `base-frontend-web/src/components/domain/RoomsTable.test.tsx`:
+  - Không ép phòng `finished` thành `live` ở `mapRoom`; thêm trạng thái badge `"Đã kết thúc"` (token `neutral`) và hành động `"Xem"` trong `RoomStatusBadge` / `roomAction` / `RoomsTable`.
+
+### Kiểm tra
+- `npm ci`, `npm run build`, `npm run lint` (0 lỗi, 2 cảnh báo cũ ở `AppContext.tsx`), `npm test` (team-core 15/15, contracts 89/89, web 135/135, api 170/170) ✅.
+- `node scripts/screenshot.mjs E7-T02 http://localhost:5213` (mock): **40/40** ✅.
+
+### Cách hoàn tác
+`git revert` commit của task E7-T02.
+
+### Còn tồn
+- Không có.

@@ -10,12 +10,14 @@ export type RoomAction = 'join' | 'watch' | 'view'
 
 /**
  * Hành động chính cho từng phòng:
+ * - Đã kết thúc → "Xem"
  * - Đã ở trong phòng → "Vào phòng" (kể cả khi phòng đã đủ người)
  * - Đang diễn ra → "Theo dõi"
  * - Đang chờ nhưng đủ người → "Xem" (không vào được)
  * - Còn chỗ → "Vào phòng"
  */
 export function roomAction(r: Room, userId?: string): RoomAction {
+  if (r.status === 'finished') return 'view'
   if (isRoomMember(r, userId)) return 'join'
   if (r.status === 'live') return 'watch'
   if (r.playerCount >= r.capacity) return 'view'

@@ -19,7 +19,7 @@ export interface Player {
   rankTier?: string | number
 }
 
-export type RoomStatus = 'waiting' | 'live'
+export type RoomStatus = 'waiting' | 'live' | 'finished'
 export type RoomVisibility = 'public' | 'private'
 
 export interface RoomMember {
