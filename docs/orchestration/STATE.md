@@ -21,7 +21,9 @@ Muốn trả quyền cho Claude: báo Codex ghi "đang bàn giao cho claude" r�
 ## Đang chạy
 | Task | Task id Orca | Dispatch | Vai trò | Agent/model | Terminal | Cổng | Bắt đầu |
 |---|---|---|---|---|---|---|---|
-| E1-T01 audit | task_5bc8b77ac2bb | ctx_06ba749985ad | audit | agy gemini-4-hydrogen-medium | term_c0e1d281-0343-4f86-89b2-acdc2e85980d | 5175 | 15/11 |
+| E1-T02 P0 + P1@375 | task_22c22f2336d1 | ctx_082b1edbec1b | coder | agy claude-sonnet-5-5-medium | term_5d77e627-1910-4635-b12a-2099414567eb | 5175 | 15/11 |
+
+E1-T01: **xong** (1 P0, 5 P1, 4 P2). Báo cáo đã merge vào integration/mvp (`docs/orchestration/reviews/E1-T01-audit.md`). Lead quyết: E1-T02 gộp P0 với 3 P1 CSS @375; 2 P1 về dữ liệu (phòng mẫu vai trò player, hạng 3 Custom League #3) và các P2 để backlog. E1-T03 và E1-T04 bỏ (không có P0 ở các nhóm đó).
 | E2-T02 backend scaffold | task_d9771f1c3922 | ctx_c61acecefa03 | coder | codex gpt-5.6-sol medium | term_7aebd674-4c89-4b96-a7ed-a252d874ed4b | 5176/6176 | 15/11 |
 | E2-T03 contracts | task_df036da6268b | ctx_0b058a392f07 | coder | codex gpt-5.6-sol medium | term_8496bbf3-4ca1-4a51-aa61-e01436af0e3d | 5177 | 15/11 |
 

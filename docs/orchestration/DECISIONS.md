@@ -26,3 +26,4 @@
 - 15/11 · Lead · Cổng dev: mỗi worker một cổng từ 5175 trở lên, Lead cấp theo slot đang trống và ghi trong `tasks/<id>.md` và `STATE.md`. Lead dùng 5174 để kiểm tra trước khi merge.
 - 15/11 · Lead · CSRF: dùng mẫu double-submit token (cookie `csrf` không httpOnly + header `X-CSRF-Token`), tự viết, không thêm thư viện.
 - 15/11 · Lead · Không bật được "Continue automatically when limits reset" qua `orca` CLI (CLI 1.4.258 không có lệnh settings nào cho mục này). Đã ghi vào MORNING_REPORT.
+- 15/11 · Lead · E1: audit chỉ có 1 P0 nên gộp vào **E1-T02** cùng 3 P1 CSS @375 (rẻ, ít rủi ro). Bỏ E1-T03, E1-T04. Hai P1 về dữ liệu (thiếu phòng mẫu cho vai trò player; trạng thái đội hạng 3 Custom League #3) và 4 P2 để backlog, xử lý khi seed/API thay mock (E2-T04/E5).
