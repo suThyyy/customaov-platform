@@ -25,9 +25,11 @@ Lưu ý: lúc 10:00 Codex còn ~21% hạn mức 5 giờ (reset 12:19).
 ## Đang chạy
 | Task | Task id | Dispatch | Vai trò | Agent/model | Terminal | Cổng |
 |---|---|---|---|---|---|---|
-| E3-T02 FE data layer | task_ccd564ea28a6 | ctx_37f9c25b45da | coder | codex gpt-5.6-sol | term_4ce16436-57d4-4cfe-a9dc-67d899aa7156 | 5180 |
-| E3-T01 auth API | task_ee5be6bbd586 | ctx_9b36bd9144d6 | coder | agy claude-sonnet-5-5-medium | term_170763e0-c832-453f-8a6a-2baa8a54c241 | 6181 |
-| E3-T01b API.md §9 → schema/contracts | task_7a92edac3799 | ctx_f48cec6c8eb9 | coder | agy gemini-4-hydrogen-medium | term_c7fdd96e-72db-45e8-a15f-d917c37d9569 | – |
+| E3-T01 sửa rate limit (review FAIL lần 1) | task_64c77fc6fb5a | ctx_a58c9ebedd1c | coder | agy **Gemini 3.8 Flash high** (Orca mở lại bằng model mặc định) | term_817c10cc3f13e08d8614321f30be4c7f | 6181 |
+| E3-T02 review | task_bd8b8be5ab35 | ctx_240269d4c2a9 | reviewer | agy gemini-4-hydrogen-medium (thay SN do hết quota) | term_1cb25d5d-44dc-4501-aad2-fe991b5b6d04 | 5182 |
+| E5-T04a bracket engine | task_fa48606ed753 | ctx_cf323c57c23e | coder | agy gemini-4-hydrogen-high (thay OP do hết quota) | term_15407b4a-9b0b-4cbd-a39d-6d2f20f7e6b3 | – |
+
+Đã merge vào integration: **E3-T01b** (`47b0d34`). E3-T02 code xong (`c226e32`), đang review.
 
 ## Tiếp theo (DAG)
 | Task | Phụ thuộc | Coder dự kiến → reviewer |
@@ -46,7 +48,14 @@ Reviewer cho E3-T02 (Codex): agy claude-sonnet (SN). E3-T01 (SN) → HM. E3-T01b
 ## Model tạm ngưng / sắp cạn
 | Agent/model | Từ lúc | Lý do | Thử lại sau |
 |---|---|---|---|
-| codex gpt-5.6-sol | 10:00 | Còn ~21% hạn mức 5 giờ. Không giao task mới cho Codex trước 12:19, trừ E3-T02 đang chạy. | 12:19 |
+| codex gpt-5.6-sol | 09:00 | Còn ~21% hạn mức 5 giờ. Chỉ dùng cho review quan trọng trước 12:19. | 12:19 |
+| agy claude-sonnet-5-5 / claude-opus-5-5 | 09:05 | "Individual quota reached", reset sau ~3h15m | ~12:20 |
+
+Nguồn còn dùng được tới ~12:20:
+- coder: agy Gemini (flash / hydrogen-medium / hydrogen-high);
+- reviewer cho code Gemini (phải khác Google): Lead (Claude) cho task nhỏ/vừa, Codex cho review quan trọng (quota thấp), Copilot (≤20 lượt) dự phòng cuối.
+
+Giờ trong file này lấy theo đồng hồ máy (`date`).
 
 ## Ghi chú vận hành
 - Prompt khởi động: agy hỏi tin thư mục → Enter (Orca có thể kẹt `agent-trust-workspace` → đóng và mở lại terminal); Codex hỏi update → "2" Skip; Codex hỏi hooks → "2" Trust.
