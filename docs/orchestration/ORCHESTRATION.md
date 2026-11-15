@@ -113,7 +113,7 @@ Lead tạo worktree **bên trong repo** (hàng rào: không đọc/ghi ngoài `b
 
 ```bash
 git worktree add .worktrees/<id>-<slug> -b task/<id>-<slug> integration/mvp
-# selector cho Orca: --worktree path:D:/CustomAOV/base-workspace/.worktrees/<id>-<slug>
+# selector cho Orca: --worktree path:<repo-root>/.worktrees/<id>-<slug>
 ```
 
 ### 4.2. Lệnh điều phối (Lead)
@@ -147,7 +147,7 @@ git merge --no-ff task/<id>-<slug>    # trên nhánh integration/mvp
 
 ### 4.3. Launch worker (mọi agent, chế độ tự duyệt trong worktree)
 
-`--agent` của Orca không cho truyền cờ tự duyệt hay `service_tier`, và không có agent id `copilot`. Vì vậy **mọi worker** chạy theo cách *low-level topology*. `W` = `path:D:/CustomAOV/base-workspace/.worktrees/<id>-<slug>`.
+`--agent` của Orca không cho truyền cờ tự duyệt hay `service_tier`, và không có agent id `copilot`. Vì vậy **mọi worker** chạy theo cách *low-level topology*. `W` = `path:<repo-root>/.worktrees/<id>-<slug>`.
 
 ```bash
 # Codex: gpt-5.6-sol medium, tắt priority, tự duyệt, chỉ ghi trong worktree (không sửa ~/.codex/config.toml)

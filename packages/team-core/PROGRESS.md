@@ -2,9 +2,9 @@
 
 Owner: Codex
 
-Exclusive write scope: `D:\CustomAOV\base-workspace\packages\team-core`
+Exclusive write scope: `packages/team-core`
 
-The React agent owns `D:\CustomAOV\base-workspace\web`. This task does not modify that directory or any root workspace configuration.
+The React agent owns `web`. This task does not modify that directory or any root workspace configuration.
 
 ## Step 1 — Legacy scope analysis
 

@@ -56,12 +56,12 @@
 - **Câu hỏi cần duyệt:** Ngũ Kiệt Cup đang "mở đăng ký đến 20/11" (trang chủ, danh sách giải) nhưng "đang diễn ra 20/11–25/11" (chi tiết giải). Hiện giữ đúng từng ảnh; cần chốt mốc thời gian chung.
 
 ## Skill đã dùng
-- **UI/UX Pro Max** — `C:\Users\DELL\.claude\skills\ui-ux-pro-max\SKILL.md`
+- **UI/UX Pro Max** — skill `ui-ux-pro-max` (`SKILL.md`)
   - Mọi màn: focus ring vàng `:focus-visible`, `aria-label` cho mọi icon button, skip-link, chuyển focus về `<main>` khi đổi route, `prefers-reduced-motion`, chữ phụ ≥12px, độ tương phản `fg-muted` ≈ 8:1 trên surface.
   - Trạng thái: hover/active (nhấn lún 1px), disabled (select khán giả khi tắt toggle), empty state (tab chưa có, phòng không tồn tại, lọc giải rỗng), lỗi form (tên phòng rỗng → `role=alert` + `aria-invalid` + focus vào ô), toast `aria-live=polite` tự ẩn ~3.8s.
   - Điều hướng bàn phím: Tabs theo mẫu WAI-ARIA (←/→/Home/End), modal đóng bằng Esc + trả focus, Ctrl+K vào ô tìm kiếm, radio/switch semantics ở form tạo phòng, bảng dùng `<table>`/`<caption>`/`scope`.
   - Tổ chức tokens ngữ nghĩa (bg/surface/fg/gold/success/warning/danger/team) trong 1 chỗ.
-- **Taste (design-taste-frontend)** — `C:\Users\DELL\.claude\skills\design-taste-frontend\SKILL.md`
+- **Taste (design-taste-frontend)** — skill `design-taste-frontend` (`SKILL.md`)
   - Tự review từng màn qua screenshot và sửa: chữ xuống dòng ở thẻ tính năng/bảng, eyebrow bị kéo full-width, nút outline trên ảnh thiếu nền (thêm nền tối + blur), nhánh đấu tràn, ảnh cúp lộ viền (mask), nút CTA không bị xuống dòng.
   - Chuyển động nhẹ chỉ dùng transform/opacity (hover nâng thẻ 2px, phóng ảnh 3%, toast/modal pop-in).
   - Khóa bo góc theo quy tắc: card 16px, nút 10px, chip 8px; nút pill chỉ ở nơi ảnh vẽ pill.

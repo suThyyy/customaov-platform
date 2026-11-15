@@ -1,7 +1,11 @@
 node_modules
 .npm-cache/
 dist
+coverage/
+*.tsbuildinfo
 **/screenshots
+test-results/
+playwright-report/
 .env*
 *.log
 scratch
@@ -10,3 +14,10 @@ web_backup_*/
 _old_web_DO_NOT_EDIT/
 .worktrees/
 .data/
+**/.data/
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+scripts/.ten-tam*.mjs
+scripts/.*.mjs

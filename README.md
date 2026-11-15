@@ -102,3 +102,7 @@ docker compose down
 | `ALLOWED_ORIGINS` | `http://localhost:5174,http://localhost:5173` | Danh sách origin được phép kết nối WebSocket `/api/ws` (phân tách bằng dấu phẩy). |
 | `NODE_ENV` | `development` | Môi trường chạy (`development`, `test`, `production`). Ở `production`, server không tự chạy migration khi khởi động và từ chối chạy `db:seed`. |
 | `TEST_DATABASE_URL` | *(không đặt → dùng PGlite `memory://`)* | Khi đặt, bộ test backend chạy trên PostgreSQL thay vì PGlite (truncate toàn bộ bảng trước mỗi test case). |
+
+## Đóng góp
+
+Xem hướng dẫn quy trình nhánh, quy tắc code và kiểm tra trước khi mở PR tại [CONTRIBUTING.md](CONTRIBUTING.md).

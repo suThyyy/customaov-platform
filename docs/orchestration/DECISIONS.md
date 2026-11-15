@@ -13,7 +13,7 @@
 - Hàng rào cứng:
   - Không push, deploy, hay gửi code/dữ liệu ra ngoài.
   - Không tiêu tiền ngoài subscription.
-  - Không đọc/ghi ngoài `D:\CustomAOV\base-workspace`.
+  - Không đọc/ghi ngoài thư mục gốc repo (`base-workspace`).
   - Không sửa `_old_web_DO_NOT_EDIT/`, `web_backup_*/`.
   - Không viết lại lịch sử `main`.
   - Không làm yếu test.
