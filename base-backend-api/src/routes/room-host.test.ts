@@ -590,9 +590,13 @@ describe("room host, export, and chat API", () => {
   });
 
   describe("GET /api/rooms/:code/export", () => {
-    it("returns text/plain formatted with formatTeamsText and enforces auth/membership", async () => {
+    it("returns text/plain formatted with formatTeamsText for host/player and forbids spectator/outsider", async () => {
       const app = await setup();
-      const [host, outsider] = await createLoggedInClients(app.app, 2, "exp");
+      const [host, player, spectator, outsider] = await createLoggedInClients(
+        app.app,
+        4,
+        "exp",
+      );
       const createRes = await host!.client.request("POST", "/api/rooms", {
         payload: {
           title: "Phòng Xuất",
@@ -602,19 +606,46 @@ describe("room host, export, and chat API", () => {
           config: VALID_CONFIG,
         },
       });
-      const room = RoomDetailSchema.parse(createRes.json());
+      const initialRoom = RoomDetailSchema.parse(createRes.json());
 
-      const exportRes = await host!.client.request(
+      await player!.client.request("POST", `/api/rooms/${initialRoom.code}/join`, {
+        payload: { as: "player" },
+      });
+      const afterSpecJoin = await spectator!.client.request(
+        "POST",
+        `/api/rooms/${initialRoom.code}/join`,
+        { payload: { as: "spectator" } },
+      );
+      const room = RoomDetailSchema.parse(afterSpecJoin.json());
+
+      const expectedText = formatTeamsText(
+        { code: room.code, title: room.title, highlight: room.highlight },
+        room.teams,
+      );
+
+      const hostExport = await host!.client.request(
         "GET",
         `/api/rooms/${room.code}/export`,
       );
-      expect(exportRes.statusCode).toBe(200);
-      expect(exportRes.headers["content-type"]).toContain("text/plain");
-      expect(exportRes.body).toBe(
-        formatTeamsText(
-          { code: room.code, title: room.title, highlight: room.highlight },
-          room.teams,
-        ),
+      expect(hostExport.statusCode).toBe(200);
+      expect(hostExport.headers["content-type"]).toContain("text/plain");
+      expect(hostExport.body).toBe(expectedText);
+
+      const playerExport = await player!.client.request(
+        "GET",
+        `/api/rooms/${room.code}/export`,
+      );
+      expect(playerExport.statusCode).toBe(200);
+      expect(playerExport.headers["content-type"]).toContain("text/plain");
+      expect(playerExport.body).toBe(expectedText);
+
+      const spectatorExport = await spectator!.client.request(
+        "GET",
+        `/api/rooms/${room.code}/export`,
+      );
+      expect(spectatorExport.statusCode).toBe(403);
+      expect(ErrorBodySchema.parse(spectatorExport.json()).error.code).toBe(
+        "FORBIDDEN",
       );
 
       const guest = new TestClient(app.app);

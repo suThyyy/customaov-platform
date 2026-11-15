@@ -466,7 +466,7 @@ export async function exportRoomTeams(
   }
 
   const [membership] = await db
-    .select({ userId: roomMembers.userId })
+    .select({ userId: roomMembers.userId, role: roomMembers.role })
     .from(roomMembers)
     .where(
       and(
@@ -482,6 +482,16 @@ export async function exportRoomTeams(
       403,
       "FORBIDDEN",
       "Chỉ thành viên trong phòng mới có thể xuất đội hình",
+    );
+  }
+
+  const role: RoomRole =
+    row.room.hostId === currentUserId ? "host" : (membership.role as RoomRole);
+  if (!can(role, "export")) {
+    throw new RoomServiceError(
+      403,
+      "FORBIDDEN",
+      "Khán giả không thể xuất đội hình",
     );
   }
 
