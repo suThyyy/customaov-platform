@@ -549,7 +549,7 @@ Xoá 3 file mới; bỏ `<ListStatus>`/`useMockStatus` ở các trang (nội dun
 - Test: `src/pages/RoomDetail.api.test.tsx` (10 test, fetch giả theo URL + WebSocket giả), `src/api/realtime.test.tsx` (6 test: subscribe, backoff, unmount, đổi phòng, phân loại tin, gộp tin), `src/test/fakeWebSocket.ts`.
 
 ### Kiểm tra
-- `npm run build` ✅; `npm run lint` ✅ (0 lỗi, 2 cảnh báo cũ ở `AppContext.tsx`); `npm test` ✅ (frontend 75/75, thêm 16 test; backend 109/109; team-core 15/15).
+- `npm run build` ✅ sau khi sửa kiểu `RoomMember` của callback trong test; `npm run lint` ✅ (0 lỗi, 2 cảnh báo cũ ở `AppContext.tsx`); `npm test` ✅ (frontend 75/75, thêm 16 test; backend 109/109; team-core 15/15).
 - `node scripts/e2e-auth.mjs http://localhost:5201` ✅; `node scripts/screenshot.mjs E4-T05 http://localhost:5201`: **36/36 ok**, trang phòng mock giữ nguyên bố cục.
 
 ### Cách hoàn tác

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import type { ChatMessage, RoomDetail as ApiRoomDetail, UserSummary } from '@customaov/contracts'
+import type { ChatMessage, RoomDetail as ApiRoomDetail, RoomMember, UserSummary } from '@customaov/contracts'
 import { AppProviders } from '../context/AppContext'
 import { FakeWebSocket } from '../test/fakeWebSocket'
 import RoomDetail from './RoomDetail'
@@ -24,7 +24,7 @@ const userOf = (i: number, username = NAMES[i]): UserSummary => ({
 })
 const USERS = NAMES.map((_, i) => userOf(i))
 const GUEST = userOf(50, 'khach')
-const member = (user: UserSummary, i: number) => ({ user, lane: LANES[i % 5], ready: false, captain: i === 0, tier: null })
+const member = (user: UserSummary, i: number): RoomMember => ({ user, lane: LANES[i % 5], ready: false, captain: i === 0, tier: null })
 
 function roomDetail(overrides: Partial<ApiRoomDetail> = {}): ApiRoomDetail & { restricted: false } {
   return {
