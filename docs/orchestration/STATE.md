@@ -19,21 +19,28 @@ orca agent launch --agent codex --model gpt-5.6-sol --effort medium --focus --pr
 Muốn trả quyền cho Claude: báo Codex ghi "đang bàn giao cho claude" rồi dừng. Sau đó trong phiên Claude chạy `orca orchestration run-use --id run_0ed5066ec040`.
 
 ## Đang chạy
-| Task | Task id Orca | Dispatch | Vai trò | Agent/model | Nhánh | Bắt đầu |
-|---|---|---|---|---|---|---|
-| – | | | | | | |
+| Task | Task id Orca | Dispatch | Vai trò | Agent/model | Terminal | Cổng | Bắt đầu |
+|---|---|---|---|---|---|---|---|
+| E1-T01 audit | task_5bc8b77ac2bb | ctx_06ba749985ad | audit | agy gemini-4-hydrogen-medium | term_c0e1d281-0343-4f86-89b2-acdc2e85980d | 5175 | 15/11 |
+| E2-T02 backend scaffold | task_d9771f1c3922 | ctx_c61acecefa03 | coder | codex gpt-5.6-sol medium | term_7aebd674-4c89-4b96-a7ed-a252d874ed4b | 5176/6176 | 15/11 |
+| E2-T01 thiết kế API/schema | – (Lead tự làm) | – | kiến trúc | Lead | – | – | 15/11 |
 
 ## Chờ
 | Task | Phụ thuộc | Lý do chờ |
 |---|---|---|
-| Toàn bộ ROADMAP (E1–E7) | – | Chờ Owner duyệt PRD + ROADMAP. Chưa tạo Task Orca nào. |
+| E1-T02..T05 | E1-T01 | Lead tạo sau khi có báo cáo audit |
+| E2-T03, E2-T04 | E2-T01 (+E2-T02) | |
+| E2-T05, E2-T06 | E2-T02 | |
+| E3+ | xem ROADMAP | |
 
-## Gate đang mở (chờ Owner)
-| Gate id | Task | Câu hỏi |
-|---|---|---|
-| (chat) | – | Duyệt `docs/product/PRD.md` (phạm vi, stack, danh sách thư viện) + `docs/product/ROADMAP.md` |
+## Gate đang mở
+Không có (Owner trao toàn quyền 15/11).
+
+## Đếm Copilot
+0/20 lượt.
 
 ## Quyết định gần nhất
+- 15/11 Owner duyệt PRD + ROADMAP và trao toàn quyền. Worktree đặt trong `.worktrees/`. Mọi worker launch qua terminal kèm cờ tự duyệt (xem DECISIONS.md).
 - 08:00 Soạn PRD + ROADMAP trên `orch/lead`; dừng chờ duyệt.
 - 07:55 Tạo Run `run_0ed5066ec040`.
 - 07:50 Merge `task/T00-orchestration-docs` → `main` (`05de009`) theo lệnh Owner; tạo `integration/mvp`, `orch/lead`.
