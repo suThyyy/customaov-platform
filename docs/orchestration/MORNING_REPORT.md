@@ -2,6 +2,23 @@
 
 > Lead cập nhật cuối mỗi epic và mỗi khi dừng. Mới nhất ở trên.
 
+## 15/11/2026 ~22:40 – E4, E5, E6 đã merge `main`; E7 bắt đầu
+
+- **`main` = `809af7e`**. Tag `epic-4-before`, `epic-5-before`, `epic-6-before` cùng trỏ vào `c333228`.
+- Kiểm tra trước merge:
+  - build và lint 0 lỗi;
+  - test: web 132, api 165, contracts 89, team-core 15;
+  - e2e-auth (mock), screenshot 40/40;
+  - e2e-auth-api, e2e-rooms-api 7/7, e2e-tournament-api 14/14.
+- **Lưu ý chạy e2e api:** rate limit lưu trong bộ nhớ, nên mỗi script cần một backend vừa khởi động lại (seed mới). Backend phải đặt `ALLOWED_ORIGINS` đúng cổng web để WebSocket kết nối được.
+- **Quota:**
+  - Codex hết tới 01:53 16/11, sau đó Codex là coder chính;
+  - agy Claude hết tuần;
+  - Claude (Lead) đang tiết kiệm theo yêu cầu Owner;
+  - Copilot 0/20.
+- **Đang chạy:** E7-T01 audit toàn MVP (agy Gemini).
+- **Còn lại:** E7-T02 sửa P0, E7-T03 chạy Postgres thật + lệnh chạy một bước, E7-T04 tài liệu, E7-T05 hồi quy cuối, rồi merge E7 vào `main`.
+
 ## 15/11/2026 ~11:10 – TẠM DỪNG theo yêu cầu Owner (tắt máy)
 
 **Đã xong từ lần báo trước** (đều merge `integration/mvp`, chưa merge `main`):
