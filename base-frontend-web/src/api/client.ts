@@ -7,12 +7,14 @@ export interface ResponseSchema<T> {
 export class ApiError extends Error {
   readonly code: ErrorCode
   readonly status: number
+  readonly retryAfter?: number
 
-  constructor(message: string, code: ErrorCode, status: number) {
+  constructor(message: string, code: ErrorCode, status: number, retryAfter?: number) {
     super(message)
     this.name = 'ApiError'
     this.code = code
     this.status = status
+    this.retryAfter = retryAfter
   }
 }
 
@@ -47,10 +49,10 @@ async function csrfToken(signal?: AbortSignal): Promise<string> {
   return csrfRequest
 }
 
-function throwApiError(status: number, body: unknown): never {
+function throwApiError(status: number, body: unknown, retryAfter?: number): never {
   const parsed = ErrorBodySchema.safeParse(body)
-  if (parsed.success) throw new ApiError(parsed.data.error.message, parsed.data.error.code, status)
-  throw new ApiError(`Yêu cầu thất bại (${status})`, 'INTERNAL', status)
+  if (parsed.success) throw new ApiError(parsed.data.error.message, parsed.data.error.code, status, retryAfter)
+  throw new ApiError(`Yêu cầu thất bại (${status})`, 'INTERNAL', status, retryAfter)
 }
 
 export interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
@@ -74,7 +76,10 @@ export async function apiRequest<T>(
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
   })
   const body = await parseBody(response)
-  if (!response.ok) throwApiError(response.status, body)
+  const retryHeader = response.headers.get('retry-after')
+  const retrySeconds = retryHeader ? Number.parseInt(retryHeader, 10) : NaN
+  const retryAfter = Number.isFinite(retrySeconds) && retrySeconds > 0 ? retrySeconds : undefined
+  if (!response.ok) throwApiError(response.status, body, retryAfter)
   return schema.parse(body)
 }
 

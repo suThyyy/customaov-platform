@@ -481,3 +481,22 @@ Xoá 3 file mới; bỏ `<ListStatus>`/`useMockStatus` ở các trang (nội dun
 
 ### Còn tồn
 - Chế độ mock hiện toast "Đã tạo giải (giả lập)" và về `/tournaments`; phần nối API thật và điều hướng tới `/tournaments/:slug` làm ở task sau.
+
+---
+
+## E3-T03 — Nối đăng nhập/đăng ký frontend với API (15/11/2026)
+
+### File đã sửa / tạo mới
+- `src/api/client.ts`: `ApiError` lưu thêm `retryAfter` đọc từ header `retry-after` (dùng cho thông báo lỗi 429).
+- `src/context/AppContext.tsx`: chế độ `api` gọi `GET /api/auth/me` khi khởi động để khôi phục phiên; `AuthState` bổ sung `user: Me | null` và `loading: boolean` (giữ nguyên `loggedIn`, không thêm export mới). Chế độ `mock` giữ nguyên hành vi cũ.
+- `src/components/layout/RequireAuth.tsx`: hiện trạng thái loading (`role="status"`) khi đang kiểm tra phiên ở chế độ `api`, không chuyển hướng sớm.
+- `src/components/layout/UserMenu.tsx`: hiển thị tên/avatar/cấp thật từ `user` khi có; ở chế độ `api`, đăng xuất gọi `POST /api/auth/logout` trước khi điều hướng `/` và gọi `startTransition(logout)`.
+- `src/components/LoginModal.tsx`: giữ `MockLoginModal` cho chế độ `mock`; bổ sung `ApiLoginModal` cho chế độ `api` với tab Đăng nhập / Đăng ký, validate bằng `LoginBodySchema` / `RegisterBodySchema` từ `@customaov/contracts`, hiển thị lỗi 401/409/429 (`role="alert"`), trạng thái đang gửi trên nút submit và ẩn nút tài khoản mẫu.
+- `src/components/LoginModal.test.tsx` (mới): kiểm tra chế độ `api` (ẩn nút tài khoản mẫu, validate schema, trạng thái đang gửi + điều hướng, lỗi 401/409/429, và `RequireAuth` loading).
+- `scripts/e2e-auth-api.mjs` (mới) + `package.json` (`test:e2e:api`): kiểm tra đăng ký, đăng xuất, chặn `/dashboard`, sai mật khẩu, đăng nhập `suthy` và giữ phiên khi tải lại.
+
+### Cách hoàn tác
+`git revert` commit của task E3-T03.
+
+### Còn tồn
+- Chưa có.
