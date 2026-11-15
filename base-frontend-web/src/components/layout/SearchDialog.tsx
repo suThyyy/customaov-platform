@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Gamepad2, Search, Trophy, UserRound } from 'lucide-react'
-import { normalizeVi } from '../../lib/text'
-import { players, roomFullTitle, rooms, tournaments } from '../../mocks'
+import { roomFullTitle, useSearch } from '../../api'
 import { Modal } from '../ui/Modal'
+import { ListStatus, SkeletonRows } from '../ui/ListStatus'
 
 interface Hit {
   key: string
@@ -12,34 +12,27 @@ interface Hit {
   sub: string
 }
 
-const norm = normalizeVi
-
 /**
  * Hộp tìm kiếm toàn cục (mở bằng Ctrl/⌘ K hoặc nút tìm kiếm ở TopNav, đóng bằng Esc).
  * Tìm trên mock data. TODO: thay bằng API tìm kiếm khi có backend.
  */
 export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [query, setQuery] = useState('')
+  const search = useSearch(query)
 
   const groups = useMemo(() => {
-    const q = norm(query.trim())
-    const match = (...fields: string[]) => !q || fields.some((f) => norm(f).includes(q))
-    const roomHits: Hit[] = rooms
-      .filter((r) => match(roomFullTitle(r), r.id, r.host.name))
+    const roomHits: Hit[] = search.data.rooms
       .map((r) => ({ key: r.id, to: `/rooms/${r.id}`, label: roomFullTitle(r), sub: `#${r.id} · ${r.modeLabel}` }))
-    const tourHits: Hit[] = tournaments
-      .filter((t) => match(t.name, t.organizer))
+    const tourHits: Hit[] = search.data.tournaments
       .map((t) => ({ key: t.slug, to: `/tournaments/${t.slug}`, label: t.name, sub: t.timeLabel }))
-    const playerHits: Hit[] = Object.values(players)
-      .filter((p) => match(p.name))
+    const playerHits: Hit[] = search.data.players
       .map((p) => ({ key: p.id, to: `/profile/${p.id}`, label: p.name, sub: 'Người chơi' }))
-    const limit = q ? 5 : 3
     return [
-      { title: 'Phòng', icon: <Gamepad2 size={16} />, hits: roomHits.slice(0, limit) },
-      { title: 'Giải đấu', icon: <Trophy size={16} />, hits: tourHits.slice(0, limit) },
-      { title: 'Người chơi', icon: <UserRound size={16} />, hits: playerHits.slice(0, limit) },
+      { title: 'Phòng', icon: <Gamepad2 size={16} />, hits: roomHits },
+      { title: 'Giải đấu', icon: <Trophy size={16} />, hits: tourHits },
+      { title: 'Người chơi', icon: <UserRound size={16} />, hits: playerHits },
     ].filter((g) => g.hits.length > 0)
-  }, [query])
+  }, [search.data])
 
   // Phải ổn định: Modal dùng onClose trong deps của effect quản lý focus
   const close = useCallback(() => {
@@ -69,6 +62,7 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
       </form>
 
       <div className="mt-4 max-h-[55vh] overflow-y-auto" aria-live="polite">
+        <ListStatus status={search.status} onRetry={search.retry} label="kết quả tìm kiếm" skeleton={<SkeletonRows count={3} />}>
         {groups.length === 0 ? (
           <p className="py-8 text-center text-sm text-fg-muted">Không tìm thấy kết quả cho "{query.trim()}".</p>
         ) : (
@@ -92,6 +86,7 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
             ))}
           </>
         )}
+        </ListStatus>
       </div>
     </Modal>
   )

@@ -445,3 +445,79 @@ Xoá 3 file mới; bỏ `<ListStatus>`/`useMockStatus` ở các trang (nội dun
 
 ### Còn tồn
 - Chưa có.
+
+---
+
+## E3-T02 — Tầng dữ liệu frontend `src/api/` (15/11/2026)
+
+### File đã sửa / tạo mới
+- `src/api/` (mới): chọn nguồn `mock|api`, HTTP client có cookie session + CSRF, `ApiError`, toàn bộ endpoint REST trong API mục 2–6, adapter mock/http, ánh xạ contracts → kiểu UI, cache bộ nhớ và các hook `useRooms`, `useRoom`, `useTournaments`, `useTournament`, `useProfile`, `useActivities`, `useSearch`.
+- `src/api/*.test.ts(x)` (mới): kiểm tra CSRF, lỗi API, ánh xạ phòng/giải và vòng đời hook loading/error/retry.
+- `pages/*.tsx`, `components/domain/*`, `components/layout/SearchDialog.tsx`, `lib/room.ts`, `lib/tournament.ts`, `features/team-split/teamSplit.ts`: đọc dữ liệu/kiểu qua `src/api` thay vì import trực tiếp `src/mocks`; hành động ghi vẫn giữ state cục bộ như trước.
+- `vite.config.ts`: proxy `/api`, gồm WebSocket (`ws: true`), tới `API_TARGET` hoặc `http://127.0.0.1:6174`.
+- `package.json`, `package-lock.json`: thêm workspace dependency `@customaov/contracts`; `src/vite-env.d.ts` khai báo `VITE_DATA_SOURCE`.
+
+### Cách hoàn tác
+`git revert` commit của task E3-T02. Nếu hoàn tác thủ công: xoá `src/api/`, trả các import consumer về `src/mocks`, bỏ proxy Vite và dependency `@customaov/contracts`.
+
+### Còn tồn
+- Auth vẫn dùng session mock/localStorage theo đúng phạm vi; E3-T03 sẽ nối auth API.
+- Các hành động ghi phòng, chat, hồ sơ và giải đấu vẫn là logic cục bộ/`comingSoon`; E4/E5 sẽ nối endpoint đã dựng sẵn.
+
+---
+
+## E5-T02a — Giao diện trang tạo giải `/tournaments/new` (15/11/2026)
+
+### File đã sửa / tạo mới
+- `src/pages/CreateTournament.tsx` (mới): wizard 4 bước (Thông tin · Thể thức · Lịch thi đấu · Luật & giải thưởng + Xem lại), validate bằng `CreateTournamentBodySchema` của `@customaov/contracts`, báo lỗi tại chỗ (`aria-invalid`, `aria-describedby`), focus vào ô lỗi đầu tiên, nút vàng đặc duy nhất ("Tiếp tục"/"Tạo giải").
+- `src/pages/CreateTournament.test.tsx` (mới): 4 test (chuyển hướng khách tới login, điều hướng 4 bước + validate tên, lỗi thứ tự ngày ở bước 3, submit gọi `createTournament` + toast giả lập + về `/tournaments`).
+- `src/App.tsx`: thêm route `/tournaments/new` trong `RequireAuth` trước `/tournaments/:slug`.
+- `src/pages/Tournaments.tsx`: nút "Tạo giải đấu" trỏ tới `/tournaments/new` (khách qua `loginHref('login', '/tournaments/new')`), bỏ `comingSoon`.
+- `src/api/mock.ts`, `src/api/index.ts`: thêm `createMockTournament` và `createTournament` (mock trả về slug giả).
+- `scripts/screenshot.mjs`: thêm route `tournament-new` (`/tournaments/new`, loggedIn).
+
+### Cách hoàn tác
+`git revert` commit của task E5-T02a.
+
+### Còn tồn
+- Chế độ mock hiện toast "Đã tạo giải (giả lập)" và về `/tournaments`; phần nối API thật và điều hướng tới `/tournaments/:slug` làm ở task sau.
+
+---
+
+## E3-T03 — Nối đăng nhập/đăng ký frontend với API (15/11/2026)
+
+### File đã sửa / tạo mới
+- `src/api/client.ts`: `ApiError` lưu thêm `retryAfter` đọc từ header `retry-after` (dùng cho thông báo lỗi 429).
+- `src/context/AppContext.tsx`: chế độ `api` gọi `GET /api/auth/me` khi khởi động để khôi phục phiên; `AuthState` bổ sung `user: Me | null` và `loading: boolean` (giữ nguyên `loggedIn`, không thêm export mới). Chế độ `mock` giữ nguyên hành vi cũ.
+- `src/components/layout/RequireAuth.tsx`: hiện trạng thái loading (`role="status"`) khi đang kiểm tra phiên ở chế độ `api`, không chuyển hướng sớm.
+- `src/components/layout/UserMenu.tsx`: hiển thị tên/avatar/cấp thật từ `user` khi có; ở chế độ `api`, đăng xuất gọi `POST /api/auth/logout` trước khi điều hướng `/` và gọi `startTransition(logout)`.
+- `src/components/LoginModal.tsx`: giữ `MockLoginModal` cho chế độ `mock`; bổ sung `ApiLoginModal` cho chế độ `api` với tab Đăng nhập / Đăng ký, validate bằng `LoginBodySchema` / `RegisterBodySchema` từ `@customaov/contracts`, hiển thị lỗi 401/409/429 (`role="alert"`), trạng thái đang gửi trên nút submit và ẩn nút tài khoản mẫu.
+- `src/components/LoginModal.test.tsx` (mới): kiểm tra chế độ `api` (ẩn nút tài khoản mẫu, validate schema, trạng thái đang gửi + điều hướng, lỗi 401/409/429, và `RequireAuth` loading).
+- `scripts/e2e-auth-api.mjs` (mới) + `package.json` (`test:e2e:api`): kiểm tra đăng ký, đăng xuất, chặn `/dashboard`, sai mật khẩu, đăng nhập `suthy` và giữ phiên khi tải lại.
+
+### Cách hoàn tác
+`git revert` commit của task E3-T03.
+
+### Còn tồn
+- Chưa có.
+
+---
+
+## E3-T05 — Nối hồ sơ với API và sửa hồ sơ (15/11/2026)
+
+### File đã sửa / tạo mới
+- `src/api/http.ts`, `map.ts`, `types.ts`, `index.ts`: `/profile` lấy username từ phiên `/api/auth/me`, `/profile/:userId` gọi hồ sơ công khai; ánh xạ đầy đủ thắng/thua/tỷ lệ thắng/giải/danh hiệu/lịch sử; 404 trả về empty state; thêm mutation `PATCH /api/users/me` và giữ adapter mock không ghi dữ liệu.
+- `src/pages/Profile.tsx`: nguồn API hiện sáu KPI thật, lịch sử custom và thành tích; các phần cần telemetry game (tướng, KDA, vai trò, trang bị) dùng empty state “Chưa có dữ liệu từ game – sẽ có sau MVP”; hồ sơ người khác không có nút sửa; mock giữ nguyên giao diện Phase 5.
+- `src/components/domain/EditProfileDialog.tsx` (mới): sửa tên hiển thị, hai phần giới thiệu và avatar HTTPS; validate bằng `UpdateMeBodySchema`, lỗi tại chỗ, lỗi server `role="alert"`, focus modal ổn định, toast API/mock và làm mới hồ sơ sau khi lưu.
+- `src/pages/Profile.test.tsx`, `src/components/domain/EditProfileDialog.test.tsx`, `src/api/map.test.ts`: kiểm tra API bằng fetch giả, số liệu + game empty state, 404, mapping lịch sử, validate 281 ký tự/URL HTTP, lưu thành công/thất bại và trả focus.
+
+### Kiểm tra
+- `npm run build` ✅; `npm run lint` ✅ (0 lỗi, 2 cảnh báo cũ ở `AppContext.tsx`); `npm test` ✅ (frontend 49/49, backend 91/91, contracts 89/89, team-core 15/15).
+- `node scripts/e2e-auth.mjs http://localhost:5191` ✅.
+- `node scripts/screenshot.mjs E3-T05 http://localhost:5191`: **36/36 ok**, không cuộn ngang; ảnh profile mock giữ bố cục hiện có ở 375/768/1280/1440.
+
+### Cách hoàn tác
+`git revert` commit của task E3-T05.
+
+### Còn tồn
+- Dữ liệu tướng, KDA, vai trò và trang bị phụ thuộc nguồn telemetry game nên chủ động để empty state sau MVP theo PRD 3.2.

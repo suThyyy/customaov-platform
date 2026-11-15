@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ChevronDown, History, LogOut, UserRound } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { useAuth, useToast } from '../../context/AppContext'
-import { currentUser } from '../../mocks'
+import { currentUser, DATA_SOURCE, endpoints } from '../../api'
 import { Avatar, LevelPill } from '../ui/primitives'
 import { useDismiss } from './hooks'
 
@@ -12,12 +12,17 @@ const itemCls = 'flex min-h-11 w-full items-center gap-3 rounded-btn px-3 text-l
 /** Avatar + menu tài khoản ở TopNav (thay phần tương ứng trong Topbar cũ) */
 export function UserMenu() {
   const navigate = useNavigate()
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const { notify } = useToast()
   const ref = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
   const close = useCallback(() => setOpen(false), [])
   useDismiss(ref, open, close)
+
+  const displayName = user?.displayName ?? currentUser.name
+  const avatarSrc = user ? (user.avatarUrl ?? undefined) : currentUser.avatar
+  const level = user?.level ?? currentUser.level ?? 1
 
   return (
     <div ref={ref} className="relative">
@@ -25,14 +30,14 @@ export function UserMenu() {
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`Tài khoản ${currentUser.name}`}
+        aria-label={`Tài khoản ${displayName}`}
         onClick={() => setOpen((v) => !v)}
         className="flex min-h-11 items-center gap-2.5 rounded-btn p-1 transition-colors hover:bg-white/5"
       >
-        <Avatar src={currentUser.avatar} alt="" size={36} rounded="lg" />
+        <Avatar src={avatarSrc} name={displayName} alt="" size={36} rounded="lg" />
         <span className="hidden flex-col items-start gap-0.5 xl:flex">
-          <span className="text-sm leading-none font-semibold">{currentUser.name}</span>
-          <LevelPill level={currentUser.level ?? 1} />
+          <span className="text-sm leading-none font-semibold">{displayName}</span>
+          <LevelPill level={level} />
         </span>
         <ChevronDown
           size={16}
@@ -58,18 +63,33 @@ export function UserMenu() {
           <button
             role="menuitem"
             type="button"
-            onClick={() => {
+            disabled={loggingOut}
+            onClick={async () => {
+              if (loggingOut) return
+              if (DATA_SOURCE === 'api') {
+                setLoggingOut(true)
+                try {
+                  await endpoints.logout()
+                } catch {
+                  // Vẫn xoá trạng thái phiên ở client nếu server lỗi
+                } finally {
+                  setLoggingOut(false)
+                }
+              }
               close()
-              notify('Đã đăng xuất (giả lập)', 'Bạn đang xem giao diện khách.')
+              notify(
+                DATA_SOURCE === 'api' ? 'Đã đăng xuất' : 'Đã đăng xuất (giả lập)',
+                'Bạn đang xem giao diện khách.',
+              )
               navigate('/')
               // React Router v7 điều hướng trong startTransition; logout cũng phải nằm trong transition
               // để render một lần với (location '/', khách). Nếu không, RequireAuth sẽ render trước trên
               // route cũ và đẩy sang /?login=… → người vừa đăng xuất lại thấy hộp đăng nhập.
               startTransition(logout)
             }}
-            className={cn(itemCls, 'text-fg-muted hover:bg-white/5 hover:text-fg')}
+            className={cn(itemCls, 'text-fg-muted hover:bg-white/5 hover:text-fg disabled:opacity-50')}
           >
-            <LogOut size={17} aria-hidden /> Đăng xuất (giả lập)
+            <LogOut size={17} aria-hidden /> {DATA_SOURCE === 'api' ? 'Đăng xuất' : 'Đăng xuất (giả lập)'}
           </button>
         </div>
       )}

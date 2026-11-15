@@ -11,9 +11,11 @@
     "screenshot": "node scripts/screenshot.mjs",
     "typecheck": "tsc -b",
     "test": "vitest run",
-    "test:e2e": "node scripts/e2e-auth.mjs"
+    "test:e2e": "node scripts/e2e-auth.mjs",
+    "test:e2e:api": "node scripts/e2e-auth-api.mjs"
   },
   "dependencies": {
+    "@customaov/contracts": "*",
     "@customaov/team-core": "file:../packages/team-core",
     "lucide-react": "^1.73.0",
     "react": "^19.1.0",

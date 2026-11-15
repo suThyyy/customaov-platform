@@ -1,13 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import type { Me } from '@customaov/contracts'
 import { Construction, X } from 'lucide-react'
+import { DATA_SOURCE, endpoints } from '../api'
 
 /* ------------------------------------------------------------------ */
-/* Auth giả lập: chỉ để chuyển giữa giao diện khách / người dùng       */
+/* Auth: mock (localStorage) hoặc API (/api/auth/me)                  */
 /* ------------------------------------------------------------------ */
 
 interface AuthState {
   loggedIn: boolean
-  login: () => void
+  user: Me | null
+  loading: boolean
+  login: (user?: Me) => void
   logout: () => void
 }
 
@@ -53,12 +57,32 @@ interface ToastState {
 const ToastContext = createContext<ToastState | null>(null)
 
 export function AppProviders({ children }: { children: ReactNode }) {
-  const [loggedIn, setLoggedIn] = useState<boolean>(readSession)
+  const [loggedIn, setLoggedIn] = useState<boolean>(() => (DATA_SOURCE === 'mock' ? readSession() : false))
+  const [user, setUser] = useState<Me | null>(null)
+  const [loading, setLoading] = useState<boolean>(DATA_SOURCE === 'api')
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const nextId = useRef(1)
 
-  // Đồng bộ đăng nhập/đăng xuất giữa các tab
+  // Đồng bộ đăng nhập/đăng xuất giữa các tab (mock) hoặc khôi phục phiên từ API
   useEffect(() => {
+    if (DATA_SOURCE === 'api') {
+      const controller = new AbortController()
+      setLoading(true)
+      endpoints.me(controller.signal).then(
+        (res) => {
+          setUser(res.user)
+          setLoggedIn(res.user !== null)
+          setLoading(false)
+        },
+        (err: unknown) => {
+          if (err instanceof DOMException && err.name === 'AbortError') return
+          setUser(null)
+          setLoggedIn(false)
+          setLoading(false)
+        },
+      )
+      return () => controller.abort()
+    }
     const onStorage = (e: StorageEvent) => {
       if (e.key === SESSION_STORAGE_KEY || e.key === null) setLoggedIn(readSession())
     }
@@ -69,16 +93,29 @@ export function AppProviders({ children }: { children: ReactNode }) {
   const auth = useMemo<AuthState>(
     () => ({
       loggedIn,
-      login: () => {
+      user,
+      loading,
+      login: (nextUser?: Me) => {
+        if (DATA_SOURCE === 'api') {
+          setUser(nextUser ?? null)
+          setLoggedIn(Boolean(nextUser))
+          setLoading(false)
+          return
+        }
         writeSession(true)
         setLoggedIn(true)
       },
       logout: () => {
+        if (DATA_SOURCE === 'api') {
+          setUser(null)
+          setLoggedIn(false)
+          return
+        }
         writeSession(false)
         setLoggedIn(false)
       },
     }),
-    [loggedIn],
+    [loggedIn, user, loading],
   )
 
   const dismiss = useCallback((id: number) => setToasts((list) => list.filter((t) => t.id !== id)), [])

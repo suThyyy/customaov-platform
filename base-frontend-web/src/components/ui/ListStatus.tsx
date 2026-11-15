@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { RefreshCw, TriangleAlert } from 'lucide-react'
 import { cn } from '../../lib/cn'
-import type { LoadStatus } from '../../lib/mockStatus'
+import type { LoadStatus } from '../../api'
 import { Button } from './Button'
 
 /** Khối xám nhấp nháy giữ chỗ khi đang tải */

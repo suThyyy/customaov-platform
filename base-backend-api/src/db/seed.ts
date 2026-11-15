@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { eq } from "drizzle-orm";
@@ -114,7 +114,10 @@ export async function seedDatabase(
         capacity: r.capacity,
         status: r.status,
         config: r.config,
-        joinKey: r.visibility === "private" ? `key-${r.code.toLowerCase()}` : null,
+        joinKey:
+          r.visibility === "private"
+            ? randomBytes(16).toString("base64url")
+            : null,
         lastSplit: null,
         searchText: normalizeVi(`${r.code} ${fullTitle}`),
       });
@@ -133,6 +136,7 @@ export async function seedDatabase(
           ready: m.ready,
           captain: m.captain,
           tier: null,
+          active: r.status !== "finished",
           position: idx,
         });
       }
@@ -194,6 +198,7 @@ export async function seedDatabase(
         const captainUsername =
           nonSuthyUsernames[idx % nonSuthyUsernames.length]!;
         const captainId = userIdByUsername.get(captainUsername)!;
+        const teamStatus = teamDef.status ?? "approved";
 
         await tx.insert(tournamentTeams).values({
           id: teamId,
@@ -201,7 +206,7 @@ export async function seedDatabase(
           name: teamDef.name,
           logo: teamDef.logo,
           captainId,
-          status: "approved",
+          status: teamStatus,
           rejectReason: null,
           seed: idx + 1,
         });
@@ -211,6 +216,7 @@ export async function seedDatabase(
           userId: captainId,
           tournamentId,
           isSub: false,
+          active: teamStatus !== "rejected" && teamStatus !== "withdrawn",
         });
       }
 
@@ -241,6 +247,7 @@ export async function seedDatabase(
           winnerTeamId: m.winnerKey
             ? (teamIdByKey.get(m.winnerKey) ?? null)
             : null,
+          isBye: m.isBye ?? false,
           scheduledAt: m.scheduledAt ? new Date(m.scheduledAt) : null,
           nextMatchId,
           nextSlot: m.nextSlot,

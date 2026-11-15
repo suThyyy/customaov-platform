@@ -10,6 +10,8 @@ const testConfig: AppConfig = {
   LOG_LEVEL: "info",
   NODE_ENV: "test",
   DATABASE_URL: "memory://",
+  CSRF_SECRET: "test-csrf-secret-0123456789",
+  ALLOWED_ORIGINS: ["http://localhost:5174"],
 };
 
 const apps: ReturnType<typeof buildApp>[] = [];
@@ -73,3 +75,4 @@ describe("API application", () => {
     expect(output).not.toContain(csrfToken);
   });
 });
+

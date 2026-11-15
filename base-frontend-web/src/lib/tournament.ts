@@ -1,4 +1,21 @@
-import { allMatches, type ScheduledMatch, type Team, type TournamentDetail } from '../mocks'
+import type { ScheduledMatch, Team, TournamentDetail } from '../api'
+
+const allMatches = (detail: TournamentDetail): ScheduledMatch[] =>
+  detail.bracket.flatMap((round) =>
+    round.matches.map((match) => {
+      const roundName = round.name.replace(/\s*\(.*\)/, '')
+      return {
+        id: match.id,
+        stage: match.label === roundName ? roundName : `${roundName} · ${match.label}`,
+        time: match.time,
+        home: match.slots[0].team,
+        away: match.slots[1].team,
+        ...(match.slots[0].score !== null && match.slots[1].score !== null
+          ? { score: [match.slots[0].score, match.slots[1].score] as [number, number] }
+          : {}),
+      }
+    }),
+  )
 
 /** "13/11 19:00" → khoá sắp xếp "11-13 19:00" (mock cùng năm 2026) */
 const sortKey = (time: string): string => {

@@ -2,12 +2,11 @@ import { useMemo, useState } from 'react'
 import { Eye, Gamepad2, LogIn, MoreHorizontal, SearchX, UserRound } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { isRoomMember, roomAction, roomMode } from '../../lib/room'
-import { roomFullTitle, type Room } from '../../mocks'
+import { roomFullTitle, type LoadStatus, type Room } from '../../api'
 import { Button, IconButton } from '../ui/Button'
 import { Avatar, Badge, Card, Chip, CrownMark, SectionTitle, SeeAllLink } from '../ui/primitives'
 import { FilterChips } from '../ui/FilterChips'
 import { ListStatus, SkeletonRows } from '../ui/ListStatus'
-import { useMockStatus } from '../../lib/mockStatus'
 import { EmptyState } from './EmptyState'
 
 export function RoomStatusBadge({ status }: { status: Room['status'] }) {
@@ -150,6 +149,8 @@ export function ActiveRoomsCard({
   onCreate,
   className,
   id,
+  status = 'ready',
+  onRetry = () => undefined,
 }: RoomHandlers & {
   /** id cho anchor (vd. #rooms ở BottomNav / TopNav) */
   id?: string
@@ -161,9 +162,10 @@ export function ActiveRoomsCard({
   /** Hành động trong empty state */
   onCreate?: () => void
   className?: string
+  status?: LoadStatus
+  onRetry?: () => void
 }) {
   const [mode, setMode] = useState<ModeFilter>('all')
-  const load = useMockStatus()
   const counts = useMemo(() => {
     const c: Record<ModeFilter, number> = { all: rooms.length, Căng: 0, Vui: 0, Custom: 0 }
     for (const r of rooms) {
@@ -192,8 +194,8 @@ export function ActiveRoomsCard({
       />
 
       <ListStatus
-        status={load.status}
-        onRetry={load.retry}
+        status={status}
+        onRetry={onRetry}
         label="danh sách phòng"
         className="mt-4"
         skeleton={<SkeletonRows count={5} />}

@@ -21,15 +21,15 @@ import {
 } from 'lucide-react'
 import { cn } from '../lib/cn'
 import { normalizeVi } from '../lib/text'
-import { useMockStatus } from '../lib/mockStatus'
 import { ListStatus, SkeletonCards } from '../components/ui/ListStatus'
-import { useToast } from '../context/AppContext'
-import { tournaments, type StageStatus, type Tournament, type TournamentStatus } from '../mocks'
+import { useAuth } from '../context/AppContext'
+import { useTournaments, type StageStatus, type Tournament, type TournamentStatus } from '../api'
 import { Button, ButtonLink } from '../components/ui/Button'
 import { Badge } from '../components/ui/primitives'
 import { FilterChips } from '../components/ui/FilterChips'
 import { Pagination } from '../components/ui/Pagination'
 import { PageHeader } from '../components/layout/PageHeader'
+import { loginHref } from '../components/layout/nav'
 import { EmptyState } from '../components/domain/EmptyState'
 import { RegistrationProgress } from '../components/domain/RegistrationProgress'
 
@@ -55,8 +55,9 @@ const TITLE_ICON: Record<Tournament['titleIcon'], LucideIcon> = {
 const isFilter = (v: string | null): v is Filter => FILTER_LABELS.some((f) => f.id === v)
 
 export default function Tournaments() {
-  const { comingSoon } = useToast()
-  const load = useMockStatus()
+  const { loggedIn } = useAuth()
+  const load = useTournaments()
+  const tournaments = load.data
 
   // Bộ lọc lưu trên URL (?q=&status=&sort=&page=) để chia sẻ link / quay lại không mất trạng thái
   const [params, setParams] = useSearchParams()
@@ -81,7 +82,7 @@ export default function Tournaments() {
     const q = normalizeVi(query.trim())
     if (!q) return tournaments
     return tournaments.filter((t) => [t.name, t.organizer, t.format].some((f) => normalizeVi(f).includes(q)))
-  }, [query])
+  }, [query, tournaments])
 
   const counts = useMemo(() => {
     const c: Record<Filter, number> = { all: searched.length, open: 0, live: 0, finished: 0 }
@@ -109,9 +110,12 @@ export default function Tournaments() {
         title="Giải đấu cộng đồng"
         description="Tham gia các giải đấu custom do cộng đồng tổ chức, tranh tài cùng những đội tuyển trên khắp Liên Quân."
         actions={
-          <Button leftIcon={<Plus size={18} aria-hidden />} onClick={() => comingSoon('Tạo giải đấu')}>
+          <ButtonLink
+            to={loggedIn ? '/tournaments/new' : loginHref('login', '/tournaments/new')}
+            leftIcon={<Plus size={18} aria-hidden />}
+          >
             Tạo giải đấu
-          </Button>
+          </ButtonLink>
         }
       />
 
