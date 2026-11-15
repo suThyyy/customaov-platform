@@ -41,3 +41,4 @@
   - WS bắt buộc có Origin ở production.
 - 15/11 · Lead · Lockfile xung đột khi merge: giữ bản của integration, chạy `npm install` để sinh lại, rồi chạy lại build/test trước khi commit merge.
 - 15/11 · Lead · Lead verify trên worktree `.worktrees/integration` (đang checkout `integration/mvp`), merge `main` trong `.worktrees/main`.
+- 15/11 · Lead · **Task B1 nhỏ do Codex/Gemini/Copilot code thì Lead (Claude, Anthropic) tự review**, vì vẫn khác hãng. Lead kiểm diff, chạy build/lint/test, ghi PASS/FAIL trong commit merge. Áp dụng lần đầu cho E2-T05. Lý do: tiết kiệm quota worker và rút ngắn vòng chờ. Task B2 trở lên vẫn giao reviewer worker.
