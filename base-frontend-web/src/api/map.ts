@@ -168,8 +168,23 @@ export const mapProfile = (value: ApiUserProfile): UserProfile => ({
     winRate: value.stats.winRate,
     customMatches: value.stats.customMatches,
     mvp: 0,
+    wins: value.stats.wins,
+    losses: value.stats.losses,
+    tournamentsJoined: value.stats.tournamentsJoined,
+    titles: value.stats.titles,
   },
   champions: [],
   roles: [],
   history: [],
+  recordHistory: value.history.map((item) => ({
+    id: item.id,
+    roomCode: item.roomCode,
+    roomName: item.roomTitle,
+    result: item.result,
+    timeAgo: new Intl.RelativeTimeFormat('vi', { numeric: 'auto' }).format(
+      Math.round((Date.parse(item.at) - Date.now()) / 60_000),
+      'minute',
+    ),
+  })),
+  hasGameData: false,
 })

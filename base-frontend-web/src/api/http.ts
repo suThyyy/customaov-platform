@@ -1,5 +1,6 @@
 import type { DataAdapter } from './adapter'
 import { endpoints } from './endpoints'
+import { ApiError } from './client'
 import { mapActivity, mapChatMessage, mapPlayer, mapProfile, mapRoom, mapTournament, mapTournamentDetail } from './map'
 
 export const httpAdapter: DataAdapter = {
@@ -38,8 +39,17 @@ export const httpAdapter: DataAdapter = {
     return mapTournamentDetail(await endpoints.tournament(slug, signal))
   },
   async profile(username, signal) {
-    if (!username) username = 'suthy'
-    return mapProfile(await endpoints.profile(username, signal))
+    try {
+      if (!username) {
+        const session = await endpoints.me(signal)
+        if (!session.user) return undefined
+        username = session.user.username
+      }
+      return mapProfile(await endpoints.profile(username, signal))
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return undefined
+      throw error
+    }
   },
   async activities(signal) {
     return (await endpoints.activities({ pageSize: 50 }, signal)).items.map(mapActivity)
