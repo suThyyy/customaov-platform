@@ -2,6 +2,48 @@
 
 > Lead cập nhật cuối mỗi epic và mỗi khi dừng. Mới nhất ở trên.
 
+## 15/11/2026 ~11:10 – TẠM DỪNG theo yêu cầu Owner (tắt máy)
+
+**Đã xong từ lần báo trước** (đều merge `integration/mvp`, chưa merge `main`):
+
+| Task | Nội dung | Coder | Review |
+|---|---|---|---|
+| E3-T01 | API auth | agy sonnet → sửa bởi agy hydrogen | Lead; lần 1 FAIL vì rate limit dùng chung bộ đếm toàn cục |
+| E3-T01b | schema/contracts theo API.md §9 (migration 0002) | – | – |
+| E3-T02 | tầng dữ liệu FE | – | Lead sửa nối `map.ts` cho BracketSlot mới |
+| E3-T04 | API hồ sơ | – | – |
+| E4-T01 | API phòng | – | – |
+| E5-T01 | API đọc giải | – | **chưa chạy lại test sau merge** |
+| E5-T02a | UI `/tournaments/new` | – | – |
+| E5-T04a | engine nhánh đấu | – | – |
+
+**Đang dở (WIP commit, chưa verify):**
+- E3-T03 nối đăng nhập FE (`eccf855`);
+- E4-T02 API chủ phòng (`373fba3`).
+
+Worker đã dừng, dispatch đã abandon, terminal đã đóng. Không có tiến trình nào của Lead còn chạy.
+
+**`main` không đổi** từ epic E2 (`35b74ed`).
+
+**Quyết định Lead tự đưa ra** (chi tiết DECISIONS.md):
+- Chuyển việc sang Gemini khi Codex và Claude-trên-agy hết quota.
+- Lead tự review code của Gemini (khác hãng).
+- Lead gộp tay các xung đột 1 dòng ở `app.ts`.
+
+**Lỗi / vướng chưa giải quyết**
+- Orca khởi động worker agy hay kẹt (banner, trust prompt, "[Pasted text]"). Đã có cách xử lý trong STATE.md. Đã tốn 2/3 lượt start ở 3 chuỗi task.
+- Orca mở lại worker khi `send` sau khi đóng terminal: model mặc định, không có cờ tự duyệt. Đã ghi chú.
+- "Continue automatically when limits reset": vẫn chưa bật được qua CLI.
+
+**Quota ước tính đã dùng:**
+- Codex: hết hạn mức 5 giờ (reset 12:19).
+- agy Claude: hết (reset ~12:20).
+- agy Gemini: dùng nhiều (khoảng 12 phiên hydrogen, 3 flash, 1 hydrogen-high), chưa báo giới hạn.
+- Claude Lead: phiên rất dài.
+- Copilot: 0/20.
+
+**Owner cần làm khi quay lại:** không bắt buộc gì. Mở lại phiên Lead (Claude) trong `base-workspace` và nói "chạy tiếp". Lead sẽ làm theo mục "Việc đầu tiên khi quay lại" trong STATE.md. Nếu Claude chưa dùng được thì chạy lệnh tiếp quản Codex trong STATE.md.
+
 ## 15/11/2026 ~10:00 – E2 xong và đã merge `main`; E3 đang chạy
 
 **Epic E2 (nền backend): XONG, đã merge `main`** (`35b74ed`; tag `epic-2-before` = `ef16a9a`).
