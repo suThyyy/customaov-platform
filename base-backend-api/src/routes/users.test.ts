@@ -303,4 +303,13 @@ describe("PATCH /api/users/me", () => {
     expect(emptyBody.statusCode).toBe(400);
     expect(ErrorBodySchema.parse(emptyBody.json()).error.code).toBe("VALIDATION");
   });
+
+  it("returns 400 VALIDATION for invalid :username param", async () => {
+    const { c } = await setup();
+    for (const invalid of ["ab", "InvalidUser", "bad-name!", "a".repeat(21)]) {
+      const res = await c.request("GET", `/api/users/${encodeURIComponent(invalid)}`);
+      expect(res.statusCode).toBe(400);
+      expect(ErrorBodySchema.parse(res.json()).error.code).toBe("VALIDATION");
+    }
+  });
 });

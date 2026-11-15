@@ -19,7 +19,7 @@ import {
   type UpdateRoomMeBody,
   type UserSummary,
 } from "@customaov/contracts";
-import { and, asc, desc, eq, exists, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, inArray, ne, or, sql } from "drizzle-orm";
 
 import type { DbClient } from "../db/client.js";
 import {
@@ -311,6 +311,8 @@ export async function listRooms(
   }
   if (query.status) {
     conditions.push(eq(rooms.status, query.status));
+  } else if (query.mine !== "1") {
+    conditions.push(ne(rooms.status, "finished"));
   }
   if (query.q) {
     const normalized = normalizeVi(query.q.trim());

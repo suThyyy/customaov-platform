@@ -1,9 +1,11 @@
 import {
   UpdateMeBodySchema,
+  UsernameSchema,
   type UpdateMeResponse,
   type UserProfile,
 } from "@customaov/contracts";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { z } from "zod";
 
 import type { AuthDeps } from "../auth/plugin.js";
 import {
@@ -11,6 +13,8 @@ import {
   HttpError,
   updateMyProfile,
 } from "../services/users.js";
+
+const UsernameParamsSchema = z.object({ username: UsernameSchema });
 
 export function registerUserRoutes(app: FastifyInstance, deps: AuthDeps): void {
   const { db } = deps;
@@ -35,10 +39,11 @@ export function registerUserRoutes(app: FastifyInstance, deps: AuthDeps): void {
     }
   };
 
-  app.get<{ Params: { username: string } }>(
+  app.get(
     "/api/users/:username",
     async (request): Promise<UserProfile> => {
-      return getUserProfileByUsername(db, request.params.username);
+      const { username } = UsernameParamsSchema.parse(request.params);
+      return getUserProfileByUsername(db, username);
     },
   );
 

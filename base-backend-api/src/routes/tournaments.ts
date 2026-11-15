@@ -1,11 +1,13 @@
 import {
   CreateTournamentBodySchema,
+  TournamentSummarySchema,
   TournamentsQuerySchema,
   UpdateTournamentBodySchema,
   type TournamentDetail,
   type TournamentsResponse,
 } from "@customaov/contracts";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { z } from "zod";
 
 import type { AuthDeps } from "../auth/plugin.js";
 import {
@@ -15,6 +17,10 @@ import {
   listTournaments,
   updateTournament,
 } from "../services/tournaments.js";
+
+const SlugParamsSchema = z.object({
+  slug: TournamentSummarySchema.shape.slug.pipe(z.string().max(90)),
+});
 
 function requireAuth(
   request: FastifyRequest,
@@ -57,12 +63,13 @@ export function registerTournamentRoutes(
     return listTournaments(db, query);
   });
 
-  app.get<{ Params: { slug: string } }>(
+  app.get(
     "/api/tournaments/:slug",
     async (request, reply): Promise<TournamentDetail> => {
+      const { slug } = SlugParamsSchema.parse(request.params);
       const detail = await getTournamentBySlug(
         db,
-        request.params.slug,
+        slug,
         request.user?.id ?? null,
       );
       if (!detail) {
@@ -88,12 +95,13 @@ export function registerTournamentRoutes(
     },
   );
 
-  app.patch<{ Params: { slug: string } }>(
+  app.patch(
     "/api/tournaments/:slug",
     { preHandler: requireAuth },
     async (request): Promise<TournamentDetail> => {
+      const { slug } = SlugParamsSchema.parse(request.params);
       const body = UpdateTournamentBodySchema.parse(request.body);
-      return updateTournament(db, request.params.slug, body, request.user!);
+      return updateTournament(db, slug, body, request.user!);
     },
   );
 }

@@ -9,10 +9,11 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { buildApp } from "../app.js";
 import { loadConfig, type AppConfig } from "../config.js";
-import { closeDb, createDb, migrate, type DbClient } from "../db/client.js";
+import { closeDb, type DbClient } from "../db/client.js";
 import { createRoomRealtimeHub, type RealtimeSocket } from "./hub.js";
 import {
   createLoggedInClients,
+  createTestDb,
   type TestClient,
 } from "../test/helpers.js";
 
@@ -49,8 +50,7 @@ async function startTestServer(
     LOG_LEVEL: "silent",
     ...envOverrides,
   });
-  const db = createDb("memory://");
-  await migrate(db);
+  const db = await createTestDb();
   const app = buildApp({ config, db, logger: false });
   await app.listen({ host: "127.0.0.1", port: 0 });
   const address = app.server.address();
@@ -667,8 +667,7 @@ describe("room realtime WebSocket (/api/ws)", () => {
   });
 
   it("pings connections periodically and terminates unresponsive sockets", async () => {
-    const db = createDb("memory://");
-    await migrate(db);
+    const db = await createTestDb();
     const hub = createRoomRealtimeHub({ db, pingIntervalMs: 30 });
 
     class FakeSocket extends EventEmitter implements RealtimeSocket {

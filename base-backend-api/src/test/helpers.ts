@@ -1,4 +1,5 @@
 import { CSRF_COOKIE, CSRF_HEADER } from "@customaov/contracts";
+import { sql } from "drizzle-orm";
 import type { FastifyInstance, LightMyRequestResponse } from "fastify";
 import type { Writable } from "node:stream";
 
@@ -6,6 +7,45 @@ import { buildApp } from "../app.js";
 import { loadConfig, type AppConfig } from "../config.js";
 import { closeDb, createDb, migrate, type DbClient } from "../db/client.js";
 import { seedDatabase } from "../db/seed.js";
+
+const migratedTestUrls = new Set<string>();
+
+/**
+ * Create a clean migrated database for tests.
+ * Uses PGlite `memory://` by default, or PostgreSQL when `TEST_DATABASE_URL` is set
+ * (truncating all tables between test cases so each test starts isolated).
+ */
+export async function createTestDb(): Promise<DbClient> {
+  const url = process.env.TEST_DATABASE_URL;
+  if (!url) {
+    const db = createDb("memory://");
+    await migrate(db);
+    return db;
+  }
+
+  const db = createDb(url);
+  if (!migratedTestUrls.has(url)) {
+    await migrate(db);
+    migratedTestUrls.add(url);
+  }
+  await db.execute(sql`
+    TRUNCATE TABLE
+      activity_recipients,
+      activities,
+      bracket_matches,
+      tournament_team_members,
+      tournament_teams,
+      tournaments,
+      room_matches,
+      room_messages,
+      room_members,
+      rooms,
+      sessions,
+      users
+    RESTART IDENTITY CASCADE
+  `);
+  return db;
+}
 
 export interface TestApp {
   app: FastifyInstance;
@@ -20,14 +60,13 @@ export interface TestAppOptions {
   config?: Partial<AppConfig>;
 }
 
-/** Fresh app + PGlite `memory://` database with migrations applied. */
+/** Fresh app + migrated test database (`memory://` or `TEST_DATABASE_URL`). */
 export async function createTestApp(opts: TestAppOptions = {}): Promise<TestApp> {
   const config: AppConfig = {
     ...loadConfig({ NODE_ENV: "test", LOG_LEVEL: "info" }),
     ...opts.config,
   };
-  const db = createDb("memory://");
-  await migrate(db);
+  const db = await createTestDb();
   const app = buildApp({
     config,
     db,

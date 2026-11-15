@@ -3,11 +3,10 @@ import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { verifyPassword } from "../auth/password.js";
+import { createTestDb } from "../test/helpers.js";
 import {
   closeDb,
-  createDb,
   formatDatabaseTarget,
-  migrate,
   type DbClient,
 } from "./client.js";
 import {
@@ -26,9 +25,8 @@ import { seedDatabase } from "./seed.js";
 const dbs: DbClient[] = [];
 
 async function setupSeededMemoryDb(): Promise<DbClient> {
-  const db = createDb("memory://");
+  const db = await createTestDb();
   dbs.push(db);
-  await migrate(db);
   await seedDatabase(db, { nodeEnv: "test" });
   return db;
 }
@@ -167,9 +165,8 @@ describe("database schema, migration, and seed", () => {
   });
 
   it("refuses to seed when NODE_ENV is production", async () => {
-    const db = createDb("memory://");
+    const db = await createTestDb();
     dbs.push(db);
-    await migrate(db);
 
     await expect(
       seedDatabase(db, { nodeEnv: "production" }),
