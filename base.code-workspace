@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "base-frontend-web"
+		},
+		{
+			"path": "base-backend-api"
+		},
+		{
+			"path": "docs"
+		},
+		{
+			"path": "database"
+		}
+	],
+	"settings": {
+		"java.compile.nullAnalysis.mode": "automatic",
+		"java.configuration.updateBuildConfiguration": "interactive"
+	}
+}

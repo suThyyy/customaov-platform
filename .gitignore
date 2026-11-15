@@ -1,0 +1,8 @@
+node_modules
+dist
+**/screenshots
+.env*
+*.log
+scratch
+web/
+web_backup_*/

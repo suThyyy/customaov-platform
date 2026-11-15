@@ -1,0 +1,215 @@
+@import "tailwindcss";
+
+/*
+ * DESIGN TOKENS — nguồn duy nhất cho màu, chữ, bo góc, bóng.
+ * Giá trị lấy mẫu pixel từ UI-Mock (1672×941). Đánh dấu (~) = ước lượng bằng mắt.
+ */
+@theme {
+  /* Nền */
+  --color-bg: #0d0f13;            /* nền trang (mẫu: trang-chu-user 900,920) */
+  --color-sidebar: #0f1319;       /* sidebar (mẫu #10151b) */
+  --color-surface: #14161b;       /* card (mẫu #15161b) */
+  --color-surface-2: #1b1d23;     /* ô bên trong card, input (~) */
+  --color-surface-3: #22242a;     /* table head, nút secondary (mẫu #222429) */
+  --color-surface-4: #2b2d34;     /* hover (~) */
+  --color-line: rgb(255 255 255 / 0.07);        /* viền mảnh (~) */
+  --color-line-strong: rgb(255 255 255 / 0.16); /* viền nút outline (~) */
+
+  /* Chữ */
+  --color-fg: #f3f1ec;
+  --color-fg-muted: #a9abb1;     /* (~) đạt ≥4.5:1 trên surface */
+  --color-fg-subtle: #8a8d94;    /* (~) chỉ dùng cho chữ phụ ≥12px */
+
+  /* Vàng thương hiệu */
+  --color-gold-200: #fbd9a3;
+  --color-gold-300: #f6c47c;     /* đỉnh gradient nút (mẫu #f4c27b) */
+  --color-gold: #f2b463;         /* màu nhấn chính (mẫu #f4ad5e / #f2c075) */
+  --color-gold-500: #e9a35a;     /* đáy gradient nút (mẫu #e8a45b) */
+  --color-gold-700: #8a6534;
+  --color-gold-ink: #1d1409;     /* chữ trên nền vàng (mẫu #1c150a) */
+  --color-gold-tint: #2a2219;    /* nền eyebrow / item active (~ #2a2727, #23201b) */
+
+  /* Trạng thái */
+  --color-success: #9bd46c;      /* mẫu #9dd56b */
+  --color-success-bg: #1c301b;   /* mẫu #1c331b */
+  --color-warning: #f0b35e;
+  --color-warning-bg: #3a2c18;   /* "Đang chờ" (~ từ #886b39 pha nền) */
+  --color-danger: #f07a73;
+  --color-danger-bg: #3b1a1c;
+  --color-live: #f29b52;         /* badge "Đang diễn ra" trên ảnh giải đấu (~) */
+  --color-notify: #ef4444;
+  --color-open: #8fce62;         /* badge "Đang mở đăng ký" trên ảnh (~) */
+  --color-open-ink: #14240c;
+  --color-finished: #3a3d45;     /* badge "Đã kết thúc" (~) */       /* chấm đỏ chuông */
+
+  /* Đội */
+  --color-team-blue: #3b8cf0;
+  --color-team-blue-bg: #182640; /* mẫu #192740 */
+  --color-team-blue-body: #0e131c;
+  --color-team-red: #e2453f;
+  --color-team-red-bg: #341b1f;  /* mẫu #351c20 */
+  --color-team-red-body: #161216;
+  /* Chữ màu đội trên nền -bg (Phase 5, WCAG AA): team-blue/red gốc chỉ đạt 4.46 / 3.9:1 */
+  --color-team-blue-fg: #6aa8f5; /* ≈ 6.1:1 trên team-blue-bg */
+  --color-team-red-fg: #f07a73;  /* ≈ 5.4:1 trên team-red-bg */
+  --color-lane-chip: #1e2334;    /* mẫu chip lane */
+  --color-ready: #2f9e44;        /* dấu tích sẵn sàng (~) */
+
+  /* Chữ */
+  /* (~) Mock: tiêu đề lớn bo tròn kiểu Be Vietnam Pro; chữ UI nhỏ hẹp hơn → Inter */
+  --font-sans: "Inter", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --font-display: "Be Vietnam Pro", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /*
+   * THANG CHỮ — 6 bậc (docs/UI_UX_CHECKLIST.md › Design tokens). Xoá thang mặc định của Tailwind
+   * để chỉ còn đúng 6 class: text-xs · text-sm · text-base · text-lg · text-2xl · text-4xl.
+   * Không dùng text-[Npx] trong code.
+   */
+  --text-*: initial;
+  --text-xs: 0.75rem; /* 12px — nhãn phụ, thời gian, mã phòng (tối thiểu cho chữ phụ) */
+  --text-xs--line-height: 1rem; /* 16px */
+  --text-sm: 0.875rem; /* 14px — nội dung bảng, mô tả card */
+  --text-sm--line-height: 1.25rem; /* 20px */
+  --text-base: 1rem; /* 16px — văn bản chính, nút */
+  --text-base--line-height: 1.5rem; /* 24px */
+  --text-lg: 1.25rem; /* 20px — tiêu đề card, section */
+  --text-lg--line-height: 1.75rem; /* 28px */
+  --text-2xl: 1.5rem; /* 24px — tiêu đề khối lớn, số liệu */
+  --text-2xl--line-height: 2rem; /* 32px */
+  --text-4xl: clamp(2rem, 1.6rem + 1.25vw, 2.5rem); /* 32–40px — tiêu đề trang (H1) */
+  --text-4xl--line-height: 1.2;
+  /* Bậc 7 — CHỈ cho số KPI (thẻ thống kê hồ sơ, card hồ sơ dashboard, số liệu giải đấu).
+     tabular-nums được thêm ở @layer utilities (.text-stat) vì token chữ không mang được thuộc tính này. */
+  --text-stat: 2rem; /* 32px */
+  --text-stat--line-height: 1;
+  --text-stat--font-weight: 700;
+
+  /*
+   * SPACING — thang 4 · 8 · 12 · 16 · 24 · 32 · 48 · 64px = bội số của --spacing (4px) mặc định:
+   * 1 · 2 · 3 · 4 · 6 · 8 · 12 · 16. Quy ước: gap trong card 3–4, giữa card 6, giữa section 12.
+   */
+  --spacing: 0.25rem;
+
+  /* CONTAINER — max-w-page (1200px, mặc định) · max-w-wide (1440px, trang công cụ) */
+  --container-page: 1200px;
+  --container-wide: 1440px;
+
+  /*
+   * BO GÓC — 8px (nút, input, chip, ô nhỏ trong card) · 12px (card) · 999px (badge = rounded-full).
+   * Sinh utility rounded-btn / rounded-chip / rounded-card. Không dùng giá trị lẻ (5, 6, 10, 14px…).
+   */
+  --radius-btn: 8px;
+  --radius-chip: 8px;
+  --radius-card: 12px;
+
+  /* Bóng / glow */
+  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 12px 32px -16px rgb(0 0 0 / 0.6);
+  --shadow-gold: 0 8px 24px -10px rgb(242 180 99 / 0.55);
+
+  /* Chuyển động */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  :root {
+    /* Chiều cao TopNav sticky: 56px mobile, 64px từ md (768px) */
+    --header-h: 56px;
+    /* Chiều cao BottomNav (mobile), chưa gồm safe-area */
+    --bottom-nav-h: 64px;
+  }
+  @media (min-width: 48rem) {
+    :root {
+      --header-h: 64px;
+    }
+  }
+  html {
+    color-scheme: dark;
+    background: var(--color-bg);
+  }
+  /* Anchor/section không bị header sticky che khi cuộn tới */
+  :where([id]) {
+    scroll-margin-top: calc(var(--header-h) + 16px);
+  }
+  body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "tnum" 0;
+  }
+  button,
+  [role="button"],
+  a,
+  summary,
+  label[for],
+  select {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  ::selection {
+    background: rgb(242 180 99 / 0.35);
+  }
+}
+
+@layer utilities {
+  .bg-gold-gradient {
+    background-image: linear-gradient(180deg, var(--color-gold-300) 0%, var(--color-gold-500) 100%);
+  }
+  .text-gold-gradient {
+    background-image: linear-gradient(180deg, var(--color-gold-200), var(--color-gold-500));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Chừa chỗ cho BottomNav cố định ở đáy (chỉ < 768px) */
+  .pb-bottom-nav {
+    padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));
+  }
+  @media (min-width: 48rem) {
+    .pb-bottom-nav {
+      padding-bottom: 0;
+    }
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  /* Bổ sung cho token text-stat (cỡ/line-height/weight nằm ở @theme) */
+  .text-stat {
+    font-variant-numeric: tabular-nums;
+  }
+  .scrim-left {
+    background-image: linear-gradient(90deg, var(--color-bg) 0%, rgb(13 15 19 / 0.92) 30%, rgb(13 15 19 / 0.35) 62%, transparent 100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
