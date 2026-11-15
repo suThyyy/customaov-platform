@@ -10,6 +10,7 @@ import { ZodError } from "zod";
 import { registerAuthPlugin } from "./auth/plugin.js";
 import { registerAuthRoutes } from "./auth/routes.js";
 import { registerRoomRoutes } from "./routes/rooms.js";
+import { registerSearchRoutes } from "./routes/search.js";
 import { registerUserRoutes } from "./routes/users.js";
 import { loadConfig, type AppConfig } from "./config.js";
 import type { DbClient } from "./db/client.js";
@@ -127,6 +128,7 @@ export function buildApp(opts: BuildAppOptions = {}): FastifyInstance {
       registerUserRoutes(instance, deps);
       registerRoomRoutes(instance, deps);
       registerTournamentRoutes(instance, deps);
+      registerSearchRoutes(instance, deps);
     });
   }
 

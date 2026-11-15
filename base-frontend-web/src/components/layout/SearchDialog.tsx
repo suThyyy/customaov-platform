@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useId, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Gamepad2, Search, Trophy, UserRound } from 'lucide-react'
-import { roomFullTitle, useSearch } from '../../api'
+import { SEARCH_MIN_LENGTH, roomFullTitle, useSearch } from '../../api'
+import { cn } from '../../lib/cn'
 import { Modal } from '../ui/Modal'
 import { ListStatus, SkeletonRows } from '../ui/ListStatus'
 
@@ -12,15 +13,27 @@ interface Hit {
   sub: string
 }
 
+interface HitGroup {
+  title: string
+  icon: ReactNode
+  hits: Hit[]
+}
+
 /**
  * Hộp tìm kiếm toàn cục (mở bằng Ctrl/⌘ K hoặc nút tìm kiếm ở TopNav, đóng bằng Esc).
- * Tìm trên mock data. TODO: thay bằng API tìm kiếm khi có backend.
+ * - mock: lọc trên mock data, ô trống hiện gợi ý.
+ * - api (`VITE_DATA_SOURCE=api`): `GET /api/search?q=` (debounce 250ms, huỷ request cũ), cần ≥ 2 ký tự.
+ * Bàn phím: ↑/↓ chọn kết quả, Enter mở kết quả đang chọn (focus luôn ở ô nhập – mẫu combobox).
  */
 export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [query, setQuery] = useState('')
   const search = useSearch(query)
+  const navigate = useNavigate()
+  const baseId = useId()
+  const listboxId = `${baseId}-results`
+  const optionId = (index: number) => `${baseId}-option-${index}`
 
-  const groups = useMemo(() => {
+  const groups = useMemo<HitGroup[]>(() => {
     const roomHits: Hit[] = search.data.rooms
       .map((r) => ({ key: r.id, to: `/rooms/${r.id}`, label: roomFullTitle(r), sub: `#${r.id} · ${r.modeLabel}` }))
     const tourHits: Hit[] = search.data.tournaments
@@ -34,11 +47,42 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
     ].filter((g) => g.hits.length > 0)
   }, [search.data])
 
+  const hits = useMemo(() => groups.flatMap((g) => g.hits), [groups])
+  const status = search.pending ? 'loading' : search.status
+  const showList = !search.tooShort && status === 'ready' && hits.length > 0
+
+  // Chỉ số kết quả đang chọn; gắn với danh sách hiện tại nên đổi kết quả là tự về 0.
+  const [active, setActive] = useState<{ hits: Hit[]; index: number }>({ hits, index: 0 })
+  const activeIndex = active.hits === hits ? Math.min(active.index, hits.length - 1) : 0
+  const activeId = showList && activeIndex >= 0 ? optionId(activeIndex) : undefined
+
+  useEffect(() => {
+    if (activeId) document.getElementById(activeId)?.scrollIntoView?.({ block: 'nearest' })
+  }, [activeId])
+
   // Phải ổn định: Modal dùng onClose trong deps của effect quản lý focus
   const close = useCallback(() => {
     setQuery('')
     onClose()
   }, [onClose])
+
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (!showList) return
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      const step = e.key === 'ArrowDown' ? 1 : -1
+      setActive({ hits, index: (activeIndex + step + hits.length) % hits.length })
+    } else if (e.key === 'Enter') {
+      const hit = hits[activeIndex]
+      if (!hit) return
+      e.preventDefault()
+      navigate(hit.to)
+      close()
+    }
+  }
+
+  const trimmed = query.trim()
+  let flatIndex = 0
 
   return (
     <Modal open={open} onClose={close} title="Tìm kiếm" placement="top" className="max-w-[560px]">
@@ -51,9 +95,15 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
           <input
             id="global-search"
             data-autofocus
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={showList}
+            aria-controls={listboxId}
+            aria-activedescendant={activeId}
             autoComplete="off"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={onKeyDown}
             placeholder="Tìm phòng, người chơi, giải đấu..."
             className="h-full min-w-0 flex-1 bg-transparent text-base text-fg outline-none placeholder:text-fg-muted"
           />
@@ -62,44 +112,65 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
       </form>
 
       <div className="mt-4 max-h-[55vh] overflow-y-auto" aria-live="polite">
-        <ListStatus status={search.status} onRetry={search.retry} label="kết quả tìm kiếm" skeleton={<SkeletonRows count={3} />}>
-        {groups.length === 0 ? (
-          <p className="py-8 text-center text-sm text-fg-muted">Không tìm thấy kết quả cho "{query.trim()}".</p>
+        {search.tooShort ? (
+          <p className="py-8 text-center text-sm text-fg-muted">
+            Nhập ít nhất {SEARCH_MIN_LENGTH} ký tự để tìm phòng, giải đấu, người chơi.
+          </p>
         ) : (
-          <>
-            {!query.trim() && <p className="mb-2 text-xs text-fg-muted">Gợi ý</p>}
-            {groups.map((g) => (
-              <Group key={g.title} title={g.title} icon={g.icon}>
-                {g.hits.map((h) => (
-                  <li key={h.key}>
-                    <Link
-                      to={h.to}
-                      onClick={close}
-                      className="flex min-h-11 flex-col justify-center rounded-btn px-3 py-1.5 transition-colors hover:bg-white/5"
-                    >
-                      <span className="text-sm font-medium text-fg">{h.label}</span>
-                      <span className="text-xs text-fg-muted">{h.sub}</span>
-                    </Link>
-                  </li>
-                ))}
-              </Group>
-            ))}
-          </>
+          <ListStatus status={status} onRetry={search.retry} label="kết quả tìm kiếm" skeleton={<SkeletonRows count={3} />}>
+            {groups.length === 0 ? (
+              <p className="py-8 text-center text-sm text-fg-muted">Không tìm thấy kết quả cho "{trimmed}".</p>
+            ) : (
+              <>
+                {!trimmed && <p className="mb-2 text-xs text-fg-muted">Gợi ý</p>}
+                <div id={listboxId} role="listbox" aria-label="Kết quả tìm kiếm">
+                  {groups.map((g, gi) => (
+                    <Group key={g.title} id={`${baseId}-group-${gi}`} title={g.title} icon={g.icon}>
+                      {g.hits.map((h) => {
+                        const index = flatIndex++
+                        const selected = index === activeIndex
+                        return (
+                          <Link
+                            key={h.key}
+                            id={optionId(index)}
+                            role="option"
+                            aria-selected={selected}
+                            tabIndex={-1}
+                            to={h.to}
+                            onClick={close}
+                            onMouseMove={() => {
+                              if (!selected) setActive({ hits, index })
+                            }}
+                            className={cn(
+                              'flex min-h-11 flex-col justify-center rounded-btn px-3 py-1.5 transition-colors hover:bg-white/5',
+                              selected && 'bg-white/5 ring-1 ring-gold/40 ring-inset',
+                            )}
+                          >
+                            <span className="text-sm font-medium text-fg">{h.label}</span>
+                            <span className="text-xs text-fg-muted">{h.sub}</span>
+                          </Link>
+                        )
+                      })}
+                    </Group>
+                  ))}
+                </div>
+              </>
+            )}
+          </ListStatus>
         )}
-        </ListStatus>
       </div>
     </Modal>
   )
 }
 
-function Group({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
+function Group({ id, title, icon, children }: { id: string; title: string; icon: ReactNode; children: ReactNode }) {
   return (
-    <section className="mb-3 last:mb-0" aria-label={title}>
-      <h3 className="mb-1 flex items-center gap-2 px-3 text-xs font-semibold tracking-wide text-gold uppercase">
+    <div role="group" aria-labelledby={id} className="mb-3 last:mb-0">
+      <div id={id} className="mb-1 flex items-center gap-2 px-3 text-xs font-semibold tracking-wide text-gold uppercase">
         <span aria-hidden>{icon}</span>
         {title}
-      </h3>
-      <ul>{children}</ul>
-    </section>
+      </div>
+      <div className="flex flex-col">{children}</div>
+    </div>
   )
 }
