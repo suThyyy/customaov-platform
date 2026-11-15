@@ -39,6 +39,7 @@ import { OrganizerPanel } from '../components/domain/OrganizerPanel'
 import { useToast } from '../context/AppContext'
 import { ListStatus, SkeletonCards, SkeletonRows } from '../components/ui/ListStatus'
 import {
+  DATA_SOURCE,
   TOURNAMENT_STATUS_LABEL,
   useTournament,
   type HookResult,
@@ -668,7 +669,7 @@ function MatchBox({ match, final, onPlay }: { match: BracketMatch; final?: boole
 /* ---------------- Tab Lịch thi đấu / Kết quả ---------------- */
 
 function ScheduleTab({ d }: { d: Detail }) {
-  const groups = groupByDate(scheduleOf(d))
+  const groups = groupByDate(DATA_SOURCE === 'api' ? d.upcoming : scheduleOf(d))
   if (groups.length === 0) {
     return (
       <EmptyState
@@ -696,10 +697,21 @@ function ScheduleTab({ d }: { d: Detail }) {
 }
 
 function ResultsTab({ d }: { d: Detail }) {
-  const results = scheduleOf(d)
-    .filter((m) => m.score)
-    .reverse()
-  const top = podium(d)
+  const results = DATA_SOURCE === 'api'
+    ? d.results
+    : scheduleOf(d)
+        .filter((m) => m.score)
+        .reverse()
+  const mockTop = DATA_SOURCE === 'mock' ? podium(d) : undefined
+  const champion = DATA_SOURCE === 'api' ? d.champion : mockTop?.champion
+  const championshipResult = champion ? results.find((match) => winnerOf(match)?.id === champion.id) : undefined
+  const runnerUp = DATA_SOURCE === 'api'
+    ? championshipResult && champion
+      ? championshipResult.home.id === champion.id
+        ? championshipResult.away
+        : championshipResult.home
+      : undefined
+    : mockTop?.runnerUp
   if (results.length === 0) {
     return (
       <EmptyState
@@ -712,7 +724,7 @@ function ResultsTab({ d }: { d: Detail }) {
   }
   return (
     <div className="flex flex-col gap-6">
-      {top && (
+      {champion && (
         <Card className="flex flex-col gap-4 border-gold/40 p-4 sm:flex-row sm:items-center md:p-6">
           <span aria-hidden className="grid size-14 shrink-0 place-items-center rounded-full bg-gold-tint text-gold">
             <Trophy size={28} />
@@ -720,10 +732,10 @@ function ResultsTab({ d }: { d: Detail }) {
           <div className="min-w-0">
             <p className="text-sm text-gold">Nhà vô địch {d.name}</p>
             <p className="mt-1 flex items-center gap-3 text-2xl font-bold">
-              <TeamLogo team={top.champion} size={32} />
-              {top.champion.name}
+              <TeamLogo team={champion} size={32} />
+              {champion.name}
             </p>
-            <p className="mt-1 text-sm text-fg-muted">Á quân: {top.runnerUp.name}</p>
+            {runnerUp && <p className="mt-1 text-sm text-fg-muted">Á quân: {runnerUp.name}</p>}
           </div>
         </Card>
       )}

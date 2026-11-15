@@ -570,3 +570,9 @@ Xoá 3 file mới; bỏ `<ListStatus>`/`useMockStatus` ở các trang (nội dun
 - Hộp xếp lịch chưa điền sẵn giờ hiện tại, vì API chỉ trả nhãn "dd/mm HH:mm" không có năm.
 - Chưa có lệnh huỷ lịch.
 - Chưa kiểm tra với backend thật: E5-T04b đang review. Mã lỗi `LOCKED`/`MATCH_NOT_READY` của engine được trả dạng `409 CONFLICT` kèm thông điệp, nên UI hiện thông điệp đó.
+
+### Review fix 1 — dùng dữ liệu suy ra từ backend
+- `src/api/map.ts`, `src/api/types.ts`: giữ `champion`, `upcoming`, `results` trong mô hình UI thay vì làm mất nhà vô địch khi ánh xạ response.
+- `src/pages/TournamentDetail.tsx`: chế độ API dùng trực tiếp `upcoming` cho tab Lịch và `results`/`champion` cho tab Kết quả; chế độ mock vẫn dùng `scheduleOf`/`podium` như trước.
+- `src/pages/TournamentDetail.api.test.tsx`, `src/api/map.test.ts`: thêm hồi quy với lịch, kết quả và nhà vô địch backend cố ý khác dữ liệu có thể suy từ bracket.
+- Kiểm tra ở gốc: `npm run build` ✅; `npm run lint` ✅ (0 lỗi, 2 cảnh báo cũ); `npm test` ✅ (team-core 15/15, contracts 89/89, web 73/73, api 109/109).

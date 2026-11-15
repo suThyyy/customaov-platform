@@ -70,7 +70,14 @@ describe('contract → UI maps', () => {
     expect(bye.slots[0]).toEqual({ team, score: null })
     expect(bye.slots[1]).toMatchObject({ placeholder: 'bye', team: { name: 'BYE' }, score: null })
     expect(tbd.slots[0]).toMatchObject({ placeholder: 'tbd', team: { name: 'Chưa xác định' } })
-    expect(mapped).toMatchObject({ series: 'BO3', myRole: 'organizer', registrationDeadlineAt: '2026-11-10T23:59:00+07:00' })
+    expect(mapped).toMatchObject({
+      champion: null,
+      upcoming: [],
+      results: [],
+      series: 'BO3',
+      myRole: 'organizer',
+      registrationDeadlineAt: '2026-11-10T23:59:00+07:00',
+    })
   })
 
   it('giữ số liệu và lịch sử hồ sơ API, đánh dấu dữ liệu game chưa có', () => {

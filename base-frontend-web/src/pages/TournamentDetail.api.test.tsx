@@ -164,6 +164,16 @@ describe('TournamentDetail (chế độ api)', () => {
     expect(within(panel).queryByText('Chưa xác định')).toBeNull()
   })
 
+  it('lịch thi đấu dùng upcoming do API trả thay vì tự suy từ nhánh đấu', async () => {
+    current = detail({
+      upcoming: [{ id: uuid(104), stage: 'Lịch riêng từ backend', time: '18/11 20:00', home: BETA, away: GAMMA }],
+    })
+    renderDetail('schedule')
+    const panel = await screen.findByRole('tabpanel')
+    expect(within(panel).getByText('Lịch riêng từ backend')).toBeTruthy()
+    expect(within(panel).queryByText('Đội Alpha')).toBeNull()
+  })
+
   it('tab kết quả hiện nhà vô địch khi chung kết có tỉ số', async () => {
     current = detail({
       status: 'finished',
@@ -191,6 +201,40 @@ describe('TournamentDetail (chế độ api)', () => {
     renderDetail('results')
     expect(await screen.findByText('Nhà vô địch Cup Test')).toBeTruthy()
     expect(screen.getByText('Á quân: Đội Alpha')).toBeTruthy()
+  })
+
+  it('tab kết quả dùng results/champion của API khi khác dữ liệu suy từ nhánh đấu', async () => {
+    current = detail({
+      status: 'finished',
+      bracket: [
+        {
+          name: 'Chung kết',
+          matches: [
+            {
+              id: FINAL,
+              label: 'Chung kết',
+              time: '20/11 19:00',
+              slots: [
+                { team: ALPHA, score: 2, bye: false },
+                { team: GAMMA, score: 0, bye: false },
+              ],
+            },
+          ],
+        },
+      ],
+      upcoming: [],
+      results: [{ id: uuid(105), stage: 'Chung kết do backend', time: '20/11 20:00', home: BETA, away: GAMMA, score: [2, 1] }],
+      champion: BETA,
+      myRole: null,
+    })
+    renderDetail('results')
+
+    const championLabel = await screen.findByText('Nhà vô địch Cup Test')
+    expect(within(championLabel.parentElement as HTMLElement).getByText('Đội Beta')).toBeTruthy()
+    expect(screen.getByText('Á quân: Đội Gamma')).toBeTruthy()
+    const results = screen.getByRole('heading', { name: /Kết quả các trận/ }).closest('section') as HTMLElement
+    expect(within(results).getByText('Chung kết do backend')).toBeTruthy()
+    expect(within(results).queryByText('Đội Alpha')).toBeNull()
   })
 
   it('BTC thấy bảng điều khiển, người khác thì không', async () => {

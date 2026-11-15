@@ -132,6 +132,7 @@ export const mapTournamentDetail = (detail: ApiTournamentDetail): TournamentDeta
   })),
   upcoming: detail.upcoming,
   results: detail.results,
+  champion: detail.champion,
   series: detail.series,
   myRole: detail.myRole,
   registrationDeadlineAt: detail.registrationDeadline,

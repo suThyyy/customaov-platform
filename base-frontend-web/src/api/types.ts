@@ -24,6 +24,7 @@ import type {
   BracketMatch as MockBracketMatch,
   BracketSlot as MockBracketSlot,
   Room,
+  Team,
   TournamentDetail as MockTournamentDetail,
   UserProfile as MockUserProfile,
 } from '../mocks/types'
@@ -50,6 +51,8 @@ export type TournamentRole = 'organizer' | 'captain' | 'member'
 /** Chi tiết giải. Các field tuỳ chọn chỉ có ở nguồn API (mock không có BTC). */
 export interface TournamentDetail extends Omit<MockTournamentDetail, 'bracket'> {
   bracket: BracketRound[]
+  /** Nhà vô địch do backend suy ra; mock tiếp tục suy từ nhánh đấu. */
+  champion?: Team | null
   series?: Series
   myRole?: TournamentRole | null
   /** Hạn đăng ký dạng ISO (để biết BTC đã đóng đăng ký hay chưa) */
