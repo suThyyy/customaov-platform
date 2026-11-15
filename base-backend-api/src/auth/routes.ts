@@ -41,7 +41,9 @@ function bodyUsername(request: FastifyRequest): string {
   const body = request.body;
   if (typeof body === "object" && body !== null) {
     const username = (body as Record<string, unknown>).username;
-    if (typeof username === "string") return username.trim().toLowerCase();
+    if (typeof username === "string" && username.trim().length > 0) {
+      return username.trim().toLowerCase();
+    }
   }
   return "";
 }
@@ -63,22 +65,33 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDeps): void {
     max: number,
     timeWindow: number,
     key: (request: FastifyRequest) => string,
-    name: string,
-  ) =>
-    app.rateLimit({
+  ) => {
+    const check = app.createRateLimit({
       max,
       timeWindow,
-      keyGenerator: (request) => ``,
+      keyGenerator: key,
     });
+    return async (request: FastifyRequest, reply: FastifyReply) => {
+      const res = await check(request);
+      if (!res.isAllowed && res.isExceeded) {
+        const seconds = Math.ceil(res.ttl / 1000);
+        reply.header("retry-after", seconds);
+        const error = new Error(
+          `Bạn thao tác quá nhanh, thử lại sau ${seconds} giây`,
+        ) as Error & { statusCode: number; code?: string };
+        error.statusCode = 429;
+        error.code = "RATE_LIMITED";
+        throw error;
+      }
+    };
+  };
 
-  const loginIpLimit = rateLimited(5, 60_000, (r) => r.ip, "login-ip:");
-  const loginPairLimit = rateLimited(
-    10,
-    15 * 60_000,
-    (r) => `${r.ip}|${bodyUsername(r)}`,
-    "login-pair:",
-  );
-  const registerLimit = rateLimited(5, 60 * 60_000, (r) => r.ip, "register-ip:");
+  const loginIpLimit = rateLimited(5, 60_000, (r) => `login-ip:${r.ip}`);
+  const loginPairLimit = rateLimited(10, 15 * 60_000, (r) => {
+    const username = bodyUsername(r);
+    return username ? `login-pair:${r.ip}:${username}` : `login-pair:${r.ip}`;
+  });
+  const registerLimit = rateLimited(5, 60 * 60_000, (r) => `register-ip:${r.ip}`);
 
   async function startSession(
     request: FastifyRequest,

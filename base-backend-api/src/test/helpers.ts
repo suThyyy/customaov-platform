@@ -69,12 +69,18 @@ export class TestClient {
   async request(
     method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
     url: string,
-    opts: { payload?: unknown; csrf?: string | null; headers?: Record<string, string> } = {},
+    opts: {
+      payload?: unknown;
+      csrf?: string | null;
+      headers?: Record<string, string>;
+      remoteAddress?: string;
+    } = {},
   ): Promise<LightMyRequestResponse> {
     const csrf = opts.csrf === undefined ? this.cookies.get(CSRF_COOKIE) : opts.csrf;
     const response = await this.app.inject({
       method,
       url,
+      ...(opts.remoteAddress ? { remoteAddress: opts.remoteAddress } : {}),
       headers: {
         ...(this.cookies.size ? { cookie: this.cookieHeader() } : {}),
         ...(csrf ? { [CSRF_HEADER]: csrf } : {}),
@@ -87,22 +93,33 @@ export class TestClient {
   }
 
   /** GET /api/auth/csrf so subsequent writes carry a valid anon token. */
-  async fetchCsrf(): Promise<string> {
-    const res = await this.request("GET", "/api/auth/csrf");
+  async fetchCsrf(opts: { remoteAddress?: string } = {}): Promise<string> {
+    const res = await this.request("GET", "/api/auth/csrf", opts);
     return (res.json() as { csrfToken: string }).csrfToken;
   }
 
-  async register(username: string, password: string, displayName = username) {
-    if (!this.cookies.has(CSRF_COOKIE)) await this.fetchCsrf();
+  async register(
+    username: string,
+    password: string,
+    displayName = username,
+    opts: { remoteAddress?: string } = {},
+  ) {
+    if (!this.cookies.has(CSRF_COOKIE)) await this.fetchCsrf(opts);
     return this.request("POST", "/api/auth/register", {
       payload: { username, password, displayName },
+      ...(opts.remoteAddress ? { remoteAddress: opts.remoteAddress } : {}),
     });
   }
 
-  async login(username: string, password: string) {
-    if (!this.cookies.has(CSRF_COOKIE)) await this.fetchCsrf();
+  async login(
+    username: string,
+    password: string,
+    opts: { remoteAddress?: string } = {},
+  ) {
+    if (!this.cookies.has(CSRF_COOKIE)) await this.fetchCsrf(opts);
     return this.request("POST", "/api/auth/login", {
       payload: { username, password },
+      ...(opts.remoteAddress ? { remoteAddress: opts.remoteAddress } : {}),
     });
   }
 }

@@ -7,7 +7,7 @@ import {
   MeResponseSchema,
 } from "@customaov/contracts";
 import { eq } from "drizzle-orm";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { sessions, users } from "../db/schema.js";
 import { createTestApp, TestClient, type TestApp } from "../test/helpers.js";
@@ -151,12 +151,13 @@ describe("POST /api/auth/login", () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it("rate limits: the 6th attempt within a minute gets 429", async () => {
+  it("rate limits login: cùng IP nhưng username khác vẫn bị giới hạn 5/phút theo IP", async () => {
     const { c } = await setup();
     await c.fetchCsrf();
     const codes: number[] = [];
     for (let i = 0; i < 6; i++) {
       const res = await c.request("POST", "/api/auth/login", {
+        remoteAddress: "192.168.1.100",
         payload: { username: `ghost_${i}`, password: "wrong-password-1" },
       });
       codes.push(res.statusCode);
@@ -165,6 +166,119 @@ describe("POST /api/auth/login", () => {
       }
     }
     expect(codes).toEqual([401, 401, 401, 401, 401, 429]);
+  });
+
+  it("rate limits: 2 IP khác nhau không ảnh hưởng nhau", async () => {
+    const { t, c: c1 } = await setup();
+    await c1.fetchCsrf();
+    // IP A hits 5/min limit on login
+    for (let i = 0; i < 5; i++) {
+      const res = await c1.request("POST", "/api/auth/login", {
+        remoteAddress: "10.0.0.1",
+        payload: { username: `user_a_${i}`, password: "wrong-password-1" },
+      });
+      expect(res.statusCode).toBe(401);
+    }
+    const blockedA = await c1.request("POST", "/api/auth/login", {
+      remoteAddress: "10.0.0.1",
+      payload: { username: "user_a_5", password: "wrong-password-1" },
+    });
+    expect(blockedA.statusCode).toBe(429);
+
+    // IP B is unaffected by IP A's rate limit
+    const c2 = new TestClient(t.app);
+    await c2.fetchCsrf();
+    const allowedB = await c2.request("POST", "/api/auth/login", {
+      remoteAddress: "10.0.0.2",
+      payload: { username: "user_b_0", password: "wrong-password-1" },
+    });
+    expect(allowedB.statusCode).toBe(401);
+  });
+
+  it("rate limits login: cặp IP+username bị khoá sau 10 lần/15 phút", async () => {
+    let fakeNow = 1_700_000_000_000;
+    const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => fakeNow);
+    try {
+      const { c } = await setup();
+      await c.fetchCsrf();
+      const ip = "10.0.0.5";
+      const targetUser = "Target_User";
+
+      // Minute 0: 4 attempts for targetUser from ip (allowed by IP limit: 4 < 5)
+      for (let i = 0; i < 4; i++) {
+        const res = await c.request("POST", "/api/auth/login", {
+          remoteAddress: ip,
+          payload: { username: targetUser, password: "wrong-password-1" },
+        });
+        expect(res.statusCode).toBe(401);
+      }
+
+      // Advance 65s (minute 1): IP limit resets (window 60s), pair limit (15m) continues
+      fakeNow += 65_000;
+      for (let i = 0; i < 4; i++) {
+        const res = await c.request("POST", "/api/auth/login", {
+          remoteAddress: ip,
+          payload: { username: targetUser.toLowerCase(), password: "wrong-password-1" },
+        });
+        expect(res.statusCode).toBe(401);
+      }
+
+      // Advance 65s (minute 2): IP limit resets again
+      fakeNow += 65_000;
+      for (let i = 0; i < 2; i++) {
+        const res = await c.request("POST", "/api/auth/login", {
+          remoteAddress: ip,
+          payload: { username: targetUser, password: "wrong-password-1" },
+        });
+        expect(res.statusCode).toBe(401);
+      }
+
+      // 11th attempt for targetUser from ip: pair limit reached (10 in 15min) -> 429
+      const resPairBlocked = await c.request("POST", "/api/auth/login", {
+        remoteAddress: ip,
+        payload: { username: targetUser, password: "wrong-password-1" },
+      });
+      expect(resPairBlocked.statusCode).toBe(429);
+      expect(Number(resPairBlocked.headers["retry-after"])).toBeGreaterThan(0);
+      expect(ErrorBodySchema.parse(resPairBlocked.json()).error.code).toBe("RATE_LIMITED");
+
+      // But from the same IP, another username has NOT exceeded pair limit (only 3 attempts in minute 2) -> 401
+      const resOtherUser = await c.request("POST", "/api/auth/login", {
+        remoteAddress: ip,
+        payload: { username: "different_user", password: "wrong-password-1" },
+      });
+      expect(resOtherUser.statusCode).toBe(401);
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
+  it("rate limits: login và register dùng bucket riêng dù cùng IP, body sai vẫn tính theo IP", async () => {
+    const { c } = await setup();
+    await c.fetchCsrf();
+    const ip = "10.0.0.99";
+
+    // Exhaust login IP limit (5/min) with invalid/missing username body
+    for (let i = 0; i < 5; i++) {
+      const res = await c.request("POST", "/api/auth/login", {
+        remoteAddress: ip,
+        payload: { password: "wrong-password-1" },
+      });
+      expect(res.statusCode).toBe(400);
+    }
+    const loginBlocked = await c.request("POST", "/api/auth/login", {
+      remoteAddress: ip,
+      payload: { password: "wrong-password-1" },
+    });
+    expect(loginBlocked.statusCode).toBe(429);
+    expect(Number(loginBlocked.headers["retry-after"])).toBeGreaterThan(0);
+    expect(ErrorBodySchema.parse(loginBlocked.json()).error.code).toBe("RATE_LIMITED");
+
+    // Register from the SAME IP is unaffected by login's rate limit
+    const regOk = await c.register("fresh_user", PASSWORD, "Fresh User", {
+      remoteAddress: ip,
+    });
+    expect(regOk.statusCode).toBe(201);
   });
 });
 
