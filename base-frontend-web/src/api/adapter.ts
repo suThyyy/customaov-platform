@@ -27,6 +27,7 @@ export interface TournamentsParams {
   q?: string
   status?: string
   sort?: 'createdAt' | 'deadline'
+  pageSize?: number
 }
 
 export interface SearchResult {

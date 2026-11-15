@@ -70,7 +70,7 @@ export default function HomeUser() {
   // Chế độ api: bảng phòng tự gọi `GET /api/rooms` (phân trang ở server); ở đây chỉ cần "phòng của bạn" (`mine=1`)
   const roomLoad = useRooms(isApi ? { mine: true } : {})
   const activityLoad = useActivities(RECENT_ACTIVITIES)
-  const tournamentLoad = useTournaments()
+  const tournamentLoad = useTournaments(isApi ? { status: 'open', sort: 'deadline', pageSize: 1 } : {})
   const rooms = roomLoad.data
   const activities = activityLoad.data.items
   const featuredTournament = tournamentLoad.data[0]
@@ -186,12 +186,29 @@ export default function HomeUser() {
             </ListStatus>
           </Card>
 
-          {featuredTournament && (
-            <TournamentPromoCard
-              tournament={featuredTournament}
-              onOpen={() => navigate(`/tournaments/${featuredTournament.slug}`)}
-              onRegister={() => comingSoon(`Đăng ký giải ${featuredTournament.name}`)}
-            />
+          {tournamentLoad.status !== 'ready' ? (
+            <Card className="p-4">
+              <SectionTitle className="px-1" size="md" icon={<Trophy size={22} />} title="Giải đấu cộng đồng nổi bật" />
+              <ListStatus
+                status={tournamentLoad.status}
+                onRetry={tournamentLoad.retry}
+                label="giải đấu nổi bật"
+                className="mt-3"
+                skeleton={<SkeletonRows count={2} />}
+              >
+                {null}
+              </ListStatus>
+            </Card>
+          ) : (
+            featuredTournament && (
+              <TournamentPromoCard
+                tournament={featuredTournament}
+                onOpen={() => navigate(`/tournaments/${featuredTournament.slug}`)}
+                onRegister={() =>
+                  isApi ? navigate(`/tournaments/${featuredTournament.slug}`) : comingSoon(`Đăng ký giải ${featuredTournament.name}`)
+                }
+              />
+            )
           )}
 
           <Card className="p-4">

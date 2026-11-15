@@ -698,3 +698,20 @@ Chỉ đổi hành vi ở chế độ `api` (`VITE_DATA_SOURCE=api`). Chế đ�
 - `src/pages/TournamentDetail.tsx`: chế độ API dùng trực tiếp `upcoming` cho tab Lịch và `results`/`champion` cho tab Kết quả; chế độ mock vẫn dùng `scheduleOf`/`podium` như trước.
 - `src/pages/TournamentDetail.api.test.tsx`, `src/api/map.test.ts`: thêm hồi quy với lịch, kết quả và nhà vô địch backend cố ý khác dữ liệu có thể suy từ bracket.
 - Kiểm tra ở gốc: `npm run build` ✅; `npm run lint` ✅ (0 lỗi, 2 cảnh báo cũ); `npm test` ✅ (team-core 15/15, contracts 89/89, web 73/73, api 109/109).
+
+---
+
+## E6-T03 — Nối dashboard: promo giải đang mở, "Phòng của bạn", hoạt động (15/11/2026)
+
+### File đã sửa
+- `base-frontend-web/src/api/adapter.ts`, `base-frontend-web/src/api/http.ts`: `TournamentsParams` thêm `pageSize?: number` (mặc định `50` ở `httpAdapter.tournaments`).
+- `base-frontend-web/src/pages/HomeUser.tsx`:
+  - Promo chế độ `api` gọi `useTournaments({ status: 'open', sort: 'deadline', pageSize: 1 })` (`GET /api/tournaments?status=open&sort=deadline&pageSize=1`), ẩn khối khi không có giải mở đăng ký, bọc `ListStatus` riêng khi `loading`/`error` để lỗi một khối không làm hỏng cả trang; nút "Đăng ký ngay" điều hướng tới `/tournaments/:slug` ở chế độ `api`.
+  - Giữ nguyên khối `#rooms` (E4-T04), "Phòng bạn đang tham gia" (`GET /api/rooms?mine=1`, `ListStatus` riêng), "Hoạt động gần đây" (E6-T01), đúng 1 nút vàng đặc và bố cục grid ≥ 1024; chế độ `mock` giữ nguyên.
+- `base-frontend-web/src/pages/HomeUser.api.test.tsx`: thêm 4 test chế độ `api` (có promo + tiến độ + điều hướng; ẩn khối khi không có promo; "Phòng bạn đang tham gia" với `mine=1` + empty state; cô lập lỗi từng khối kèm "Thử lại").
+
+### Cách hoàn tác
+`git revert` commit của task E6-T03.
+
+### Còn tồn
+- Chưa kiểm thử end-to-end với backend thật cho toàn bộ dashboard (đã kiểm thử bằng `fetch` giả theo contracts).
