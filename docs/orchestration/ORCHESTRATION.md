@@ -109,11 +109,11 @@ pending ─► ready ─► coder ─► worker_done ─► reviewer (khác hãn
 - Lead làm việc ở checkout gốc, nhánh **`orch/lead`** (chứa `docs/orchestration/` và `docs/product/`). Lead merge `orch/lead` vào `integration/mvp` khi một tài liệu được duyệt và ở cuối mỗi epic.
 - Reviewer dùng chính worktree của coder (không sửa file).
 
-Lead tạo worktree bằng Orca để **chốt đúng tên nhánh**, vì `worker-start` không có cờ đặt tên nhánh:
+Lead tạo worktree **bên trong repo** (hàng rào: không đọc/ghi ngoài `base-workspace`; xem DECISIONS.md), sau đó Orca nhận nó qua selector `path:`:
 
 ```bash
-orca worktree create --name <id>-<slug> --branch task/<id>-<slug> --base-branch integration/mvp \
-  --parent-worktree active --setup skip --json
+git worktree add .worktrees/<id>-<slug> -b task/<id>-<slug> integration/mvp
+# selector cho Orca: --worktree path:D:/CustomAOV/base-workspace/.worktrees/<id>-<slug>
 ```
 
 ### 4.2. Lệnh điều phối (Lead)
@@ -125,7 +125,7 @@ orca orchestration task-create --spec-file docs/orchestration/tasks/<id>.md \
 orca orchestration task-list --ready --brief       # mỗi lần được đánh thức
 
 # Worker agent native (Antigravity, Claude)
-orca orchestration worker-start --task <task_id> --worktree branch:task/<id>-<slug> \
+orca orchestration worker-start --task <task_id> --worktree $W \
   --agent antigravity --model <model_id>
 
 # Review: task riêng, phụ thuộc task code, cùng worktree
@@ -145,20 +145,21 @@ git merge --no-ff task/<id>-<slug>    # trên nhánh integration/mvp
 - Cuối mỗi lần thức: ghi và commit `STATE.md`.
 - PowerShell: JSON trong nháy đơn (`'["…"]'`), nhóm địa chỉ trong nháy (`"@all"`).
 
-### 4.3. Codex và Copilot qua terminal tự tạo
+### 4.3. Launch worker (mọi agent, chế độ tự duyệt trong worktree)
 
-Orca không có cờ để truyền `-c service_tier` cho Codex, và không có agent id `copilot`. Hai agent này chạy theo cách *low-level topology* của Orca:
+`--agent` của Orca không cho truyền cờ tự duyệt hay `service_tier`, và không có agent id `copilot`. Vì vậy **mọi worker** chạy theo cách *low-level topology*. `W` = `path:D:/CustomAOV/base-workspace/.worktrees/<id>-<slug>`.
 
 ```bash
-# Codex: gpt-5.6-sol, medium, tắt priority chỉ cho phiên này (không sửa ~/.codex/config.toml)
-orca terminal create --worktree branch:task/<id>-<slug> --title "<id> codex" \
-  --command "codex -m gpt-5.6-sol -c model_reasoning_effort=medium -c service_tier=default" --json
-# Copilot
-orca terminal create --worktree branch:task/<id>-<slug> --title "<id> copilot" \
-  --command "copilot --model auto" --json
+# Codex: gpt-5.6-sol medium, tắt priority, tự duyệt, chỉ ghi trong worktree (không sửa ~/.codex/config.toml)
+orca terminal create --worktree $W --title "<id> codex" --command \
+  "codex -m gpt-5.6-sol -c model_reasoning_effort=medium -c service_tier=default -a never -s workspace-write -c sandbox_workspace_write.network_access=true" --json
+# Antigravity
+orca terminal create --worktree $W --title "<id> agy" --command "agy --model <model_id> --dangerously-skip-permissions" --json
+# Copilot (≤ 20 lượt tới khi Owner quay lại; chỉ khi agent cùng bậc khác không khả dụng)
+orca terminal create --worktree $W --title "<id> copilot" --command "copilot --model auto --allow-all-tools" --json
 
 orca terminal wait --terminal <handle> --for tui-idle --timeout-ms 60000 --json
-orca orchestration worker-start --task <task_id> --terminal <handle> --worktree branch:task/<id>-<slug>
+orca orchestration worker-start --task <task_id> --terminal <handle> --worktree $W
 ```
 
 - `service_tier=default` đã thử: Codex chấp nhận. Giá trị lạ thì Codex cảnh báo *"not advertised… will be omitted"*.
@@ -170,7 +171,7 @@ orca orchestration worker-start --task <task_id> --terminal <handle> --worktree 
 2. `npm ci` ở gốc worktree (theo `package-lock.json`, không thêm thư viện).
 3. Chỉ sửa file trong mục "Được sửa". Cần sửa ngoài phạm vi thì `ask`.
 4. **Commit WIP sau mỗi bước có nghĩa** (`wip(<id>): …`).
-5. Dev server dùng cổng riêng **`5200 + nn`** (vd. task T03 → `npx vite --port 5203` trong `base-frontend-web`), rồi truyền baseUrl cho script. Không dùng 5173/5174.
+5. Dev server và e2e dùng **cổng Lead cấp trong spec** (5175, 5176…; vd. `npx vite --port 5175` trong `base-frontend-web`), rồi truyền baseUrl cho script. Backend (nếu có) dùng cổng spec + 1000 (vd. 6175). Không dùng 5173/5174.
 6. Xong thì gửi `worker_done` (`--outcome succeeded|failed`) kèm bằng chứng: tóm tắt, commit cuối, đầu ra rút gọn của lệnh verify.
 
 ---
@@ -248,9 +249,9 @@ Dấu hiệu: `escalation` có `stopReason`, `exited`/`lost`, hoặc `worker-rea
 4. Giao lại **cùng Task, cùng worktree, cùng nhánh** cho model cùng bậc ở agent khác:
    ```bash
    orca orchestration worker-start --task <task_id> --retry-of <d> \
-     --worktree branch:task/<id>-<slug> --agent <agent> --model <model>
+     --worktree $W --agent <agent> --model <model>
    # hoặc với Codex/Copilot: tạo terminal như 4.3 rồi
-   orca orchestration worker-start --task <task_id> --retry-of <d> --terminal <handle> --worktree branch:task/<id>-<slug>
+   orca orchestration worker-start --task <task_id> --retry-of <d> --terminal <handle> --worktree $W
    ```
    Thư đầu cho worker mới: "Đọc `tasks/<id>.md`, mục *Tiến độ hiện tại*, và `git log`; làm tiếp, không làm lại."
 5. Kiểm lại reviewer theo hãng của coder mới.
@@ -286,7 +287,10 @@ Dấu hiệu: `escalation` có `stopReason`, `exited`/`lost`, hoặc `worker-rea
 
 ## 8. Điểm bắt buộc dừng hỏi Owner
 
-Lead (hoặc Lead dự phòng) **dừng, mở gate và hỏi Owner trong chat** trước khi:
+> **Từ 15/11/2026 Owner trao toàn quyền** (DECISIONS.md): Lead tự quyết cả 7 mục dưới đây, trừ mục 6 (chi phí). Mỗi quyết định ghi vào `DECISIONS.md`. Hàng rào cứng trong DECISIONS.md vẫn giữ nguyên.
+> **Điều kiện merge vào `main`:** reviewer khác hãng duyệt, và build/lint/test/e2e/screenshot đều pass. Trước khi merge: `git tag epic-<n>-before main`, rồi `git merge --no-ff integration/mvp` trên `main`.
+
+Danh sách gốc (lúc Owner còn duyệt từng mục) — Lead (hoặc Lead dự phòng) **dừng, mở gate và hỏi Owner trong chat** trước khi:
 
 1. Duyệt PRD/roadmap (đã gộp vào lần dừng 15/11; PRD/ROADMAP sửa lớn thì hỏi lại).
 2. Đổi phạm vi: thêm/bớt route, tính năng, epic; đổi tiêu chí đã duyệt.

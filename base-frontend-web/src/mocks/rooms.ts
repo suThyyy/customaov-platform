@@ -24,10 +24,14 @@ const fullRed: RoomMember[] = [
   m(players.nanm, 'SP'),
 ]
 
+/** Người chơi mẫu thứ 10, chỉ dùng ở phòng khác AOV-1024 (không thêm vào `players` để không đổi danh sách chung) */
+const extraPlayer: RoomMember['player'] = { id: 'dungn', name: 'DungN', avatar: asset('av-dungn.png') }
+
 /** Lấy n người đầu (xen kẽ 2 đội) để mô phỏng phòng chưa đủ người */
 function partial(count: number, host: RoomMember['player']): Room['teams'] {
   // Loại cả suthy (người dùng hiện tại): suthy chỉ ở phòng AOV-1024, không thể đồng thời ở nhiều phòng
-  const pool = [...fullBlue, ...fullRed].filter((x) => x.player.id !== host.id && x.player.id !== players.suthy.id)
+  // dungn: người thứ 10 để phòng không có suthy vẫn đủ 5v5
+  const pool = [...fullBlue, ...fullRed, m(extraPlayer, 'SP')].filter((x) => x.player.id !== host.id && x.player.id !== players.suthy.id)
   const hostMember = m(host, 'MID', { captain: true })
   const members = [hostMember, ...pool].slice(0, count)
   return {
@@ -36,7 +40,7 @@ function partial(count: number, host: RoomMember['player']): Room['teams'] {
   }
 }
 
-export const rooms: Room[] = [
+const roomDefs: Omit<Room, 'playerCount'>[] = [
   {
     id: 'AOV-1024',
     title: 'Kèo giao hữu',
@@ -45,7 +49,6 @@ export const rooms: Room[] = [
     host: players.suthy,
     modeLabel: '5v5 · Custom',
     visibility: 'private',
-    playerCount: 10,
     capacity: 10,
     status: 'waiting',
     teams: { blue: fullBlue, red: fullRed },
@@ -57,7 +60,6 @@ export const rooms: Room[] = [
     host: players.hieukm,
     modeLabel: '5v5 · Căng',
     visibility: 'public',
-    playerCount: 10,
     capacity: 10,
     status: 'live',
     teams: partial(10, players.hieukm),
@@ -69,7 +71,6 @@ export const rooms: Room[] = [
     host: players.rika,
     modeLabel: '5v5 · Vui',
     visibility: 'public',
-    playerCount: 6,
     capacity: 10,
     status: 'waiting',
     teams: partial(6, players.rika),
@@ -81,7 +82,6 @@ export const rooms: Room[] = [
     host: players.long2k,
     modeLabel: '5v5 · Custom',
     visibility: 'public',
-    playerCount: 10,
     capacity: 10,
     status: 'live',
     teams: partial(10, players.long2k),
@@ -93,12 +93,14 @@ export const rooms: Room[] = [
     host: players.phuct,
     modeLabel: '5v5 · Căng',
     visibility: 'private',
-    playerCount: 9,
     capacity: 10,
     status: 'waiting',
     teams: partial(9, players.phuct),
   },
 ]
+
+/** playerCount suy ra từ teams (không gõ tay) để dashboard và trang phòng luôn khớp */
+export const rooms: Room[] = roomDefs.map((r) => ({ ...r, playerCount: r.teams.blue.length + r.teams.red.length }))
 
 export const roomFullTitle = (r: Room): string => (r.highlight ? `${r.title} – ${r.highlight}` : r.title)
 

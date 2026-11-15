@@ -260,7 +260,7 @@ export default function CreateRoom() {
                 <FieldRow icon={SquarePen} label="Tên phòng" required htmlFor={`${uid}-name`}>
                   <div
                     className={cn(
-                      'flex h-10 items-center rounded-btn border bg-black/25 px-4 transition-colors focus-within:border-gold/70',
+                      'flex h-10 items-center gap-3 rounded-btn border bg-black/25 px-4 transition-colors focus-within:border-gold/70',
                       nameError ? 'border-danger' : 'border-line-strong',
                     )}
                   >
@@ -277,7 +277,7 @@ export default function CreateRoom() {
                       }}
                       className="h-full min-w-0 flex-1 bg-transparent text-base outline-none"
                     />
-                    <span className="text-sm text-fg-muted tabular" aria-live="polite">
+                    <span className="shrink-0 text-sm text-fg-muted tabular" aria-live="polite">
                       {name.length}/{NAME_MAX}
                     </span>
                   </div>

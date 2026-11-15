@@ -40,7 +40,7 @@ export function SectionTitle({
     <div className={cn('flex items-center justify-between gap-4', className)}>
       <Tag
         className={cn(
-          'flex items-center gap-3 font-semibold text-fg',
+          'flex min-w-0 items-center gap-3 font-semibold text-fg',
           // lg/md: tiêu đề section (20px); sm: tiêu đề card nhỏ (16px)
           (size === 'lg' || size === 'md') && 'text-lg',
           size === 'sm' && 'text-base',
@@ -71,7 +71,7 @@ export function SeeAllLink({
   className?: string
 }) {
   const cls = cn(
-    'group inline-flex items-center gap-1.5 rounded-btn text-sm font-semibold text-gold transition-colors hover:text-gold-300',
+    'group inline-flex shrink-0 items-center gap-1.5 rounded-btn text-sm font-semibold whitespace-nowrap text-gold transition-colors hover:text-gold-300',
     className,
   )
   const inner = (
