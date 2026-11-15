@@ -9,6 +9,7 @@ import { ZodError } from "zod";
 
 import { registerAuthPlugin } from "./auth/plugin.js";
 import { registerAuthRoutes } from "./auth/routes.js";
+import { registerUserRoutes } from "./routes/users.js";
 import { loadConfig, type AppConfig } from "./config.js";
 import type { DbClient } from "./db/client.js";
 
@@ -121,6 +122,7 @@ export function buildApp(opts: BuildAppOptions = {}): FastifyInstance {
     registerAuthPlugin(app, deps);
     app.register(async (instance) => {
       registerAuthRoutes(instance, deps);
+      registerUserRoutes(instance, deps);
     });
   }
 
