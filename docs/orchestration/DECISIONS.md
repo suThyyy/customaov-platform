@@ -49,3 +49,7 @@
   - E3-T05 review → agy hydrogen-medium;
   - E4-T03 → agy hydrogen-high.
   - Task về sau: B2 = Codex hoặc hydrogen-medium, B3 = hydrogen-high. Reviewer luôn khác hãng: Codex hoặc Lead cho code Gemini; hydrogen hoặc Lead cho code Codex.
+- 15/11 15:40 · Lead · Duyệt câu hỏi của worker E4-T03:
+  - (1) Sửa `WsServerMessageSchema` trong contracts: `error.room` thành optional; `room.updated.room` là union RoomDetail | RoomRestricted.
+  - (2) Thêm hook `onRoomKicked` vào `RoomRoutesDeps`.
+  - Lý do: cần để làm đúng API.md 9.1 (bản restricted theo người nhận) và gửi `room.kicked` riêng. Đã ghi vào API.md mục 9.5b.
