@@ -14,6 +14,7 @@ import {
   users,
 } from "../db/schema.js";
 import { createLoggedInClient, createSeededTestApp, TestClient, type TestApp } from "../test/helpers.js";
+import { createTournament, TournamentServiceError } from "../services/tournaments.js";
 
 const apps: TestApp[] = [];
 
@@ -303,6 +304,101 @@ describe("POST/PATCH /api/tournaments", () => {
       slugs.push((res.json() as { slug: string }).slug);
     }
     expect(slugs).toEqual(["cup-dem-he", "cup-dem-he-2", "cup-dem-he-3"]);
+  });
+
+  it("handles concurrent POSTs with the same name and assigns unique -2/-3 suffixes", async () => {
+    const { testApp } = await setupSeeded();
+    const { client } = await createLoggedInClient(testApp.app, "btc1");
+    const responses = await Promise.all(
+      [0, 1, 2].map(() => client.request("POST", "/api/tournaments", { payload: NEW_BODY })),
+    );
+    for (const res of responses) {
+      expect(res.statusCode).toBe(201);
+    }
+    const slugs = responses.map((r) => TournamentDetailSchema.parse(r.json()).slug).sort();
+    expect(slugs).toEqual(["cup-dem-he", "cup-dem-he-2", "cup-dem-he-3"]);
+  });
+
+  it("retries on 23505 tournaments_slug_unique, returns 409 after 10 attempts, and rethrows other 23505", async () => {
+    const { testApp } = await setupSeeded();
+    const { userId } = await createLoggedInClient(testApp.app, "btc1");
+    const body = { ...NEW_BODY, series: "BO3" as const, teamCount: 8 as const };
+    const now = new Date("2026-11-15T10:00:00.000Z");
+
+    // 1. Simulate a real PGlite 23505 race on tournaments_slug_unique during the first attempt.
+    let intercepted = false;
+    const racingDb = new Proxy(testApp.db, {
+      get(target, prop, receiver) {
+        if (prop === "transaction") {
+          return async (fn: (tx: unknown) => Promise<unknown>) =>
+            target.transaction(async (tx) => {
+              const wrappedTx = new Proxy(tx, {
+                get(txTarget, txProp, txReceiver) {
+                  if (txProp === "insert" && !intercepted) {
+                    intercepted = true;
+                    return (table: unknown) => {
+                      const builder = txTarget.insert(table as typeof tournaments);
+                      const origValues = builder.values.bind(builder);
+                      return {
+                        values: async (vals: unknown) => {
+                          await origValues({
+                            ...(vals as typeof tournaments.$inferInsert),
+                            slug: "cup-dem-he",
+                          });
+                          return origValues(vals as typeof tournaments.$inferInsert);
+                        },
+                      };
+                    };
+                  }
+                  return Reflect.get(txTarget, txProp, txReceiver);
+                },
+              });
+              return fn(wrappedTx);
+            });
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+    });
+
+    const created = await createTournament(racingDb, body, { id: userId }, now);
+    expect(intercepted).toBe(true);
+    expect(created.slug).toBe("cup-dem-he");
+
+    // 2. Exhausting all 10 attempts on tournaments_slug_unique throws 409 CONFLICT.
+    let slugAttempts = 0;
+    const exhaustedDb = {
+      transaction: async () => {
+        slugAttempts += 1;
+        const err = new Error("duplicate key") as Error & { cause?: unknown };
+        err.cause = { code: "23505", constraint: "tournaments_slug_unique" };
+        throw err;
+      },
+    } as unknown as typeof testApp.db;
+
+    await expect(
+      createTournament(exhaustedDb, body, { id: userId }, now),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      code: "CONFLICT",
+    });
+    expect(slugAttempts).toBe(10);
+    expect(TournamentServiceError).toBeDefined();
+
+    // 3. Other 23505 unique constraints are rethrown immediately without retrying.
+    let otherAttempts = 0;
+    const otherUniqueDb = {
+      transaction: async () => {
+        otherAttempts += 1;
+        const err = new Error("other unique") as Error & { cause?: unknown };
+        err.cause = { code: "23505", constraint: "some_other_unique" };
+        throw err;
+      },
+    } as unknown as typeof testApp.db;
+
+    await expect(
+      createTournament(otherUniqueDb, body, { id: userId }, now),
+    ).rejects.toThrow("other unique");
+    expect(otherAttempts).toBe(1);
   });
 
   it("returns 401 when not logged in", async () => {

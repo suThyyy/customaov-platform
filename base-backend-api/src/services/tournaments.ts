@@ -29,6 +29,31 @@ import { derive, type MatchNode } from "./bracket/index.js";
 
 const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
 const HERO_TOURNAMENT_IMAGE = "/mock-assets/hero-tournament.jpg";
+const SLUG_UNIQUE_CONSTRAINT = "tournaments_slug_unique";
+const MAX_SLUG_ATTEMPTS = 10;
+
+function extractPgConstraint(err: unknown): {
+  code?: string;
+  constraint?: string | undefined;
+} {
+  let current: unknown = err;
+  for (let i = 0; i < 4 && typeof current === "object" && current !== null; i += 1) {
+    const rec = current as Record<string, unknown>;
+    if (typeof rec.code === "string") {
+      return {
+        code: rec.code,
+        constraint: typeof rec.constraint === "string" ? rec.constraint : undefined,
+      };
+    }
+    current = rec.cause;
+  }
+  return {};
+}
+
+function isUniqueViolation(err: unknown, constraint: string): boolean {
+  const info = extractPgConstraint(err);
+  return info.code === "23505" && info.constraint === constraint;
+}
 
 function toVnParts(date: Date): {
   dd: string;
@@ -487,28 +512,47 @@ export async function createTournament(
   assertDateOrder(dates);
   const base = slugifyTournamentName(body.name);
 
-  const slug = await db.transaction(async (tx) => {
-    const finalSlug = await uniqueSlug(tx, base);
-    await tx.insert(tournaments).values({
-      slug: finalSlug,
-      name: body.name,
-      titleAccent: body.titleAccent ?? null,
-      description: body.description,
-      intro: body.intro,
-      organizerId: user.id,
-      status: "open",
-      teamCount: body.teamCount,
-      series: body.series,
-      cover: body.cover,
-      ...dates,
-      rules: body.rules,
-      prizes: body.prizes,
-      championTeamId: null,
-      searchText: normalizeVi(`${body.name} ${body.description}`),
-      createdAt: now,
-    });
-    return finalSlug;
-  });
+  let slug: string | null = null;
+  for (let attempt = 0; attempt < MAX_SLUG_ATTEMPTS; attempt += 1) {
+    try {
+      slug = await db.transaction(async (tx) => {
+        const finalSlug = await uniqueSlug(tx, base);
+        await tx.insert(tournaments).values({
+          slug: finalSlug,
+          name: body.name,
+          titleAccent: body.titleAccent ?? null,
+          description: body.description,
+          intro: body.intro,
+          organizerId: user.id,
+          status: "open",
+          teamCount: body.teamCount,
+          series: body.series,
+          cover: body.cover,
+          ...dates,
+          rules: body.rules,
+          prizes: body.prizes,
+          championTeamId: null,
+          searchText: normalizeVi(`${body.name} ${body.description}`),
+          createdAt: now,
+        });
+        return finalSlug;
+      });
+      break;
+    } catch (err) {
+      if (isUniqueViolation(err, SLUG_UNIQUE_CONSTRAINT)) {
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  if (slug === null) {
+    throw new TournamentServiceError(
+      409,
+      "CONFLICT",
+      "Không thể tạo đường dẫn giải đấu duy nhất, vui lòng thử lại",
+    );
+  }
 
   const detail = await getTournamentBySlug(db, slug, user.id);
   if (!detail) {
