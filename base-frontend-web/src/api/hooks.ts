@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMockStatus } from '../lib/mockStatus'
 import type { RoomsParams, SearchResult, TournamentsParams } from './adapter'
+import { endpoints } from './endpoints'
 import { httpAdapter } from './http'
 import {
   mockAdapter,
@@ -14,7 +15,7 @@ import {
   readMockTournaments,
 } from './mock'
 import { DATA_SOURCE } from './source'
-import type { Activity, ChatMessage, Room, Tournament, TournamentDetail, UserProfile } from './types'
+import type { Activity, ChatMessage, Registration, Room, Tournament, TournamentDetail, UserProfile } from './types'
 
 const adapter = DATA_SOURCE === 'api' ? httpAdapter : mockAdapter
 const cache = new Map<string, unknown>()
@@ -26,6 +27,11 @@ export interface HookResult<T> {
   data: T
   error?: Error
   retry: () => void
+  /**
+   * Tải lại ngầm (không về trạng thái loading, không gỡ nội dung đang hiện). Dùng sau thao tác ghi
+   * để cập nhật số liệu mà không mất state của trang (hộp thoại, tab…). Lỗi được ném ra cho nơi gọi.
+   */
+  refresh: () => Promise<void>
 }
 
 export function useResource<T>(
@@ -38,7 +44,7 @@ export function useResource<T>(
   const loadRef = useRef(load)
   loadRef.current = load
   const [attempt, setAttempt] = useState(0)
-  const [state, setState] = useState<Omit<HookResult<T>, 'retry'>>(() =>
+  const [state, setState] = useState<Omit<HookResult<T>, 'retry' | 'refresh'>>(() =>
     cache.has(key)
       ? { status: 'ready', data: cache.get(key) as T }
       : { status: readyImmediately ? mockStatus.status : 'loading', data: fallback },
@@ -75,7 +81,13 @@ export function useResource<T>(
     setAttempt((value) => value + 1)
   }, [key, mockStatus])
 
-  return { ...state, retry }
+  const refresh = useCallback(async () => {
+    const data = await loadRef.current(new AbortController().signal)
+    cache.set(key, data)
+    setState({ status: 'ready', data })
+  }, [key])
+
+  return { ...state, retry, refresh }
 }
 
 const stableKey = (name: string, params?: object) => `${DATA_SOURCE}:${name}:${params ? JSON.stringify(params) : ''}`
@@ -113,6 +125,10 @@ export const useTournament = (slug: string | undefined): HookResult<TournamentDe
     (signal) => slug ? adapter.tournament(slug, signal) : Promise.resolve(undefined),
     DATA_SOURCE === 'mock',
   )
+
+/** Đơn đăng ký của giải (chỉ BTC, chỉ chế độ api). */
+export const useRegistrations = (slug: string): HookResult<Registration[]> =>
+  useResource(stableKey('registrations', { slug }), [], (signal) => endpoints.registrations(slug, signal))
 
 export const useProfile = (username?: string): HookResult<UserProfile | undefined> =>
   useResource(stableKey('profile', { username }), DATA_SOURCE === 'mock' ? readMockProfile(username) : undefined, (signal) => adapter.profile(username, signal), DATA_SOURCE === 'mock')
