@@ -156,3 +156,52 @@ Migration đặt ở `database/migrations/` (drizzle-kit generate). Seed (`base-
 - `VITE_DATA_SOURCE=mock|api` (mặc định `mock`). Adapter `api` dùng `fetch` với `credentials: 'include'`, tự gắn `X-CSRF-Token` từ cookie `csrf` cho request ghi.
 - Dev: Vite proxy `/api` (kể cả WebSocket) → `http://127.0.0.1:<API_PORT>`. Dùng cùng origin nên không cần CORS.
 - Kiểu dữ liệu dùng từ `@customaov/contracts`. Lớp ánh xạ sang kiểu UI hiện có đặt ở `src/api/map.ts`, để các component đổi ít nhất có thể.
+
+## 9. Bổ sung sau review chéo (15/11, review E2-T03 của agy gemini-4-hydrogen-medium)
+
+Mục này **ghi đè** các mục trên nếu mâu thuẫn. Contracts cập nhật ở **E3-T01** (`contracts` đổi theo mục 9.1, 9.3, 9.6). Schema DB đổi ở **E3-T01** bằng migration mới (mục 9.2).
+
+### 9.1. Phòng riêng tư
+- `GET /api/rooms/:code` với phòng `private`, khi người gọi **không** phải thành viên và **không** có `?key` đúng → trả `RoomSummary & {restricted: true}`. Không có `teams`, `spectators`, `config`, `lastSplit`, chat. Có `key` đúng hoặc là thành viên → `RoomDetail & {restricted: false}`.
+- `GET/POST /messages`: chỉ thành viên (key chỉ cho **xem** đội, không cho đọc chat).
+- `join_key`: 16 byte ngẫu nhiên base64url (không đoán được). Chỉ host thấy, qua `RoomDetail.shareUrl`. `POST /join` giới hạn 10 lần/phút/người.
+- WS `subscribe` áp **cùng luật** với GET: `{"type":"subscribe","room":code,"key"?}`. Không đủ quyền → server gửi `{"type":"error","code":"FORBIDDEN","room":code}` và không đăng ký.
+
+### 9.2. Đồng thời và ràng buộc (đổi schema)
+- `join`, `leave`, `move`, `kick`, `split`, `result`, `registrations` (tạo/duyệt), `draw`, `score` chạy trong **transaction**, khoá hàng phòng/giải bằng `SELECT … FOR UPDATE` (Postgres). PGlite chạy tuần tự trên một kết nối nên tự an toàn.
+- `room_members` thêm `active boolean not null default true`. Rời phòng, bị kick, hoặc phòng `finished` → `active=false`. Partial unique index `(user_id) WHERE role='player' AND active` để mỗi người chỉ là người chơi ở 1 phòng đang mở.
+- `tournament_team_members` thêm `active boolean not null default true`. Đội `rejected`/`withdrawn` → `active=false`. Bỏ unique `(tournament_id, user_id)`, thay bằng partial unique index `(tournament_id, user_id) WHERE active`.
+- Duyệt đội: chỉ khi giải `open` và số đội `approved` < `teamCount` (kiểm trong transaction), nếu không → 409.
+
+### 9.3. Bye và trận chưa có đội (TBD)
+- `BracketSlot = {team: Team | null, score: number | null, bye: boolean}`. `team=null, bye=false` = chưa xác định (TBD).
+- Bốc thăm: xáo trộn đội, `P` = luỹ thừa 2 nhỏ nhất ≥ n, số bye `b = P − n`.
+  - Bye đặt ở **slot B** của các trận vòng 1, xen kẽ nửa trên/nửa dưới nhánh (trận 0, P/2−1, 1, P/2−2, …), nên không có trận nào 2 bye.
+  - Trận có bye tự xong: đội có mặt vào vòng sau.
+  - Trận bye **không** có trong `upcoming`/`results`; nhánh hiển thị "BYE".
+- `ScheduledMatch` chỉ gồm trận đủ 2 đội. Không có `scheduled_at` → `time` = "Chưa xếp lịch".
+- Nhập tỉ số cho trận thiếu đội → 409.
+
+### 9.4. Chặn theo trạng thái và quyền
+- `kick` chính mình → 400 (dùng `leave`).
+- Mọi thao tác ghi trên phòng `finished` → 409.
+- `result`: chỉ khi đủ 10 người chơi và chưa có kết quả. Gọi lần 2 → 409.
+- `PATCH /tournaments/:slug` kiểm thứ tự ngày sau khi gộp với dữ liệu hiện có.
+
+### 9.5. CSRF, rate limit, WebSocket
+- CSRF **ký và gắn phiên**: giá trị = `nonce.HMAC_SHA256(CSRF_SECRET, nonce + ":" + (sessionIdHash ?? "anon"))`.
+  - Server kiểm: header = cookie, chữ ký đúng với phiên hiện tại.
+  - Đăng nhập/đăng xuất → cấp cookie `csrf` mới. Cookie `csrf` có `Secure` ở production.
+  - `CSRF_SECRET` lấy từ env (bắt buộc ở production; dev sinh ngẫu nhiên lúc khởi động).
+- `GET /api/auth/me` tự đặt cookie `csrf` nếu chưa có.
+- Rate limit (thay mục 2):
+  - login: 5/phút theo IP **và** 10/15 phút theo cặp IP+username;
+  - register: 5/giờ theo IP;
+  - chat và join như trên.
+- WS: production **từ chối khi thiếu `Origin`** hoặc Origin không thuộc `ALLOWED_ORIGINS`. Tối đa 5 kết nối/IP cho khách, 20 phòng subscribe/kết nối.
+- Kiểm tra sẵn sàng: `GET /health` (đã có).
+
+### 9.6. Sửa nhỏ ở contracts
+- `formatTeamsText`: lane `null` → in "Chưa chọn".
+- `CreateMessageBody.text`: `.trim()` rồi `min(1)`.
+- `UpdateTournamentBody`: kiểm ngày đầy đủ ở server (mục 9.4).
