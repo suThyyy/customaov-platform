@@ -43,3 +43,9 @@
 - 15/11 · Lead · Lead verify trên worktree `.worktrees/integration` (đang checkout `integration/mvp`), merge `main` trong `.worktrees/main`.
 - 15/11 · Lead · **Task B1 nhỏ do Codex/Gemini/Copilot code thì Lead (Claude, Anthropic) tự review**, vì vẫn khác hãng. Lead kiểm diff, chạy build/lint/test, ghi PASS/FAIL trong commit merge. Áp dụng lần đầu cho E2-T05. Lý do: tiết kiệm quota worker và rút ngắn vòng chờ. Task B2 trở lên vẫn giao reviewer worker.
 - 15/11 09:05 · Lead · agy báo hết quota model Claude (Sonnet + Opus), reset ~12:20. Theo quy tắc đổi ngay sang model cùng bậc ở agent khác: E3-T02 review SN → agy hydrogen-medium; E5-T04a OP → agy hydrogen-high. Codex chỉ còn ~21% (reset 12:19) nên giữ cho review quan trọng. Review code Gemini (khác Google) tạm do Lead hoặc Codex làm.
+- 15/11 · Lead · Từ 10:00 trở đi Lead tự review nhiều task B2 do Gemini code (E3-T01 re-review, E3-T03, E3-T04, E4-T01, E5-T01, E5-T02a, E5-T04a), vì Codex và agy Claude hết quota. Các review này có chạy test thật và probe Playwright/e2e khi cần.
+- 15/11 15:32 · Lead · agy hết quota **tuần** cho model Claude (~160 giờ, tới khoảng 22/11). Bỏ SN/OP khỏi bảng phân việc cho tới khi reset:
+  - E5-T02b fix1 → agy hydrogen-medium;
+  - E3-T05 review → agy hydrogen-medium;
+  - E4-T03 → agy hydrogen-high.
+  - Task về sau: B2 = Codex hoặc hydrogen-medium, B3 = hydrogen-high. Reviewer luôn khác hãng: Codex hoặc Lead cho code Gemini; hydrogen hoặc Lead cho code Codex.

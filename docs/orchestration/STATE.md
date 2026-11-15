@@ -13,6 +13,16 @@
 - E5-T02b: khi worker xong, đọc terminal hoặc thư, kiểm tra rồi `task-update` bằng tay (dispatch đã đóng). Nếu worker không báo được, Lead tự đọc `git log` của nhánh.
 - 15:10 · E4-T02 **merged** integration. Review: codex FAIL lần 1 (khán giả xuất được kết quả) → coder sửa `0c29be7` → Lead re-review PASS. Integration: web 50 + api 100.
 - 15:10 · E3-T05 code xong (`7d9c2fc`, codex). Review do agy sonnet làm: `task_a972b6c3ade4`, dispatch `ctx_91d8056fe161` (cũng bị gắn cờ blocked nhưng vẫn chạy), terminal `term_c2ebc27b-dcbe-41b4-915e-9e732758cdfb`. Coder E3-T05 vẫn mở ở `term_78270659…` (`ctx_8155cc769e72`) để nhận sửa.
+- **15:32 · agy hết quota cho model Claude (Sonnet + Opus): "Resets in ~160h", tức tới khoảng 22/11.** Ba worker Claude-trên-agy bị dừng giữa chừng; worktree chưa có thay đổi dở nên không mất gì. Đã chuyển sang model cùng bậc ở agent khác:
+  - E5-T02b fix1 (slug race): `task_c0a0bb42fc65` · `ctx_529330ef81fb` · agy **gemini-4-hydrogen-medium** · `term_fb683417-881d-4204-b081-93c2ac0a5ad6`. Re-review: Lead.
+  - E3-T05 review: `task_a972b6c3ade4` · `ctx_b008655a1ed3` · agy **gemini-4-hydrogen-medium** · `term_e65a647b-e067-454a-a987-da832d31440c` (coder là Codex, khác hãng).
+  - E4-T03 realtime: `task_c6c83ac04b51` · `ctx_7da6c2e6c0af` · agy **gemini-4-hydrogen-high** · `term_9917620a-133e-42b5-9ab3-67032ea80a70`. Review: Codex.
+  - Bảng model từ giờ tới ~22/11:
+    - coder B2 = Codex / agy hydrogen-medium;
+    - coder B3 = agy hydrogen-high;
+    - reviewer cho code Gemini = Codex hoặc Lead;
+    - reviewer cho code Codex = agy hydrogen-medium hoặc Lead;
+    - Copilot (OpenAI, ≤20 lượt) dự phòng.
 - **Quy luật mới với agy (≥15:00):** gần như lần nào Orca cũng gắn `agent_prompt_blocked` vì agy gộp prompt dán vào thành "[Pasted text]". Lead gửi Enter thì worker vẫn chạy bình thường. Khi worker xong: đọc terminal hoặc thư, Lead tự `task-update`. Không `--retry-of` (tránh nhập lời nhắc 2 lần).
 
 Kết quả khi khôi phục:
