@@ -1,4 +1,5 @@
 node_modules
+.npm-cache/
 dist
 **/screenshots
 .env*
@@ -8,3 +9,4 @@ web/
 web_backup_*/
 _old_web_DO_NOT_EDIT/
 .worktrees/
+.data/

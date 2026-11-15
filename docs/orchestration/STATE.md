@@ -1,59 +1,57 @@
-# STATE – cập nhật 2026-11-15 08:00 bởi claude
+# STATE – cập nhật 2026-11-15 ~09:00 bởi claude
 
-> Khung và quy tắc: `docs/orchestration/ORCHESTRATION.md` mục 6. Chỉ Lead hiện tại ghi file này, commit lên nhánh `orch/lead`.
+> Khung và quy tắc: `ORCHESTRATION.md` mục 6. Chỉ Lead hiện tại ghi file này, commit lên `orch/lead`.
 
-- Giai đoạn: **Chờ Owner duyệt PRD + ROADMAP** (lần dừng duy nhất trước khi code)
-- Run id: **`run_0ed5066ec040`** (objective: "customAOV MVP – roadmap theo docs/product/ROADMAP.md")
-- Lead hiện tại: **claude** (`claude-opus-5-5`) · session: `orca_session_id:claude_b751cb81_b646_4942_8df5_07b9de54bd8c`
-- Checkout Lead: thư mục gốc `base-workspace`, nhánh `orch/lead`
-- Nhánh tích hợp: `integration/mvp` (rẽ từ `main` @ `05de009`)
+- Giai đoạn: **Roadmap – E2** (E1 đã merge vào main)
+- Run id: **`run_0ed5066ec040`**
+- Lead hiện tại: **claude** (`claude-opus-5-5`) · session `orca_session_id:claude_b751cb81_b646_4942_8df5_07b9de54bd8c`
+- Checkout Lead: gốc `base-workspace` (nhánh `orch/lead`)
+  - `.worktrees/integration`: checkout `integration/mvp`, dùng để merge task và verify (dev server Lead ở **5190**);
+  - `.worktrees/main`: checkout `main`, dùng để merge epic.
+- `integration/mvp` = `f7b8c7b` · `main` = `ef16a9a` (tag `epic-1-before` = `05de009`)
 
 ## Lệnh tiếp quản Lead (Owner tự chạy khi cần)
 
-Điều kiện: ORCHESTRATION.md mục 7.2 (Lead không phản hồi quá 15 phút **và** dòng trên ghi `Lead hiện tại: claude`). Mở terminal ở thư mục gốc `base-workspace`, chạy đúng lệnh sau:
+Điều kiện: ORCHESTRATION.md mục 7.2. Mở terminal ở thư mục gốc `base-workspace`:
 
 ```bash
-orca agent launch --agent codex --model gpt-5.6-sol --effort medium --focus --prompt "Bạn là Lead dự phòng của customAOV, tiếp quản vì Lead Claude đã dừng. Làm đúng docs/orchestration/ORCHESTRATION.md mục 7.2: đọc AGENTS.md, docs/orchestration/ORCHESTRATION.md, docs/orchestration/STATE.md, docs/product/ROADMAP.md; chạy 'orca skills get orchestration --full'; chạy 'orca orchestration run-use --id run_0ed5066ec040'; đối chiếu run-show, worker-list, task-list, inbox; ghi 'Lead hiện tại: codex' vào STATE.md và commit lên orch/lead; rồi 'orca orchestration check' và điều phối tiếp. Giữ mọi điểm dừng ở mục 8."
+orca agent launch --agent codex --model gpt-5.6-sol --effort medium --focus --prompt "Bạn là Lead dự phòng của customAOV, tiếp quản vì Lead Claude đã dừng. Làm đúng docs/orchestration/ORCHESTRATION.md mục 7.2: đọc AGENTS.md, docs/orchestration/ORCHESTRATION.md, docs/orchestration/STATE.md, docs/orchestration/DECISIONS.md, docs/product/ROADMAP.md, docs/product/API.md; chạy 'orca skills get orchestration --full'; chạy 'orca orchestration run-use --id run_0ed5066ec040'; đối chiếu run-show, worker-list, task-list, inbox; ghi 'Lead hiện tại: codex' vào STATE.md và commit lên orch/lead; rồi 'orca orchestration check' và điều phối tiếp. Giữ hàng rào cứng trong DECISIONS.md."
 ```
 
-Muốn trả quyền cho Claude: báo Codex ghi "đang bàn giao cho claude" rồi dừng. Sau đó trong phiên Claude chạy `orca orchestration run-use --id run_0ed5066ec040`.
+Trả quyền cho Claude: Codex ghi "đang bàn giao cho claude" rồi dừng; sau đó phiên Claude chạy `orca orchestration run-use --id run_0ed5066ec040`.
 
 ## Đang chạy
-| Task | Task id Orca | Dispatch | Vai trò | Agent/model | Terminal | Cổng | Bắt đầu |
-|---|---|---|---|---|---|---|---|
-| E1-T01 audit | task_5bc8b77ac2bb | ctx_06ba749985ad | audit | agy gemini-4-hydrogen-medium | term_c0e1d281-0343-4f86-89b2-acdc2e85980d | 5175 | 15/11 |
-| E2-T02 backend scaffold | task_d9771f1c3922 | ctx_c61acecefa03 | coder | codex gpt-5.6-sol medium | term_7aebd674-4c89-4b96-a7ed-a252d874ed4b | 5176/6176 | 15/11 |
-| E2-T01 thiết kế API/schema | – (Lead tự làm) | – | kiến trúc | Lead | – | – | 15/11 |
+| Task | Task id | Dispatch | Vai trò | Agent/model | Terminal | Cổng |
+|---|---|---|---|---|---|---|
+| E2-T04 review | task_9128d6468f41 | ctx_98e9521f8018 | reviewer | codex gpt-5.6-sol (bypass sandbox) | term_45ad91c6-ddfc-43c3-9e7b-7c702e73d815 | – |
+| E2-T05 root scripts | task_3cc192b04101 | ctx_83140d23dde2 | coder | agy gemini-3.8-flash-medium | term_a478a1b1-f0a7-44e6-a060-a18ac55a423c | 5179 |
+| E2-T06 backend rules | task_8ced1acbfc16 | ctx_329054c8ec9d | coder | agy gemini-3.8-flash-medium | term_638bbf80-d4de-4862-b391-5a98f3db753d | – |
 
-## Chờ
-| Task | Phụ thuộc | Lý do chờ |
+## Xong
+- **E1:** T01 audit, T02 sửa P0 + 3 P1 (review PASS codex). **Đã merge main.** E1-T03/T04 bỏ. E1-T05 do Lead làm khi merge epic.
+- **E2-T01** API.md (Lead). Review chéo trong E2-T03 review → bổ sung **mục 9**.
+- **E2-T02** backend scaffold (codex; review PASS agy).
+- **E2-T03** contracts (codex; review PASS agy).
+- **E2-T04** DB (agy hydrogen, `bbf8bea`): đang review.
+
+## Chờ / tiếp theo
+| Task | Phụ thuộc | Ghi chú |
 |---|---|---|
-| E1-T02..T05 | E1-T01 | Lead tạo sau khi có báo cáo audit |
-| E2-T03, E2-T04 | E2-T01 (+E2-T02) | |
-| E2-T05, E2-T06 | E2-T02 | |
-| E3+ | xem ROADMAP | |
-
-## Gate đang mở
-Không có (Owner trao toàn quyền 15/11).
+| Merge E2-T04, T05, T06 → integration | review | E2-T05 và E2-T06 cần review CX sau khi xong |
+| Merge epic E2 → main | E2-T04..T06 | |
+| E3-T01 auth API (+ contracts/schema theo API.md mục 9) | E2 | CX |
+| E3-T02 FE data layer | E2-T03 | CX/SN |
+| E3-T04 profile API | E3-T01 | CX |
 
 ## Đếm Copilot
 0/20 lượt.
-
-## Quyết định gần nhất
-- 15/11 Owner duyệt PRD + ROADMAP và trao toàn quyền. Worktree đặt trong `.worktrees/`. Mọi worker launch qua terminal kèm cờ tự duyệt (xem DECISIONS.md).
-- 08:00 Soạn PRD + ROADMAP trên `orch/lead`; dừng chờ duyệt.
-- 07:55 Tạo Run `run_0ed5066ec040`.
-- 07:50 Merge `task/T00-orchestration-docs` → `main` (`05de009`) theo lệnh Owner; tạo `integration/mvp`, `orch/lead`.
-- 07:45 Chụp bộ `baseline` 32 ảnh (8 route × 4 khổ, đều ok); e2e-auth đạt.
-- 07:40 Copilot CLI: đăng nhập `suThyyy`, chỉ `--model auto` (→ GPT-5.6 Luna); id cụ thể đều "not available".
-- 07:35 `gpt-5.6-sol` tồn tại, probe medium OK; `-c service_tier=default` được chấp nhận.
-- 07:35 Gemini CLI chưa cài → bỏ qua. OpenCode bỏ theo lệnh Owner.
 
 ## Model tạm ngưng
 | Agent/model | Từ lúc | Lý do | Thử lại sau |
 |---|---|---|---|
 | – | | | |
 
-## Cần xác minh ở task đầu tiên
-- Worker Codex/Copilot chạy qua `orca terminal create` + `worker-start --terminal` có nhận preamble và gửi `worker_done` không (ORCHESTRATION.md mục 4.3).
-- `check --peek --terminal <lead>` từ terminal khác, và thư chuyển về Codex sau `run-use` (mục 7.2).
+## Ghi chú vận hành
+- Worker Codex khởi động trước 08:30 (sandbox workspace-write) không commit/báo được. Lead đã commit thay (E2-T02 `2fcff38`, E2-T03 `89d142e`). Từ E2-T04 review: bypass sandbox.
+- Orca đôi khi kẹt `agent-trust-workspace` với agy. Cách xử lý: đóng terminal, mở lại (thư mục đã được tin), dùng `--retry-of` nếu dispatch đã fail.
+- Prompt khởi động: agy hỏi tin thư mục → Enter; Codex hỏi update → "2" Skip; Codex hỏi hooks → "2" Trust.

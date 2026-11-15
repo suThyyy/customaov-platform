@@ -9,6 +9,7 @@ const testConfig: AppConfig = {
   PORT: 6174,
   LOG_LEVEL: "info",
   NODE_ENV: "test",
+  DATABASE_URL: "memory://",
 };
 
 const apps: ReturnType<typeof buildApp>[] = [];
