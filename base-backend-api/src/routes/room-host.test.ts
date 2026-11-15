@@ -11,7 +11,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { buildApp } from "../app.js";
 import { loadConfig } from "../config.js";
-import { closeDb, createDb, migrate } from "../db/client.js";
+import { closeDb } from "../db/client.js";
 import {
   activities,
   activityRecipients,
@@ -27,6 +27,7 @@ import {
   createLoggedInClient,
   createLoggedInClients,
   createTestApp,
+  createTestDb,
   TestClient,
   type TestApp,
 } from "../test/helpers.js";
@@ -798,8 +799,7 @@ describe("room host, export, and chat API", () => {
 
   describe("event hooks via deps", () => {
     it("invokes onRoomChanged and onChatMessage callbacks", async () => {
-      const db = createDb("memory://");
-      await migrate(db);
+      const db = await createTestDb();
       const config = loadConfig({ NODE_ENV: "test", LOG_LEVEL: "info" });
       const onRoomChanged = vi.fn();
       const onChatMessage = vi.fn();

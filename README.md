@@ -15,14 +15,26 @@ Monorepo cho hệ thống customAOV (tạo phòng, chia đội 5v5, tổ chức 
 
 - **Node.js**: >= 22 (khuyến nghị Node 22 LTS).
 - **npm**: Đi kèm với Node.js 22.
+- **Docker** *(tuỳ chọn)*: Cần khi chạy hoặc kiểm thử với PostgreSQL 17 qua `docker-compose.yml`.
 
-## Cài đặt
+## Chạy nhanh
 
-Chạy lệnh cài đặt toàn bộ dependencies cho tất cả workspaces từ thư mục gốc:
+Cài đặt dependencies và khởi chạy cả backend API (PGlite file tại `base-backend-api/.data/pglite`, tự động migrate và seed nếu CSDL trống) lẫn frontend web (chế độ `VITE_DATA_SOURCE=api`) bằng một lệnh từ thư mục gốc:
 
 ```sh
-npm ci
+npm ci && npm run dev:all
 ```
+
+- Frontend Web: `http://localhost:5174`
+- Backend API: `http://127.0.0.1:6174` (Vite proxy `/api` tới `API_TARGET`)
+- Bấm `Ctrl+C` để tắt cả hai tiến trình.
+
+### Tài khoản demo
+
+Dữ liệu mẫu sau khi seed bao gồm tài khoản demo:
+
+- **Tên đăng nhập**: `suthy`
+- **Mật khẩu**: `customaov123`
 
 ## Các lệnh chính (Scripts)
 
@@ -30,25 +42,63 @@ Chạy từ thư mục gốc:
 
 | Lệnh | Mô tả |
 | --- | --- |
+| `npm run dev:all` | Khởi chạy đồng thời backend API (PGlite, tự seed nếu DB trống) và frontend web ở chế độ API. |
+| `npm run dev:api` | Khởi chạy riêng dev server của backend API (Fastify với `tsx watch`). |
+| `npm run dev:web` | Khởi chạy riêng dev server của frontend (Vite). |
 | `npm run build` | Build tất cả package theo thứ tự: `@customaov/team-core` → `@customaov/contracts` → `@customaov/api` → `base-frontend-web`. |
 | `npm run lint` | Chạy ESLint cho frontend và typecheck (`tsc --noEmit`) cho `team-core`, `contracts`, `api`. |
 | `npm test` | Chạy unit test của cả 4 package (`team-core`, `contracts`, frontend, `api`). |
-| `npm run test:e2e` | Chạy bộ kiểm thử E2E xác thực cho frontend. |
-| `npm run dev:api` | Khởi chạy dev server của backend API (Fastify với `tsx watch`). |
-| `npm run dev:web` | Khởi chạy dev server của frontend (Vite). |
+| `npm run test:e2e` | Chạy bộ kiểm thử E2E xác thực (mock mode) cho frontend. |
 
-## Hướng dẫn chạy 2 server ở 2 terminal
+## Chạy test và E2E
 
-Để phát triển đầy đủ cả frontend và backend, mở 2 terminal độc lập tại thư mục gốc của repository:
+### Unit & integration test
 
-### Terminal 1: Backend API
 ```sh
-npm run dev:api
+npm run build && npm run lint && npm test
 ```
-Backend API sẽ lắng nghe tại `http://localhost:6174` (hoặc cổng được cấu hình qua biến môi trường `PORT`).
 
-### Terminal 2: Frontend Web
+### E2E với backend API thật
+
+Bộ E2E API nằm trong `base-frontend-web/scripts/`:
+- `npm run test:e2e:api --workspace base-frontend-web`
+- `npm run test:e2e:tournament --workspace base-frontend-web`
+- `npm run test:e2e:rooms --workspace base-frontend-web`
+
+> **Lưu ý:** Rate limit của backend lưu trong bộ nhớ (`@fastify/rate-limit`), nên **mỗi script E2E API cần chạy trên một backend vừa khởi động** (khởi động lại backend hoặc dùng instance mới giữa các script để tránh dính giới hạn tần suất).
+
+## Chạy với Postgres
+
+Repo cung cấp sẵn `docker-compose.yml` chạy PostgreSQL 17 ở cổng `54329`:
+
 ```sh
-npm run dev:web
+# 1. Khởi động Postgres
+docker compose up -d
+
+# 2. Chạy migration và seed dữ liệu mẫu lên Postgres
+DATABASE_URL=postgres://customaov:customaov@127.0.0.1:54329/customaov npm run db:migrate --workspace @customaov/api
+DATABASE_URL=postgres://customaov:customaov@127.0.0.1:54329/customaov npm run db:seed --workspace @customaov/api
+
+# 3. Chạy app dùng Postgres
+DATABASE_URL=postgres://customaov:customaov@127.0.0.1:54329/customaov npm run dev:all
+
+# 4. Chạy toàn bộ test backend trên Postgres thật
+TEST_DATABASE_URL=postgres://customaov:customaov@127.0.0.1:54329/customaov npm test --workspace @customaov/api
+
+# 5. Dừng Postgres khi xong
+docker compose down
 ```
-Frontend Vite dev server sẽ khởi chạy tại `http://localhost:5174` (hoặc cổng cấu hình).
+
+*(Trên Windows PowerShell, đặt biến môi trường bằng `$env:DATABASE_URL="..."` hoặc `$env:TEST_DATABASE_URL="..."` trước lệnh.)*
+
+> **Lưu ý:** Chưa chạy kiểm chứng trên Postgres ở lần này do Docker daemon chưa bật trong môi trường thực thi.
+
+## Biến môi trường
+
+| Biến | Mặc định | Mô tả |
+| --- | --- | --- |
+| `DATABASE_URL` | `./.data/pglite` (`memory://` khi `NODE_ENV=test`) | Chuỗi kết nối PostgreSQL (`postgres://...`) hoặc đường dẫn PGlite. |
+| `CSRF_SECRET` | Ngẫu nhiên mỗi lần khởi động ở dev/test | Khoá bí mật ký HMAC cho CSRF token (**bắt buộc** trong production, tối thiểu 16 ký tự). |
+| `ALLOWED_ORIGINS` | `http://localhost:5174,http://localhost:5173` | Danh sách origin được phép kết nối WebSocket `/api/ws` (phân tách bằng dấu phẩy). |
+| `NODE_ENV` | `development` | Môi trường chạy (`development`, `test`, `production`). Ở `production`, server không tự chạy migration khi khởi động và từ chối chạy `db:seed`. |
+| `TEST_DATABASE_URL` | *(không đặt → dùng PGlite `memory://`)* | Khi đặt, bộ test backend chạy trên PostgreSQL thay vì PGlite (truncate toàn bộ bảng trước mỗi test case). |
