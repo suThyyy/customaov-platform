@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ChevronDown, History, LogOut, UserRound } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { useAuth, useToast } from '../../context/AppContext'
-import { currentUser } from '../../mocks'
+import { currentUser } from '../../api'
 import { Avatar, LevelPill } from '../ui/primitives'
 import { useDismiss } from './hooks'
 

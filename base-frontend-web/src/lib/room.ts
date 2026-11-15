@@ -1,4 +1,4 @@
-import type { Room, RoomMember } from '../mocks'
+import type { Room, RoomMember } from '../api'
 
 /** "5v5 · Căng" → "Căng" */
 export const roomMode = (r: Room): string => r.modeLabel.split(' · ')[1] ?? r.modeLabel

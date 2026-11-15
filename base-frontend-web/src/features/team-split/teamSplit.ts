@@ -13,7 +13,7 @@ import {
   type TeamCoreErrorCode,
   type TeamSplitMode,
 } from '@customaov/team-core'
-import type { RoomMember } from '../../mocks/types'
+import type { RoomMember } from '../../api'
 
 export type TeamSplitRequest =
   | { readonly mode: 'random'; readonly random?: RandomSource }

@@ -15,7 +15,7 @@ import {
 import { asset } from '../lib/asset'
 import { cn } from '../lib/cn'
 import { useAuth } from '../context/AppContext'
-import { communityStats, featuredTournament, rooms, type RoomMember } from '../mocks'
+import { communityStats, useRooms, useTournaments, type RoomMember } from '../api'
 import { SkipLink } from '../components/layout/AppShell'
 import { BottomNav } from '../components/layout/BottomNav'
 import { Container } from '../components/layout/Container'
@@ -29,7 +29,6 @@ import { FeatureCard } from '../components/domain/FeatureCard'
 import { RoomCard } from '../components/domain/RoomsTable'
 import { EmptyState } from '../components/domain/EmptyState'
 import { ListStatus, SkeletonRows } from '../components/ui/ListStatus'
-import { useMockStatus } from '../lib/mockStatus'
 import { TournamentPromoCard } from '../components/domain/TournamentPromoCard'
 import { LoginModal, type LoginIntent } from '../components/LoginModal'
 
@@ -92,7 +91,10 @@ function Section({
 export default function HomeGuest() {
   const { loggedIn } = useAuth()
   const navigate = useNavigate()
-  const load = useMockStatus()
+  const roomLoad = useRooms()
+  const tournamentLoad = useTournaments()
+  const rooms = roomLoad.data
+  const featuredTournament = tournamentLoad.data[0]
   const mainRef = useRef<HTMLElement>(null)
   useRouteScroll(mainRef)
 
@@ -230,7 +232,7 @@ export default function HomeGuest() {
             title="Chia đội công bằng, nhìn là hiểu"
             description="Hai đội được cân bằng theo trình độ, mỗi người một lane. Không ưng thì chia lại hoặc đổi chỗ thủ công."
           >
-            <TeamSplitPreview blue={rooms[0].teams.blue} red={rooms[0].teams.red} />
+            {rooms[0] && <TeamSplitPreview blue={rooms[0].teams.blue} red={rooms[0].teams.red} />}
           </Section>
 
           {/* Phòng đang mở */}
@@ -242,8 +244,8 @@ export default function HomeGuest() {
             action={<SeeAllLink to={loginHref('login', '/dashboard#rooms')}>Xem tất cả phòng</SeeAllLink>}
           >
             <ListStatus
-              status={load.status}
-              onRetry={load.retry}
+              status={roomLoad.status}
+              onRetry={roomLoad.retry}
               label="phòng đang mở"
               skeleton={<SkeletonRows count={3} className="rounded-card border border-line bg-surface/90 px-4" />}
             >
@@ -290,13 +292,15 @@ export default function HomeGuest() {
                 </Card>
               </div>
               {/* Nút "Đăng ký ngay" dùng viền vàng: nút vàng đặc của trang là "Bắt đầu ngay" ở hero */}
-              <TournamentPromoCard
-                size="lg"
-                ctaVariant="gold-outline"
-                tournament={featuredTournament}
-                onOpen={() => navigate(`/tournaments/${featuredTournament.slug}`)}
-                onRegister={() => navigate(loginHref('register', `/tournaments/${featuredTournament.slug}`))}
-              />
+              {featuredTournament && (
+                <TournamentPromoCard
+                  size="lg"
+                  ctaVariant="gold-outline"
+                  tournament={featuredTournament}
+                  onOpen={() => navigate(`/tournaments/${featuredTournament.slug}`)}
+                  onRegister={() => navigate(loginHref('register', `/tournaments/${featuredTournament.slug}`))}
+                />
+              )}
             </div>
           </Section>
 

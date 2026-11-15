@@ -21,10 +21,9 @@ import {
 } from 'lucide-react'
 import { cn } from '../lib/cn'
 import { normalizeVi } from '../lib/text'
-import { useMockStatus } from '../lib/mockStatus'
 import { ListStatus, SkeletonCards } from '../components/ui/ListStatus'
 import { useToast } from '../context/AppContext'
-import { tournaments, type StageStatus, type Tournament, type TournamentStatus } from '../mocks'
+import { useTournaments, type StageStatus, type Tournament, type TournamentStatus } from '../api'
 import { Button, ButtonLink } from '../components/ui/Button'
 import { Badge } from '../components/ui/primitives'
 import { FilterChips } from '../components/ui/FilterChips'
@@ -56,7 +55,8 @@ const isFilter = (v: string | null): v is Filter => FILTER_LABELS.some((f) => f.
 
 export default function Tournaments() {
   const { comingSoon } = useToast()
-  const load = useMockStatus()
+  const load = useTournaments()
+  const tournaments = load.data
 
   // Bộ lọc lưu trên URL (?q=&status=&sort=&page=) để chia sẻ link / quay lại không mất trạng thái
   const [params, setParams] = useSearchParams()
@@ -81,7 +81,7 @@ export default function Tournaments() {
     const q = normalizeVi(query.trim())
     if (!q) return tournaments
     return tournaments.filter((t) => [t.name, t.organizer, t.format].some((f) => normalizeVi(f).includes(q)))
-  }, [query])
+  }, [query, tournaments])
 
   const counts = useMemo(() => {
     const c: Record<Filter, number> = { all: searched.length, open: 0, live: 0, finished: 0 }

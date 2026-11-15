@@ -24,19 +24,19 @@ import {
 } from 'lucide-react'
 import { cn } from '../lib/cn'
 import { groupByDate, matchProgress, podium, scheduleOf, standings, winnerOf, type StandingTone } from '../lib/tournament'
-import { useMockStatus } from '../lib/mockStatus'
 import { useToast } from '../context/AppContext'
 import { ListStatus, SkeletonCards, SkeletonRows } from '../components/ui/ListStatus'
 import {
-  getTournamentDetail,
   TOURNAMENT_STATUS_LABEL,
+  useTournament,
+  type HookResult,
   type BracketMatch,
   type BracketRound,
   type ScheduledMatch,
   type Team,
   type TournamentDetail as Detail,
   type TournamentStatus,
-} from '../mocks'
+} from '../api'
 import { Button, ButtonLink, IconButton } from '../components/ui/Button'
 import { Card, Eyebrow, SectionTitle, SeeAllLink } from '../components/ui/primitives'
 import { Tabs } from '../components/ui/Tabs'
@@ -64,7 +64,15 @@ const PRIMARY_ACTION: Record<TournamentStatus, string> = {
 
 export default function TournamentDetail() {
   const { slug } = useParams()
-  const d = getTournamentDetail(slug)
+  const load = useTournament(slug)
+  const d = load.data
+  if (load.status !== 'ready') {
+    return (
+      <ListStatus status={load.status} onRetry={load.retry} label="chi tiết giải đấu" className="mt-6" skeleton={<SkeletonCards count={1} />}>
+        {null}
+      </ListStatus>
+    )
+  }
   if (!d) {
     return (
       <EmptyState
@@ -81,21 +89,20 @@ export default function TournamentDetail() {
       />
     )
   }
-  return <TournamentView key={d.slug} d={d} />
+  return <TournamentView key={d.slug} d={d} load={load} />
 }
 
 /**
  * Chi tiết giải. Tab lưu trên URL (?tab=) để chia sẻ link / Back hoạt động.
  * Nút vàng đặc duy nhất: nút chính trên banner (đổi theo trạng thái giải).
  */
-function TournamentView({ d }: { d: Detail }) {
+function TournamentView({ d, load }: { d: Detail; load: HookResult<Detail | undefined> }) {
   const { comingSoon, notify } = useToast()
   const [params, setParams] = useSearchParams()
   const rawTab = params.get('tab')
   const tab: DetailTab = isTab(rawTab) ? rawTab : 'info'
   const setTab = (t: DetailTab) => setParams(t === 'info' ? {} : { tab: t })
   const [following, setFollowing] = useState(false)
-  const load = useMockStatus()
 
   // TODO: nối API đăng ký giải khi có backend
   const register = () => comingSoon(`Đăng ký giải ${d.name}`)
