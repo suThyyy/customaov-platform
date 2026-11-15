@@ -61,3 +61,5 @@
 - 15/11 · Owner · **Ưu tiên Codex, tiết kiệm Claude**: không giao thêm task code cho Claude (Claude Code hay agy Claude). Lead (Claude) chỉ điều phối và gộp merge, giữ lượt ngắn gọn.
   - Coder mặc định: Codex `gpt-5.6-sol`; dự phòng: agy Gemini.
   - Reviewer: agy Gemini cho code Codex; Codex cho code Gemini/Claude.
+- 15/11 · Lead · E6-T01: activity `join` chỉ ghi **lần đầu** mỗi cặp (user, phòng); vào lại không ghi thêm. Đây là chủ ý của spec ("nếu chưa có"), để chống spam feed khi rời/vào lại. Reviewer Codex đánh FAIL điểm này; Lead quyết định giữ hành vi và coi task là PASS.
+- 15/11 · Lead · E5-T05: chấp nhận nút xác nhận primary bên trong modal (giống E3-T05); nút hành động BTC trên trang phải là nút viền.
