@@ -8,6 +8,7 @@ export class ApiError extends Error {
   readonly code: ErrorCode
   readonly status: number
   readonly retryAfter?: number
+  /** `error.details` của server (400 VALIDATION: `[{path, message}]`) */
   readonly details?: unknown
 
   constructor(message: string, code: ErrorCode, status: number, retryAfter?: number, details?: unknown) {
@@ -17,6 +18,17 @@ export class ApiError extends Error {
     this.code = code
     this.status = status
     this.retryAfter = retryAfter
+  }
+
+  /** Lỗi theo từng trường (`details` dạng `[{path, message}]`), khoá là `path` (vd. `title`, `config.format`) */
+  fieldErrors(): Record<string, string> {
+    const result: Record<string, string> = {}
+    if (!Array.isArray(this.details)) return result
+    for (const item of this.details) {
+      if (item && typeof item === 'object' && typeof item.path === 'string' && typeof item.message === 'string')
+        result[item.path] ??= item.message
+    }
+    return result
   }
 }
 

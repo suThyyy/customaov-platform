@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   BarChart3,
@@ -17,12 +17,23 @@ import {
 import { cn } from '../lib/cn'
 import { isRoomMember } from '../lib/room'
 import { ListStatus, SkeletonRows } from '../components/ui/ListStatus'
-import { useToast } from '../context/AppContext'
-import { currentUser, roomFullTitle, useActivities, useRooms, useTournaments, type ActivityKind } from '../api'
+import { useAuth, useToast } from '../context/AppContext'
+import {
+  ApiError,
+  DATA_SOURCE,
+  currentUser,
+  joinRoom,
+  roomFullTitle,
+  useActivities,
+  useRooms,
+  useTournaments,
+  type ActivityKind,
+  type Room,
+} from '../api'
 import { Button, ButtonLink } from '../components/ui/Button'
 import { Card, SectionTitle, SeeAllLink } from '../components/ui/primitives'
 import { PageHeader } from '../components/layout/PageHeader'
-import { ActiveRoomsCard, RoomStatusBadge } from '../components/domain/RoomsTable'
+import { ActiveRoomsCard, RemoteActiveRoomsCard, RoomStatusBadge } from '../components/domain/RoomsTable'
 import { TournamentPromoCard } from '../components/domain/TournamentPromoCard'
 
 const ACTIVITY_ICON: Record<ActivityKind, typeof Gamepad2> = {
@@ -56,21 +67,58 @@ const QUICK_TOOLS: Array<{ icon: ReactNode; title: string; description: string; 
  */
 export default function HomeUser() {
   const navigate = useNavigate()
-  const { comingSoon } = useToast()
-  const roomLoad = useRooms()
+  const { comingSoon, notify } = useToast()
+  const { user } = useAuth()
+  const isApi = DATA_SOURCE === 'api'
+  const userId = isApi ? user?.username : currentUser.id
+  const displayName = isApi ? (user?.displayName ?? '') : currentUser.name
+  // Chế độ api: bảng phòng tự gọi `GET /api/rooms` (phân trang ở server); ở đây chỉ cần "phòng của bạn" (`mine=1`)
+  const roomLoad = useRooms(isApi ? { mine: true } : {})
   const activityLoad = useActivities()
   const tournamentLoad = useTournaments()
   const rooms = roomLoad.data
   const activities = activityLoad.data
   const featuredTournament = tournamentLoad.data[0]
-  const myRooms = rooms.filter((r) => isRoomMember(r, currentUser.id))
+  const myRooms = isApi ? rooms : rooms.filter((r) => isRoomMember(r, currentUser.id))
+  /** Mã phòng đang gửi `POST /join` */
+  const [joiningId, setJoiningId] = useState<string>()
+
+  const openRoom = (r: Room) => navigate(`/rooms/${r.id}`)
+  /**
+   * "Vào phòng": chế độ api gọi `POST /api/rooms/:code/join` rồi mới điều hướng (đã là thành viên thì vào thẳng).
+   * Lỗi (409 phòng đầy / đang là người chơi ở phòng khác — thông báo của server có mã phòng hiện tại) → toast.
+   */
+  const join = async (r: Room) => {
+    if (!isApi || r.isMember) return openRoom(r)
+    if (joiningId) return
+    setJoiningId(r.id)
+    try {
+      const { code } = await joinRoom(r.id)
+      navigate(`/rooms/${code}`)
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : 'Không kết nối được máy chủ. Thử lại sau.'
+      notify(`Không vào được phòng #${r.id}`, message)
+    } finally {
+      setJoiningId(undefined)
+    }
+  }
+  const roomsCardProps = {
+    id: 'rooms',
+    userId,
+    pendingId: joiningId,
+    onJoin: join,
+    onWatch: openRoom,
+    onMore: (r: Room) => comingSoon(`Tùy chọn phòng #${r.id}`),
+    onSeeAll: () => comingSoon('Danh sách tất cả phòng'),
+    onCreate: () => navigate('/rooms/new'),
+  }
 
   return (
     <>
       <PageHeader
         title={
           <>
-            Xin chào, <span className="text-gold-gradient">{currentUser.name}</span>
+            Xin chào, <span className="text-gold-gradient">{displayName}</span>
           </>
         }
         description="Tạo phòng, lập đội và theo dõi các giải đấu cộng đồng Custom Liên Quân."
@@ -88,18 +136,11 @@ export default function HomeUser() {
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[auto_1fr] lg:items-start xl:grid-cols-[minmax(0,1fr)_340px]">
         {/* Cột chính: danh sách phòng */}
         <div className="min-w-0 lg:col-start-1 lg:row-start-1">
-          <ActiveRoomsCard
-            id="rooms"
-            rooms={rooms}
-            status={roomLoad.status}
-            onRetry={roomLoad.retry}
-            userId={currentUser.id}
-            onJoin={(r) => navigate(`/rooms/${r.id}`)}
-            onWatch={(r) => navigate(`/rooms/${r.id}`)}
-            onMore={(r) => comingSoon(`Tùy chọn phòng #${r.id}`)}
-            onSeeAll={() => comingSoon('Danh sách tất cả phòng')}
-            onCreate={() => navigate('/rooms/new')}
-          />
+          {isApi ? (
+            <RemoteActiveRoomsCard {...roomsCardProps} />
+          ) : (
+            <ActiveRoomsCard {...roomsCardProps} rooms={rooms} status={roomLoad.status} onRetry={roomLoad.retry} />
+          )}
         </div>
 
         {/* Cột phụ */}

@@ -576,3 +576,40 @@ Xoá 3 file mới; bỏ `<ListStatus>`/`useMockStatus` ở các trang (nội dun
 - Đội trong seed chỉ có đội trưởng (1 người) nên không khớp `RegistrationSchema` (5 thành viên); `GET …/registrations` bỏ qua các đội này. Đội seed đều `approved`, vẫn hiện qua `teamList`.
 - Username không tồn tại hoặc người gửi không nằm trong `members` → 400 `VALIDATION` (API.md chưa quy định mã).
 - Đội mới dùng logo mặc định `/mock-assets/logo.png` (chưa có upload logo).
+
+---
+
+## E4-T04 — Nối dashboard `#rooms` và wizard `/rooms/new` với API phòng (15/11/2026)
+
+Chỉ đổi hành vi ở chế độ `api` (`VITE_DATA_SOURCE=api`). Chế độ `mock` giữ như cũ (bảng lọc tại chỗ, "Vào phòng" điều hướng thẳng, "Tạo phòng" hiện toast giả lập); e2e mock + screenshot 36/36 đạt.
+
+### File đã sửa / tạo mới (`base-frontend-web/`)
+- `src/api/client.ts`: `ApiError` giữ `details` của server và có `fieldErrors()` (`details[{path, message}]` → `{path: message}`).
+- `src/api/adapter.ts`, `http.ts`, `mock.ts`, `hooks.ts`: thêm `roomsPage` / `useRoomsPage({q, mode, page, pageSize})` gọi `GET /api/rooms` với lọc chế độ, `q` và phân trang ở server (bản mock `readMockRoomsPage` lọc + cắt trang tại chỗ).
+- `src/api/types.ts`: `Room` có thêm `isMember?` (chỉ chế độ api, lấy từ `RoomSummary.isMember`, vì danh sách server không kèm đội); `ROOM_MODE_SHORT_LABEL` khớp `MODE_LABELS` của server. `map.ts` ánh xạ `isMember`.
+- `src/api/index.ts`: `joinRoom(code)` (`POST /api/rooms/:code/join` `{as:'player'}`; mock không gọi gì) và `createRoom(body)` (`POST /api/rooms`); cả hai xoá cache dữ liệu sau khi thành công.
+- `src/components/domain/RoomsTable.tsx`:
+  - `ActiveRoomsCard` nhận prop `server` (chế độ api): thêm ô tìm kiếm, chip lọc không kèm số (server chỉ trả tổng của bộ lọc đang chọn), dòng "N phòng", `Pagination`; không có `server` thì giữ lọc tại chỗ như cũ.
+  - `RemoteActiveRoomsCard` (mới): tự gọi `useRoomsPage`, debounce `q` 300ms, đổi bộ lọc/từ khoá về trang 1, vẫn bọc `ListStatus`.
+  - Nút hành động và nhãn "Phòng của bạn" dùng `isMember` khi có; thêm `pendingId` (nút "Đang vào…", khoá các nút "Vào phòng" khi đang gửi).
+  - Empty state chế độ "Tất cả" đổi tiêu đề thành "Chưa có phòng nào đang mở" (trước đây hiện “all”).
+- `src/pages/HomeUser.tsx`: chế độ api dùng `RemoteActiveRoomsCard`; "Vào phòng" gọi `joinRoom` rồi điều hướng `/rooms/<code>` (đã là thành viên thì vào thẳng); lỗi (409 phòng đầy / đang là người chơi ở phòng khác — thông báo của server có mã phòng hiện tại, 403, 429…) hiện toast "Không vào được phòng #<mã>". "Theo dõi"/"Xem" điều hướng thẳng. "Phòng bạn đang tham gia" dùng `GET /api/rooms?mine=1`; lời chào và `userId` lấy từ `useAuth().user`.
+- `src/pages/CreateRoom.tsx`:
+  - Chế độ api: bước cuối gửi `POST /api/rooms` `{title, mode, visibility, config:{format:'5v5', pickMode, series, tools, notes: mô tả}}`, thành công thì toast + điều hướng `/rooms/<code>`; nút "Đang tạo…" khi gửi.
+  - Lỗi 400 hiện tại ô (`details[].path` → ô tương ứng, về bước chứa ô đầu tiên bị lỗi; lỗi tên phòng thì focus ô tên; thông báo "Sắp có" của server cho thể thức → ô Số người). Lỗi khác (409, 5xx, mạng) hiện `role="alert"` trên thanh hành động.
+  - 3v3 / 1v1 bị vô hiệu kèm `SoonBadge` "Sắp có" (PRD mục 4) — áp cho **cả hai chế độ** vì là luật sản phẩm; chỉ ảnh hưởng bước 2, không có trong bộ screenshot.
+  - Không thêm `overflow-hidden` cho khung ngoài; thanh hành động sticky giữ nguyên. Nút vàng đặc vẫn chỉ có "Tiếp tục"/"Tạo phòng".
+- Test mới: `src/pages/HomeUser.api.test.tsx` (6), `src/pages/CreateRoom.api.test.tsx` (5), thêm 1 test `details` ở `src/api/client.test.ts`; `src/api/testing.ts` (fetch giả + dữ liệu theo contracts, chỉ dùng trong test).
+
+### Kiểm tra
+- `npm run build`, `npm run lint` (0 lỗi, 2 cảnh báo có sẵn), `npm test` ở gốc: đạt.
+- Mock (cổng 5195): `e2e-auth.mjs` đạt hết; `screenshot.mjs E4-T04` 36/36 không cuộn ngang, không lỗi console.
+- Api (API 6196 đã seed + Vite 5196): probe Playwright tạm (đã xoá) đạt: đăng nhập suthy → bảng thấy 4 phòng, `AOV-1024` có "Phòng của bạn"; lọc Căng → `mode=tournament`; tìm "giao luu" → `q` lên server, 1 kết quả; "Vào phòng" AOV-1026 → toast 409 "(AOV-1024)"; tạo phòng khi đang ở AOV-1024 → `role="alert"`; rời AOV-1024 rồi tạo phòng → `/rooms/AOV-<mới>`; user mới @375 "Vào phòng" → `POST /join` → `/rooms/AOV-1026`, không cuộn ngang.
+
+### Cách hoàn tác
+`git revert` commit của task E4-T04.
+
+### Còn tồn
+- `RoomConfig` của contracts chưa có trường cho số lượt cấm, bản đồ, khán giả và cách chia đội mặc định; wizard vẫn hiện các lựa chọn này nhưng không gửi lên server (chỉ gửi `notes` = mô tả).
+- Chế độ api: `GET /api/activities` trả 404 (backend chưa có route), dashboard hiện trạng thái lỗi ở "Hoạt động gần đây" — ngoài phạm vi task này.
+- Chip lọc chế độ ở chế độ api không hiện số phòng theo từng chế độ (cần 4 request hoặc API đếm theo chế độ).

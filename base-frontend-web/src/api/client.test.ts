@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CsrfResponseSchema } from '@customaov/contracts'
-import { apiRequest, resetClientForTests } from './client'
+import { ApiError, apiRequest, resetClientForTests } from './client'
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
@@ -35,5 +35,15 @@ describe('api client', () => {
       status: 404,
       message: 'Không thấy',
     })
+  })
+
+  it('giữ details của lỗi 400 và tách lỗi theo trường', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      json({ error: { code: 'VALIDATION', message: 'Dữ liệu không hợp lệ', details: [{ path: 'title', message: 'Bắt buộc' }] } }, 400),
+    )
+
+    const error = await apiRequest('/api/rooms', CsrfResponseSchema).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).fieldErrors()).toEqual({ title: 'Bắt buộc' })
   })
 })
