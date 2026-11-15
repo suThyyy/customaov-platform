@@ -500,3 +500,10 @@ Xoá 3 file mới; bỏ `<ListStatus>`/`useMockStatus` ở các trang (nội dun
 
 ### Còn tồn
 - Chưa có.
+
+
+## E5-T02b — Nối form /tournaments/new với API (15/11/2026)
+- File: `src/pages/CreateTournament.tsx`, `src/api/client.ts` (`ApiError.details`), `src/pages/CreateTournament.api.test.tsx` (mới).
+- Chế độ `api`: submit gọi `POST /api/tournaments`, thành công điều hướng `/tournaments/<slug>`; lỗi 400 map `details[].path` vào ô và quay về bước chứa ô; lỗi khác hiện `role="alert"`. Chế độ `mock` giữ nguyên toast giả lập.
+- Hoàn tác: revert commit của task E5-T02b.
+- Còn tồn: chưa có UI sửa giải (PATCH mới chỉ có ở API).

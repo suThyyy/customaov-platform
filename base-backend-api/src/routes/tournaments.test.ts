@@ -13,7 +13,7 @@ import {
   tournaments,
   users,
 } from "../db/schema.js";
-import { createSeededTestApp, TestClient, type TestApp } from "../test/helpers.js";
+import { createLoggedInClient, createSeededTestApp, TestClient, type TestApp } from "../test/helpers.js";
 
 const apps: TestApp[] = [];
 
@@ -254,5 +254,138 @@ describe("GET /api/tournaments/:slug", () => {
     expect(res.statusCode).toBe(404);
     const err = ErrorBodySchema.parse(res.json());
     expect(err.error.code).toBe("NOT_FOUND");
+  });
+});
+
+
+const NEW_BODY = {
+  name: "Cúp Đêm Hè",
+  description: "Giải thử nghiệm",
+  intro: ["Dòng 1"],
+  teamCount: 8,
+  series: "BO3",
+  registrationDeadline: "2026-12-01T10:00:00.000Z",
+  drawDate: "2026-12-02T10:00:00.000Z",
+  dateStart: "2026-12-03T10:00:00.000Z",
+  dateEnd: "2026-12-05T10:00:00.000Z",
+  rules: ["Luật 1"],
+  prizes: [{ place: "Hạng 1", reward: "1tr" }],
+  cover: "tour-2",
+};
+
+describe("POST/PATCH /api/tournaments", () => {
+  it("creates a tournament: slug, open, myRole=organizer, searchable", async () => {
+    const { testApp } = await setupSeeded();
+    const { client, userId } = await createLoggedInClient(testApp.app, "btc1", "BTC Một");
+
+    const res = await client.request("POST", "/api/tournaments", { payload: NEW_BODY });
+    expect(res.statusCode).toBe(201);
+    const detail = TournamentDetailSchema.parse(res.json());
+    expect(detail.slug).toBe("cup-dem-he");
+    expect(detail.status).toBe("open");
+    expect(detail.myRole).toBe("organizer");
+    expect(detail.organizer).toBe("BTC Một");
+
+    const [row] = await testApp.db.select().from(tournaments).where(eq(tournaments.slug, "cup-dem-he"));
+    expect(row?.organizerId).toBe(userId);
+
+    const search = await client.request("GET", "/api/tournaments?q=cup dem he");
+    expect(TournamentsResponseSchema.parse(search.json()).items.map((t) => t.slug)).toContain("cup-dem-he");
+  });
+
+  it("adds -2/-3 suffix for duplicate names", async () => {
+    const { testApp } = await setupSeeded();
+    const { client } = await createLoggedInClient(testApp.app, "btc1");
+    const slugs: string[] = [];
+    for (let i = 0; i < 3; i += 1) {
+      const res = await client.request("POST", "/api/tournaments", { payload: NEW_BODY });
+      expect(res.statusCode).toBe(201);
+      slugs.push((res.json() as { slug: string }).slug);
+    }
+    expect(slugs).toEqual(["cup-dem-he", "cup-dem-he-2", "cup-dem-he-3"]);
+  });
+
+  it("returns 401 when not logged in", async () => {
+    const { client } = await setupSeeded();
+    await client.fetchCsrf();
+    const res = await client.request("POST", "/api/tournaments", { payload: NEW_BODY });
+    expect(res.statusCode).toBe(401);
+    expect(ErrorBodySchema.parse(res.json()).error.code).toBe("UNAUTHENTICATED");
+  });
+
+  it("returns 403 CSRF without a token", async () => {
+    const { testApp } = await setupSeeded();
+    const { client } = await createLoggedInClient(testApp.app, "btc1");
+    const res = await client.request("POST", "/api/tournaments", { payload: NEW_BODY, csrf: null });
+    expect(res.statusCode).toBe(403);
+    expect(ErrorBodySchema.parse(res.json()).error.code).toBe("CSRF");
+  });
+
+  it("returns 400 for wrong date order", async () => {
+    const { testApp } = await setupSeeded();
+    const { client } = await createLoggedInClient(testApp.app, "btc1");
+    const res = await client.request("POST", "/api/tournaments", {
+      payload: { ...NEW_BODY, drawDate: "2026-11-01T10:00:00.000Z" },
+    });
+    expect(res.statusCode).toBe(400);
+    const body = ErrorBodySchema.parse(res.json());
+    expect(body.error.code).toBe("VALIDATION");
+    expect(JSON.stringify(body.error.details)).toContain("drawDate");
+  });
+
+  it("rate limits creation at 10 per hour per user", async () => {
+    const { testApp } = await setupSeeded();
+    const { client } = await createLoggedInClient(testApp.app, "btc1");
+    for (let i = 0; i < 10; i += 1) {
+      const res = await client.request("POST", "/api/tournaments", { payload: NEW_BODY });
+      expect(res.statusCode).toBe(201);
+    }
+    const res = await client.request("POST", "/api/tournaments", { payload: NEW_BODY });
+    expect(res.statusCode).toBe(429);
+  });
+
+  describe("PATCH", () => {
+    it("lets the organizer update; others get 403; live gets 409; merged date order checked", async () => {
+      const { testApp } = await setupSeeded();
+      const { client } = await createLoggedInClient(testApp.app, "btc1");
+      const { client: other } = await createLoggedInClient(testApp.app, "other1");
+      await client.request("POST", "/api/tournaments", { payload: NEW_BODY });
+
+      const ok = await client.request("PATCH", "/api/tournaments/cup-dem-he", {
+        payload: { description: "Mô tả mới", teamCount: 16 },
+      });
+      expect(ok.statusCode).toBe(200);
+      const updated = TournamentDetailSchema.parse(ok.json());
+      expect(updated.description).toBe("Mô tả mới");
+      expect(updated.teamCount).toBe(16);
+      expect(updated.slug).toBe("cup-dem-he");
+
+      const forbidden = await other.request("PATCH", "/api/tournaments/cup-dem-he", {
+        payload: { description: "Hack" },
+      });
+      expect(forbidden.statusCode).toBe(403);
+
+      // Only drawDate sent: valid alone, but invalid after merging with stored dates.
+      const badMerge = await client.request("PATCH", "/api/tournaments/cup-dem-he", {
+        payload: { drawDate: "2026-11-01T10:00:00.000Z" },
+      });
+      expect(badMerge.statusCode).toBe(400);
+      expect(JSON.stringify(ErrorBodySchema.parse(badMerge.json()).error.details)).toContain("drawDate");
+
+      const missing = await client.request("PATCH", "/api/tournaments/khong-co", {
+        payload: { description: "x" },
+      });
+      expect(missing.statusCode).toBe(404);
+
+      await testApp.db
+        .update(tournaments)
+        .set({ status: "live" })
+        .where(eq(tournaments.slug, "cup-dem-he"));
+      const conflict = await client.request("PATCH", "/api/tournaments/cup-dem-he", {
+        payload: { description: "Muộn rồi" },
+      });
+      expect(conflict.statusCode).toBe(409);
+      expect(ErrorBodySchema.parse(conflict.json()).error.code).toBe("CONFLICT");
+    });
   });
 });

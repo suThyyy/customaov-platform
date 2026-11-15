@@ -1,5 +1,8 @@
 import {
   normalizeVi,
+  type CreateTournamentBody,
+  type ErrorCode,
+  type UpdateTournamentBody,
   type Registration,
   type Series,
   type Team,
@@ -11,6 +14,7 @@ import {
   type TournamentSummary,
   type UserSummary,
 } from "@customaov/contracts";
+import { ZodError, type ZodIssue } from "zod";
 import { and, asc, desc, eq, ilike, inArray, sql, type SQL } from "drizzle-orm";
 
 import type { DbClient } from "../db/client.js";
@@ -399,4 +403,180 @@ export async function getTournamentBySlug(
     myRole,
     myRegistration,
   };
+}
+
+
+export class TournamentServiceError extends Error {
+  constructor(
+    readonly statusCode: number,
+    readonly code: ErrorCode,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+export function slugifyTournamentName(name: string): string {
+  const slug = normalizeVi(name)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80)
+    .replace(/-+$/g, "");
+  return slug.length > 0 ? slug : "giai-dau";
+}
+
+function assertDateOrder(dates: {
+  registrationDeadline: Date;
+  drawDate: Date;
+  dateStart: Date;
+  dateEnd: Date;
+}): void {
+  const ordered = [
+    ["registrationDeadline", dates.registrationDeadline],
+    ["drawDate", dates.drawDate],
+    ["dateStart", dates.dateStart],
+    ["dateEnd", dates.dateEnd],
+  ] as const;
+  const issues: ZodIssue[] = [];
+  for (let i = 1; i < ordered.length; i += 1) {
+    if (ordered[i - 1]![1].getTime() > ordered[i]![1].getTime()) {
+      issues.push({
+        code: "custom",
+        path: [ordered[i]![0]],
+        message: "Thứ tự ngày phải là hạn đăng ký ≤ bốc thăm ≤ bắt đầu ≤ kết thúc",
+      });
+    }
+  }
+  if (issues.length > 0) {
+    throw new ZodError(issues);
+  }
+}
+
+async function uniqueSlug(
+  db: Pick<DbClient, "select">,
+  base: string,
+): Promise<string> {
+  const rows = await db
+    .select({ slug: tournaments.slug })
+    .from(tournaments)
+    .where(ilike(tournaments.slug, `${escapeLike(base)}%`));
+  const taken = new Set(rows.map((r) => r.slug));
+  if (!taken.has(base)) {
+    return base;
+  }
+  for (let n = 2; ; n += 1) {
+    const candidate = `${base}-${n}`;
+    if (!taken.has(candidate)) {
+      return candidate;
+    }
+  }
+}
+
+export async function createTournament(
+  db: DbClient,
+  body: CreateTournamentBody,
+  user: { id: string },
+  now: Date,
+): Promise<TournamentDetail> {
+  const dates = {
+    registrationDeadline: new Date(body.registrationDeadline),
+    drawDate: new Date(body.drawDate),
+    dateStart: new Date(body.dateStart),
+    dateEnd: new Date(body.dateEnd),
+  };
+  assertDateOrder(dates);
+  const base = slugifyTournamentName(body.name);
+
+  const slug = await db.transaction(async (tx) => {
+    const finalSlug = await uniqueSlug(tx, base);
+    await tx.insert(tournaments).values({
+      slug: finalSlug,
+      name: body.name,
+      titleAccent: body.titleAccent ?? null,
+      description: body.description,
+      intro: body.intro,
+      organizerId: user.id,
+      status: "open",
+      teamCount: body.teamCount,
+      series: body.series,
+      cover: body.cover,
+      ...dates,
+      rules: body.rules,
+      prizes: body.prizes,
+      championTeamId: null,
+      searchText: normalizeVi(`${body.name} ${body.description}`),
+      createdAt: now,
+    });
+    return finalSlug;
+  });
+
+  const detail = await getTournamentBySlug(db, slug, user.id);
+  if (!detail) {
+    throw new TournamentServiceError(500, "INTERNAL", "Không tạo được giải đấu");
+  }
+  return detail;
+}
+
+export async function updateTournament(
+  db: DbClient,
+  slug: string,
+  body: UpdateTournamentBody,
+  user: { id: string },
+): Promise<TournamentDetail> {
+  await db.transaction(async (tx) => {
+    const [row] = await tx
+      .select()
+      .from(tournaments)
+      .where(eq(tournaments.slug, slug))
+      .limit(1)
+      .for("update");
+    if (!row) {
+      throw new TournamentServiceError(404, "NOT_FOUND", "Không tìm thấy giải đấu");
+    }
+    if (row.organizerId !== user.id) {
+      throw new TournamentServiceError(403, "FORBIDDEN", "Chỉ BTC mới được sửa giải");
+    }
+    if (row.status !== "open") {
+      throw new TournamentServiceError(
+        409,
+        "CONFLICT",
+        "Chỉ sửa được giải đang mở đăng ký",
+      );
+    }
+    const dates = {
+      registrationDeadline: body.registrationDeadline
+        ? new Date(body.registrationDeadline)
+        : row.registrationDeadline,
+      drawDate: body.drawDate ? new Date(body.drawDate) : row.drawDate,
+      dateStart: body.dateStart ? new Date(body.dateStart) : row.dateStart,
+      dateEnd: body.dateEnd ? new Date(body.dateEnd) : row.dateEnd,
+    };
+    assertDateOrder(dates);
+
+    const name = body.name ?? row.name;
+    const description = body.description ?? row.description;
+    await tx
+      .update(tournaments)
+      .set({
+        name,
+        titleAccent:
+          body.titleAccent !== undefined ? body.titleAccent : row.titleAccent,
+        description,
+        intro: body.intro ?? row.intro,
+        teamCount: body.teamCount ?? row.teamCount,
+        series: body.series ?? row.series,
+        cover: body.cover ?? row.cover,
+        ...dates,
+        rules: body.rules ?? row.rules,
+        prizes: body.prizes ?? row.prizes,
+        searchText: normalizeVi(`${name} ${description}`),
+      })
+      .where(eq(tournaments.id, row.id));
+  });
+
+  const detail = await getTournamentBySlug(db, slug, user.id);
+  if (!detail) {
+    throw new TournamentServiceError(404, "NOT_FOUND", "Không tìm thấy giải đấu");
+  }
+  return detail;
 }

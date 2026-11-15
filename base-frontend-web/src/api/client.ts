@@ -8,9 +8,11 @@ export class ApiError extends Error {
   readonly code: ErrorCode
   readonly status: number
   readonly retryAfter?: number
+  readonly details?: unknown
 
-  constructor(message: string, code: ErrorCode, status: number, retryAfter?: number) {
+  constructor(message: string, code: ErrorCode, status: number, retryAfter?: number, details?: unknown) {
     super(message)
+    this.details = details
     this.name = 'ApiError'
     this.code = code
     this.status = status
@@ -51,7 +53,7 @@ async function csrfToken(signal?: AbortSignal): Promise<string> {
 
 function throwApiError(status: number, body: unknown, retryAfter?: number): never {
   const parsed = ErrorBodySchema.safeParse(body)
-  if (parsed.success) throw new ApiError(parsed.data.error.message, parsed.data.error.code, status, retryAfter)
+  if (parsed.success) throw new ApiError(parsed.data.error.message, parsed.data.error.code, status, retryAfter, parsed.data.error.details)
   throw new ApiError(`Yêu cầu thất bại (${status})`, 'INTERNAL', status, retryAfter)
 }
 
