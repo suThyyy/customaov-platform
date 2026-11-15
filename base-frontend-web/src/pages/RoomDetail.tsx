@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react'
-import { useParams } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import type { RoomDetail as ApiRoomDetail, RoomSummary as ApiRoomSummary } from '@customaov/contracts'
 import {
   ArrowLeftRight,
+  DoorOpen,
   Check,
   ChevronRight,
   Clock3,
@@ -28,6 +30,7 @@ import {
   Shield,
   ShieldPlus,
   Shuffle,
+  Trophy,
   UserMinus,
   UserPlus,
   UserRound,
@@ -51,9 +54,25 @@ import {
   type Side,
   type Teams,
 } from '../lib/room'
-import { useToast } from '../context/AppContext'
+import { useAuth, useToast } from '../context/AppContext'
 import { ListStatus, SkeletonRows } from '../components/ui/ListStatus'
-import { currentUser, useRoom, useRoomMessages, type ChatMessage, type Lane, type Room, type RoomMember } from '../api'
+import {
+  ApiError,
+  currentUser,
+  DATA_SOURCE,
+  endpoints,
+  isRoomDetail,
+  useApiRoom,
+  useApiRoomMessages,
+  useRoom,
+  useRoomChannel,
+  useRoomMessages,
+  type ChatMessage,
+  type Lane,
+  type Room,
+  type RoomMember,
+} from '../api'
+import { mapChatMessage, mapRoom } from '../api/map'
 import { Button, ButtonLink, IconButton } from '../components/ui/Button'
 import { Avatar, Badge } from '../components/ui/primitives'
 import { PageHeader } from '../components/layout/PageHeader'
@@ -105,7 +124,15 @@ const nowHHMM = () => {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+/**
+ * `/rooms/:roomId`. Chế độ `mock` giữ nguyên hành vi Phase 4b (sửa đội tại chỗ).
+ * Chế độ `api` tải phòng từ server, mọi thao tác gọi API và nhận cập nhật qua WebSocket.
+ */
 export default function RoomDetail() {
+  return DATA_SOURCE === 'api' ? <ApiRoomDetail /> : <MockRoomDetail />
+}
+
+function MockRoomDetail() {
   const { roomId } = useParams()
   const load = useRoom(roomId)
   const room = load.data
@@ -116,51 +143,71 @@ export default function RoomDetail() {
       </ListStatus>
     )
   }
-  if (!room) {
-    return (
-      <EmptyState
-        className="mt-6 min-h-96"
-        icon={<Gamepad2 size={32} />}
-        as="h1"
-        title="Không tìm thấy phòng"
-        description={`Phòng #${roomId ?? ''} không tồn tại hoặc đã đóng.`}
-        action={
-          <ButtonLink to="/dashboard" variant="outline">
-            Về trang chủ
-          </ButtonLink>
-        }
-      />
-    )
-  }
+  if (!room) return <RoomNotFound code={roomId} />
   // key: đổi phòng thì reset toàn bộ state (đội đã sửa, tin nhắn…)
-  return <RoomView key={room.id} room={room} />
+  return <MockRoomView key={room.id} room={room} />
 }
 
-/**
- * Trang phòng. Góc nhìn theo vai trò (lib/room.ts › ROOM_PERMISSIONS):
- * - Chủ phòng: chia lại, công cụ random, kéo thả / menu đổi đội, mời ra khỏi phòng, chat, xuất kết quả.
- * - Người chơi: chat, xuất kết quả.
- * - Khán giả: chỉ xem (chat chỉ đọc).
- * Nút vàng đặc duy nhất: "Xuất kết quả chia đội" (thành viên) hoặc "Tham gia phòng" (khán giả, phòng còn chỗ).
- */
-function RoomView({ room }: { room: Room }) {
+function RoomNotFound({ code }: { code?: string }) {
+  return (
+    <EmptyState
+      className="mt-6 min-h-96"
+      icon={<Gamepad2 size={32} />}
+      as="h1"
+      title="Không tìm thấy phòng"
+      description={`Phòng #${code ?? ''} không tồn tại hoặc đã đóng.`}
+      action={
+        <ButtonLink to="/dashboard" variant="outline">
+          Về trang chủ
+        </ButtonLink>
+      }
+    />
+  )
+}
+
+/* ---------------- Hợp đồng giữa trang phòng và nguồn dữ liệu ---------------- */
+
+interface RoomActions {
+  share: () => void
+  split: (request: TeamSplitRequest) => void
+  move: (playerId: string, to: Side, targetId?: string) => void
+  kick: (member: RoomMember) => void
+  exportResult: () => void
+  /** Bấm một công cụ ở tab "Công cụ" */
+  tool: (title: string, split?: TeamSplitRequest) => void
+}
+
+/** Chỉ có ở chế độ `api`: trạng thái server và các thao tác của thành viên. */
+interface LiveRoom {
+  /** `null` = chưa vào phòng (không phải thành viên) */
+  myRole: RoomRole | null
+  status: ApiRoomDetail['status']
+  result: Side | null
+  /** Người chơi chưa chọn lane (id theo `Player.id`) */
+  unsetLanes: ReadonlySet<string>
+  /** Dòng của chính mình trong một đội (host/người chơi) */
+  me?: RoomMember
+  busy: boolean
+  join: (as: 'player' | 'spectator') => void
+  leave: () => void
+  setLane: (lane: Lane) => void
+  toggleReady: () => void
+  submitResult: (winner: Side) => void
+}
+
+const shareCopy = async (notify: (title: string, description?: string) => void, url: string) => {
+  const ok = await copyText(url)
+  notify(ok ? 'Đã sao chép liên kết phòng' : 'Không thể sao chép', ok ? 'Gửi liên kết cho bạn bè để mời vào phòng.' : undefined)
+}
+
+/* ---------------- Chế độ mock: sửa đội tại chỗ ---------------- */
+
+function MockRoomView({ room }: { room: Room }) {
   const { comingSoon, notify } = useToast()
   const role = roomRole(room, currentUser.id)
-  const isHost = role === 'host'
   const perSide = room.capacity / 2
-
-  const [tab, setTab] = useState<ToolTab>('tools')
   const [teams, setTeams] = useState<Teams>({ blue: room.teams.blue, red: room.teams.red })
-  const playerCount = teams.blue.length + teams.red.length
 
-  const copyCode = async () => {
-    const ok = await copyText(`#${room.id}`)
-    notify(ok ? 'Đã sao chép mã phòng' : 'Không thể sao chép', ok ? `#${room.id}` : 'Trình duyệt chặn clipboard.')
-  }
-  const share = async () => {
-    const ok = await copyText(window.location.href)
-    notify(ok ? 'Đã sao chép liên kết phòng' : 'Không thể sao chép', ok ? 'Gửi liên kết cho bạn bè để mời vào phòng.' : undefined)
-  }
   const exportResult = async () => {
     const ok = await copyText(formatTeamsText(room, teams))
     notify(
@@ -200,48 +247,408 @@ function RoomView({ room }: { room: Room }) {
     notify(`Đã mời ${m.player.name} ra khỏi phòng`, 'Chỗ trống có thể mời người khác vào.')
   }
 
+  return (
+    <RoomView
+      room={room}
+      teams={teams}
+      role={role}
+      actions={{
+        share: () => shareCopy(notify, window.location.href),
+        split: runSplit,
+        move,
+        kick,
+        exportResult,
+        tool: (title, split) => (split ? runSplit(split) : comingSoon(title)),
+      }}
+      chat={(className) => <MockRoomChat room={room} canChat={can(role, 'chat')} className={className} />}
+    />
+  )
+}
+
+/* ---------------- Chế độ api: server là nguồn sự thật ---------------- */
+
+const errorText = (error: unknown): string =>
+  error instanceof ApiError ? error.message : 'Không kết nối được máy chủ. Vui lòng thử lại.'
+
+function ApiRoomDetail() {
+  const { roomId } = useParams()
+  const [params] = useSearchParams()
+  const joinKey = params.get('key') ?? undefined
+  // key: đổi phòng (hoặc mã mời) thì huỷ kênh realtime cũ và reset toàn bộ state
+  return <ApiRoomLoader key={`${roomId ?? ''}#${joinKey ?? ''}`} code={roomId} joinKey={joinKey} />
+}
+
+function ApiRoomLoader({ code, joinKey }: { code?: string; joinKey?: string }) {
+  const navigate = useNavigate()
+  const { notify, comingSoon } = useToast()
+  const { user } = useAuth()
+  const { state, setRoom, reload } = useApiRoom(code, joinKey)
+  const loaded = state.status === 'ready' ? state.room : undefined
+  const detail = loaded && isRoomDetail(loaded) ? loaded : undefined
+  const myRole = detail?.myRole ?? null
+  const chat = useApiRoomMessages(code, myRole !== null)
+  const { add: addMessage, reload: reloadMessages } = chat
+  const channel = useRoomChannel(code, joinKey, {
+    onRoomUpdated: setRoom,
+    onChatMessage: addMessage,
+    onKicked: () => {
+      notify('Bạn đã bị mời ra khỏi phòng', `Chủ phòng đã mời bạn ra khỏi phòng #${code ?? ''}.`)
+      navigate('/dashboard', { replace: true })
+    },
+    onReconnect: () => {
+      reload()
+      reloadMessages()
+    },
+  })
+  const [busy, setBusy] = useState(false)
+
+  if (state.status === 'loading' || state.status === 'error') {
+    return (
+      <ListStatus status={state.status} onRetry={reload} label="phòng" className="mt-6" skeleton={<SkeletonRows count={6} />}>
+        {null}
+      </ListStatus>
+    )
+  }
+  if (state.status === 'not-found' || !code) return <RoomNotFound code={code} />
+
+  /** Gọi một mutation phòng: thành công thì lấy ảnh chụp mới, lỗi (409/403…) thì toast thông báo của server. */
+  const run = async (failTitle: string, request: () => Promise<ApiRoomDetail>): Promise<ApiRoomDetail | undefined> => {
+    setBusy(true)
+    try {
+      const room = await request()
+      setRoom(room)
+      return room
+    } catch (error) {
+      notify(failTitle, errorText(error))
+      return undefined
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const join = async (as: 'player' | 'spectator') => {
+    // Khán giả muốn vào đội: server yêu cầu rời vai khán giả trước (join khi đã là thành viên → 409).
+    const switching = as === 'player' && myRole === 'spectator'
+    const room = await run(as === 'player' ? 'Không thể vào phòng' : 'Không thể vào xem', async () => {
+      if (switching) await endpoints.leaveRoom(code)
+      return endpoints.joinRoom(code, joinKey ? { as, key: joinKey } : { as })
+    })
+    if (!room) {
+      if (switching) reload()
+      return
+    }
+    // Phòng riêng tư: lần subscribe đầu có thể bị từ chối khi chưa là thành viên.
+    channel.resubscribe()
+    if (as === 'spectator') {
+      notify(`Đang xem phòng #${room.code}`, 'Khán giả xem được đội hình và chat, nhưng không gửi tin.')
+    } else {
+      const side = room.teams.red.some((m) => m.user.username === user?.username) ? 'red' : 'blue'
+      notify(`Đã vào phòng #${room.code}`, `Bạn ở ${TEAM_NAME[side]}. Chọn lane và bấm sẵn sàng nhé!`)
+    }
+  }
+
+  if (!detail) return <RestrictedRoom room={loaded!} busy={busy} onJoin={() => join('player')} />
+
+  return (
+    <ApiRoomView
+      key={detail.code}
+      detail={detail}
+      username={user?.username}
+      busy={busy}
+      run={run}
+      join={join}
+      onLeft={() => {
+        if (detail.visibility === 'private' && !joinKey) reload()
+      }}
+      chat={chat.state}
+      onMessage={addMessage}
+      onRetryChat={reloadMessages}
+      notify={notify}
+      comingSoon={comingSoon}
+    />
+  )
+}
+
+function ApiRoomView({
+  detail,
+  username,
+  busy,
+  run,
+  join,
+  onLeft,
+  chat,
+  onMessage,
+  onRetryChat,
+  notify,
+  comingSoon,
+}: {
+  detail: ApiRoomDetail
+  username?: string
+  busy: boolean
+  run: (failTitle: string, request: () => Promise<ApiRoomDetail>) => Promise<ApiRoomDetail | undefined>
+  join: (as: 'player' | 'spectator') => void
+  onLeft: () => void
+  chat: ReturnType<typeof useApiRoomMessages>['state']
+  onMessage: ReturnType<typeof useApiRoomMessages>['add']
+  onRetryChat: () => void
+  notify: (title: string, description?: string) => void
+  comingSoon: (feature: string) => void
+}) {
+  const code = detail.code
+  const room = mapRoom(detail)
+  const teams: Teams = room.teams
+  const myRole = detail.myRole
+  const role: RoomRole = myRole ?? 'spectator'
+  const members = [...detail.teams.blue, ...detail.teams.red]
+  const userIdOf = (playerId: string) => members.find((m) => m.user.username === playerId)?.user.id
+  const unsetLanes = new Set(members.filter((m) => m.lane === null).map((m) => m.user.username))
+  const me = username ? [...teams.blue, ...teams.red].find((m) => m.player.id === username) : undefined
+  const nameOf = (playerId: string) => [...teams.blue, ...teams.red].find((m) => m.player.id === playerId)?.player.name
+
+  const split = async (request: TeamSplitRequest) => {
+    const next = await run('Không thể chia đội', () =>
+      endpoints.splitRoom(code, request.mode === 'random' ? { mode: 'random' } : { mode: 'tier' }),
+    )
+    if (!next) return
+    if (next.lastSplit?.warning) notify('Chưa đạt mức cân bằng mong muốn', 'Đã chọn phương án chia gần 50/50 nhất có thể.')
+    else notify('Đã chia đội', `${MODE_LABEL[next.lastSplit?.mode ?? (request.mode === 'random' ? 'random' : 'tier')]} · 5 vs 5`)
+  }
+
+  const move = async (playerId: string, to: Side, targetId?: string) => {
+    // Kiểm tra trước bằng đúng luật của server để báo lỗi ngay, không cần gọi API.
+    const check = moveMember(teams, playerId, to, room.capacity / 2, targetId)
+    if (!check.ok) {
+      notify('Không thể đổi đội', check.message)
+      return
+    }
+    if (check.teams === teams) return
+    const userId = userIdOf(playerId)
+    const targetUserId = targetId ? userIdOf(targetId) : undefined
+    if (!userId) return
+    const next = await run('Không thể đổi đội', () =>
+      endpoints.moveRoomMember(code, targetUserId ? { userId, to, targetUserId } : { userId, to }),
+    )
+    if (next) notify(check.swapped ? `Đã đổi chỗ ${nameOf(playerId)} và ${check.swapped}` : `Đã chuyển ${nameOf(playerId)} sang ${TEAM_NAME[to]}`)
+  }
+
+  const kick = async (member: RoomMember) => {
+    const userId = userIdOf(member.player.id)
+    if (!userId) return
+    const next = await run('Không thể mời ra khỏi phòng', () => endpoints.kickRoomMember(code, { userId }))
+    if (next) notify(`Đã mời ${member.player.name} ra khỏi phòng`, 'Chỗ trống có thể mời người khác vào.')
+  }
+
+  const exportResult = async () => {
+    let text: string
+    try {
+      text = await endpoints.exportRoom(code)
+    } catch (error) {
+      notify('Không thể xuất kết quả', errorText(error))
+      return
+    }
+    const ok = await copyText(text)
+    notify(
+      ok ? 'Đã sao chép kết quả chia đội' : 'Không thể sao chép',
+      ok ? 'Dán vào Zalo / Discord để gửi cho cả phòng.' : 'Trình duyệt chặn clipboard.',
+    )
+  }
+
+  const randomLanes = async () => {
+    const next = await run('Không thể random lane', () => endpoints.randomLanes(code))
+    if (next) notify('Đã random lane', 'Mỗi đội có đủ 5 vị trí, không trùng nhau.')
+  }
+
+  const live: LiveRoom = {
+    myRole,
+    status: detail.status,
+    result: detail.result?.winner ?? null,
+    unsetLanes,
+    me,
+    busy,
+    join,
+    leave: async () => {
+      const next = await run('Không thể rời phòng', () => endpoints.leaveRoom(code))
+      if (!next) return
+      notify(`Đã rời phòng #${code}`)
+      onLeft()
+    },
+    setLane: (lane) => void run('Không thể chọn lane', () => endpoints.updateRoomMe(code, { lane })),
+    toggleReady: async () => {
+      const next = await run('Không thể cập nhật sẵn sàng', () => endpoints.updateRoomMe(code, { ready: !me?.ready }))
+      if (next) notify(me?.ready ? 'Đã huỷ sẵn sàng' : 'Đã sẵn sàng', me?.ready ? undefined : 'Chờ chủ phòng chia đội và bắt đầu.')
+    },
+    submitResult: async (winner) => {
+      const next = await run('Không thể ghi kết quả', () => endpoints.roomResult(code, { winner }))
+      if (next) notify('Đã ghi kết quả trận', `${TEAM_NAME[winner]} thắng. Phòng đã kết thúc.`)
+    },
+  }
+
+  const send = async (text: string): Promise<boolean> => {
+    try {
+      onMessage(await endpoints.createMessage(code, { text }))
+      return true
+    } catch (error) {
+      notify('Không gửi được tin nhắn', errorText(error))
+      return false
+    }
+  }
+
+  return (
+    <RoomView
+      key={room.id}
+      room={room}
+      teams={teams}
+      role={role}
+      live={live}
+      actions={{
+        share: () => shareCopy(notify, detail.shareUrl ? new URL(detail.shareUrl, window.location.origin).href : window.location.href),
+        split,
+        move,
+        kick,
+        exportResult,
+        tool: (title, request) => {
+          if (request) void split(request)
+          else if (title === 'Random lane') void randomLanes()
+          else comingSoon(title)
+        },
+      }}
+      chat={(className) => (
+        <RoomChat
+          className={className}
+          status={myRole === null ? 'ready' : chat.status === 'error' ? 'error' : chat.status === 'ready' ? 'ready' : 'loading'}
+          onRetry={onRetryChat}
+          messages={chat.messages.map(mapChatMessage)}
+          meId={username}
+          locked={myRole === null ? 'Vào phòng (người chơi hoặc khán giả) để xem chat.' : undefined}
+          composer={myRole === null ? 'hidden' : can(role, 'chat') && detail.status !== 'finished' ? 'enabled' : 'hidden'}
+          composerNote={
+            myRole === 'spectator' ? 'Khán giả chỉ xem chat. Vào đội để gửi tin nhắn.' : detail.status === 'finished' ? 'Phòng đã kết thúc.' : undefined
+          }
+          onSend={send}
+        />
+      )}
+    />
+  )
+}
+
+/** Phòng riêng tư, người ngoài không có mã mời: chỉ thông tin cơ bản (API.md 9.1). */
+function RestrictedRoom({ room, busy, onJoin }: { room: ApiRoomSummary; busy: boolean; onJoin: () => void }) {
+  const ui = mapRoom(room)
+  return (
+    <div className="flex flex-col">
+      <PageHeader
+        title={<RoomTitle room={ui} />}
+        meta={<RoomInfoList room={ui} playerCount={room.playerCount} />}
+        actions={
+          <Button leftIcon={<LogIn size={18} aria-hidden />} disabled={busy} onClick={onJoin}>
+            Vào phòng
+          </Button>
+        }
+      />
+      <EmptyState
+        className="mt-6 min-h-60"
+        icon={<Lock size={28} />}
+        as="h2"
+        title="Phòng riêng tư"
+        description="Đội hình và chat chỉ hiện với thành viên hoặc người có liên kết mời của chủ phòng."
+      />
+    </div>
+  )
+}
+
+function RoomTitle({ room }: { room: Room }) {
+  return (
+    <>
+      {room.title}
+      {room.highlight && (
+        <>
+          {' – '}
+          <span className="text-gold-gradient">{room.highlight}</span>
+        </>
+      )}
+    </>
+  )
+}
+
+function RoomInfoList({ room, playerCount }: { room: Room; playerCount: number }) {
   const VisibilityIcon = room.visibility === 'private' ? Lock : Globe
-  const canJoin = role === 'spectator' && roomAction(room, currentUser.id) === 'join'
+  return (
+    <ul className="flex flex-wrap items-center gap-x-6 gap-y-2 text-base text-fg/90" aria-label="Thông tin phòng">
+      <li className="flex items-center gap-2">
+        <Gamepad2 size={20} aria-hidden className="text-fg-muted" />
+        {room.modeLabel}
+      </li>
+      <li className="flex items-center gap-2">
+        <VisibilityIcon size={18} aria-hidden className="text-fg-muted" />
+        {room.visibility === 'private' ? 'Private' : 'Public'}
+      </li>
+      <li className="flex items-center gap-2">
+        <UserRound size={18} aria-hidden className="text-fg-muted" />
+        <span>
+          Tạo bởi <span className="font-semibold text-gold">{room.host.name}</span>
+        </span>
+      </li>
+      <li className="flex items-center gap-2">
+        <UsersRound size={18} aria-hidden className="text-fg-muted" />
+        <span className="tabular">
+          {playerCount}/{room.capacity}
+          <span className="sr-only"> người chơi</span>
+        </span>
+      </li>
+    </ul>
+  )
+}
+
+/* ---------------- Giao diện trang phòng (dùng chung mock/api) ---------------- */
+
+/**
+ * Trang phòng. Góc nhìn theo vai trò (lib/room.ts › ROOM_PERMISSIONS):
+ * - Chủ phòng: chia lại, công cụ random, kéo thả / menu đổi đội, mời ra khỏi phòng, chat, xuất kết quả.
+ * - Người chơi: chat, xuất kết quả (api: chọn lane, sẵn sàng, rời phòng).
+ * - Khán giả: chỉ xem (chat chỉ đọc).
+ * Nút vàng đặc duy nhất: "Xuất kết quả chia đội" (thành viên) hoặc "Tham gia phòng"/"Vào phòng" (khán giả, phòng còn chỗ).
+ */
+function RoomView({
+  room,
+  teams,
+  role,
+  actions,
+  chat,
+  live,
+}: {
+  room: Room
+  teams: Teams
+  role: RoomRole
+  actions: RoomActions
+  chat: (className: string) => ReactNode
+  live?: LiveRoom
+}) {
+  const { comingSoon, notify } = useToast()
+  const perSide = room.capacity / 2
+  const [tab, setTab] = useState<ToolTab>('tools')
+  const playerCount = teams.blue.length + teams.red.length
+  const finished = live?.status === 'finished'
+  const busy = live?.busy ?? false
+  const canSplit = can(role, 'split') && !finished
+  const canEdit = can(role, 'move') && !finished
+  const outsider = live ? live.myRole === null : false
+  // Mock: khán giả + phòng còn chỗ → "Tham gia phòng" (chưa có chức năng).
+  const canJoinMock = !live && role === 'spectator' && roomAction(room, currentUser.id) === 'join'
+  // Api: vào đội được khi chưa là người chơi, phòng đang chờ và còn chỗ.
+  const canJoinTeam = !!live && (live.myRole === null || live.myRole === 'spectator') && live.status === 'waiting' && playerCount < room.capacity
+
+  const copyCode = async () => {
+    const ok = await copyText(`#${room.id}`)
+    notify(ok ? 'Đã sao chép mã phòng' : 'Không thể sao chép', ok ? `#${room.id}` : 'Trình duyệt chặn clipboard.')
+  }
 
   return (
     <div className="flex flex-col">
       <PageHeader
-        title={
-          <>
-            {room.title}
-            {room.highlight && (
-              <>
-                {' – '}
-                <span className="text-gold-gradient">{room.highlight}</span>
-              </>
-            )}
-          </>
-        }
+        title={<RoomTitle room={room} />}
         meta={
           <div className="flex flex-col gap-3">
-            <ul className="flex flex-wrap items-center gap-x-6 gap-y-2 text-base text-fg/90" aria-label="Thông tin phòng">
-              <li className="flex items-center gap-2">
-                <Gamepad2 size={20} aria-hidden className="text-fg-muted" />
-                {room.modeLabel}
-              </li>
-              <li className="flex items-center gap-2">
-                <VisibilityIcon size={18} aria-hidden className="text-fg-muted" />
-                {room.visibility === 'private' ? 'Private' : 'Public'}
-              </li>
-              <li className="flex items-center gap-2">
-                <UserRound size={18} aria-hidden className="text-fg-muted" />
-                <span>
-                  Tạo bởi <span className="font-semibold text-gold">{room.host.name}</span>
-                </span>
-              </li>
-              <li className="flex items-center gap-2">
-                <UsersRound size={18} aria-hidden className="text-fg-muted" />
-                <span className="tabular">
-                  {playerCount}/{room.capacity}
-                  <span className="sr-only"> người chơi</span>
-                </span>
-              </li>
-            </ul>
+            <RoomInfoList room={room} playerCount={playerCount} />
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex h-10 w-fit items-center gap-3 rounded-btn border border-line-strong bg-surface-2/80 pr-1 pl-4 text-base">
                 <span className="text-fg-muted">Mã phòng</span>
@@ -250,33 +657,54 @@ function RoomView({ room }: { room: Room }) {
                   <Copy size={16} aria-hidden />
                 </IconButton>
               </div>
-              <RoleBadge role={role} />
+              <RoleBadge role={role} outsider={outsider} />
+              {finished && (
+                <Badge tone="neutral" icon={<Trophy size={14} aria-hidden />} className="py-1 text-sm">
+                  {live?.result ? `Đã kết thúc · ${TEAM_NAME[live.result]} thắng` : 'Đã kết thúc'}
+                </Badge>
+              )}
             </div>
           </div>
         }
         actions={
           <>
-            <Button variant="outline" leftIcon={<Share2 size={18} aria-hidden />} onClick={share}>
+            <Button variant="outline" leftIcon={<Share2 size={18} aria-hidden />} onClick={actions.share}>
               Chia sẻ
             </Button>
-            {isHost && (
+            {canSplit && (
               <Button
                 variant="outline"
                 leftIcon={<Shuffle size={18} aria-hidden />}
                 title="Chia ngẫu nhiên lại hai đội"
-                onClick={() => runSplit({ mode: 'random' })}
+                disabled={busy}
+                onClick={() => actions.split({ mode: 'random' })}
               >
                 Chia lại
               </Button>
             )}
             {can(role, 'export') && (
-              <Button leftIcon={<Download size={18} aria-hidden />} onClick={exportResult}>
+              <Button leftIcon={<Download size={18} aria-hidden />} onClick={actions.exportResult}>
                 Xuất kết quả chia đội
               </Button>
             )}
-            {canJoin && (
+            {canJoinMock && (
               <Button leftIcon={<LogIn size={18} aria-hidden />} onClick={() => comingSoon(`Tham gia phòng #${room.id}`)}>
                 Tham gia phòng
+              </Button>
+            )}
+            {live && canJoinTeam && (
+              <Button leftIcon={<LogIn size={18} aria-hidden />} disabled={busy} onClick={() => live.join('player')}>
+                {live.myRole === 'spectator' ? 'Vào đội' : 'Vào phòng'}
+              </Button>
+            )}
+            {live && live.myRole === null && !finished && (
+              <Button variant="outline" leftIcon={<Eye size={18} aria-hidden />} disabled={busy} onClick={() => live.join('spectator')}>
+                Vào xem
+              </Button>
+            )}
+            {live && live.myRole !== null && !finished && (
+              <Button variant="ghost" leftIcon={<DoorOpen size={18} aria-hidden />} disabled={busy} onClick={live.leave}>
+                Rời phòng
               </Button>
             )}
           </>
@@ -295,10 +723,12 @@ function RoomView({ room }: { room: Room }) {
             side={side}
             members={teams[side]}
             capacity={perSide}
-            editable={isHost}
+            editable={canEdit}
+            canKick={can(role, 'kick')}
             hostId={room.host.id}
-            onMove={move}
-            onKick={kick}
+            unsetLanes={live?.unsetLanes}
+            onMove={actions.move}
+            onKick={actions.kick}
             onInvite={() => comingSoon('Mời người chơi')}
           />
         ))}
@@ -324,18 +754,34 @@ function RoomView({ room }: { room: Room }) {
           <div id="room-tools-panel" role="tabpanel" aria-labelledby={`room-tools-tab-${tab}`} className="flex-1 p-4">
             {tab === 'tools' ? (
               <>
-                {!isHost && (
+                {live?.me && !finished && <MySlot me={live.me} laneUnset={live.unsetLanes.has(live.me.player.id)} busy={busy} onLane={live.setLane} onReady={live.toggleReady} />}
+                {live && role === 'host' && (
+                  <MatchResult
+                    result={live.result}
+                    finished={finished}
+                    full={playerCount === room.capacity}
+                    busy={busy}
+                    onSubmit={live.submitResult}
+                  />
+                )}
+                {finished ? (
                   <p className="mb-3 rounded-btn bg-surface-2/80 px-3 py-2 text-sm text-fg-muted">
-                    Chỉ chủ phòng ({room.host.name}) dùng được các công cụ chia đội và random.
+                    Phòng đã kết thúc, không thể chia đội hay đổi chỗ nữa.
                   </p>
+                ) : (
+                  !can(role, 'split') && (
+                    <p className="mb-3 rounded-btn bg-surface-2/80 px-3 py-2 text-sm text-fg-muted">
+                      Chỉ chủ phòng ({room.host.name}) dùng được các công cụ chia đội và random.
+                    </p>
+                  )
                 )}
                 <ul className="flex flex-col gap-3">
                   {TOOLS.map(({ icon: Icon, title, desc, split }) => (
                     <li key={title}>
                       <button
                         type="button"
-                        disabled={!isHost}
-                        onClick={() => (split ? runSplit(split) : comingSoon(title))}
+                        disabled={busy || finished || !can(role, split ? 'split' : 'random')}
+                        onClick={() => actions.tool(title, split)}
                         className="group flex min-h-16 w-full items-center gap-4 rounded-btn border border-line bg-surface-2/80 py-3 pr-4 pl-3 text-left transition-[background-color,border-color] duration-150 enabled:hover:border-gold/35 enabled:hover:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <span
@@ -366,7 +812,7 @@ function RoomView({ room }: { room: Room }) {
                 icon={<MessageSquareText size={28} />}
                 title="Chưa có ghi chú"
                 description={
-                  isHost
+                  role === 'host'
                     ? 'Ghi chú luật riêng của phòng (cấm tướng, giờ bắt đầu…) sẽ có ở bản sau.'
                     : 'Chủ phòng chưa thêm ghi chú nào.'
                 }
@@ -375,22 +821,121 @@ function RoomView({ room }: { room: Room }) {
           </div>
         </section>
 
-        <RoomChat
-          room={room}
-          canChat={can(role, 'chat')}
-          className="md:col-span-2 xl:col-start-1 xl:row-start-2"
-        />
+        {chat('md:col-span-2 xl:col-start-1 xl:row-start-2')}
       </div>
     </div>
   )
 }
 
-function RoleBadge({ role }: { role: RoomRole }) {
+function RoleBadge({ role, outsider }: { role: RoomRole; outsider?: boolean }) {
   const Icon = role === 'host' ? Crown : role === 'player' ? UserRound : Eye
   return (
     <Badge tone={role === 'host' ? 'gold-outline' : 'neutral'} icon={<Icon size={14} aria-hidden />} className="py-1 text-sm">
-      Bạn là {ROOM_ROLE_LABEL[role].toLowerCase()}
+      {outsider ? 'Bạn chưa vào phòng' : `Bạn là ${ROOM_ROLE_LABEL[role].toLowerCase()}`}
     </Badge>
+  )
+}
+
+const LANES: Lane[] = ['TOP', 'JG', 'MID', 'AD', 'SP']
+
+/** (api) Chọn lane và bấm sẵn sàng cho chính mình */
+function MySlot({
+  me,
+  laneUnset,
+  busy,
+  onLane,
+  onReady,
+}: {
+  me: RoomMember
+  laneUnset: boolean
+  busy: boolean
+  onLane: (lane: Lane) => void
+  onReady: () => void
+}) {
+  return (
+    <section aria-labelledby="my-slot-title" className="mb-4 rounded-btn border border-line bg-surface-2/60 p-3">
+      <h3 id="my-slot-title" className="text-sm font-semibold">
+        Vị trí của bạn
+      </h3>
+      <div role="group" aria-label="Chọn lane" className="mt-2 flex flex-wrap gap-2">
+        {LANES.map((lane) => {
+          const Icon = LANE_ICON[lane]
+          const active = !laneUnset && me.lane === lane
+          return (
+            <button
+              key={lane}
+              type="button"
+              aria-pressed={active}
+              title={LANE_NAME[lane]}
+              disabled={busy}
+              onClick={() => !active && onLane(lane)}
+              className={cn(
+                'inline-flex h-10 min-w-16 items-center justify-center gap-2 rounded-btn border px-2 text-sm font-medium transition-colors disabled:opacity-60',
+                active ? 'border-gold/60 bg-gold-tint text-gold' : 'border-line bg-surface-3 text-fg hover:border-gold/35',
+              )}
+            >
+              <Icon size={16} aria-hidden />
+              {lane}
+              <span className="sr-only">({LANE_NAME[lane]})</span>
+            </button>
+          )
+        })}
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Button
+          size="sm"
+          variant={me.ready ? 'outline' : 'gold-outline'}
+          leftIcon={me.ready ? <X size={16} aria-hidden /> : <Check size={16} aria-hidden />}
+          disabled={busy}
+          onClick={onReady}
+        >
+          {me.ready ? 'Huỷ sẵn sàng' : 'Sẵn sàng'}
+        </Button>
+        <span className="text-xs text-fg-muted">{me.ready ? 'Bạn đã sẵn sàng.' : 'Bấm khi đã chọn lane và sẵn sàng vào trận.'}</span>
+      </div>
+    </section>
+  )
+}
+
+/** (api, chủ phòng) Ghi kết quả trận: chỉ khi đủ người và chưa có kết quả (API.md 9.4) */
+function MatchResult({
+  result,
+  finished,
+  full,
+  busy,
+  onSubmit,
+}: {
+  result: Side | null
+  finished: boolean
+  full: boolean
+  busy: boolean
+  onSubmit: (winner: Side) => void
+}) {
+  return (
+    <section aria-labelledby="match-result-title" className="mb-4 rounded-btn border border-line bg-surface-2/60 p-3">
+      <h3 id="match-result-title" className="flex items-center gap-2 text-sm font-semibold">
+        <Trophy size={16} aria-hidden className="text-gold" />
+        Kết quả trận
+      </h3>
+      {result ? (
+        <p className="mt-2 text-sm">
+          <span className="font-semibold">{TEAM_NAME[result]}</span> thắng.
+        </p>
+      ) : finished ? (
+        <p className="mt-2 text-sm text-fg-muted">Phòng đã kết thúc, không có kết quả.</p>
+      ) : (
+        <>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {(['blue', 'red'] as const).map((side) => (
+              <Button key={side} size="sm" variant="outline" disabled={busy || !full} onClick={() => onSubmit(side)}>
+                {TEAM_NAME[side]} thắng
+              </Button>
+            ))}
+          </div>
+          {!full && <p className="mt-2 text-xs text-fg-muted">Cần đủ người chơi ở hai đội mới ghi được kết quả.</p>}
+        </>
+      )}
+    </section>
   )
 }
 
@@ -403,7 +948,9 @@ function TeamPanel({
   members,
   capacity,
   editable,
+  canKick,
   hostId,
+  unsetLanes,
   onMove,
   onKick,
   onInvite,
@@ -412,7 +959,9 @@ function TeamPanel({
   members: RoomMember[]
   capacity: number
   editable: boolean
+  canKick: boolean
   hostId: string
+  unsetLanes?: ReadonlySet<string>
   onMove: (playerId: string, to: Side, targetId?: string) => void
   onKick: (m: RoomMember) => void
   onInvite: () => void
@@ -475,6 +1024,8 @@ function TeamPanel({
             side={side}
             first={i === 0}
             editable={editable}
+            canKick={canKick}
+            laneUnset={unsetLanes?.has(mem.player.id) ?? false}
             isHost={mem.player.id === hostId}
             onMove={onMove}
             onKick={onKick}
@@ -512,6 +1063,8 @@ function MemberRow({
   side,
   first,
   editable,
+  canKick,
+  laneUnset,
   isHost,
   onMove,
   onKick,
@@ -520,11 +1073,14 @@ function MemberRow({
   side: Side
   first: boolean
   editable: boolean
+  canKick: boolean
+  laneUnset: boolean
   isHost: boolean
   onMove: (playerId: string, to: Side) => void
   onKick: (m: RoomMember) => void
 }) {
-  const LaneIcon = LANE_ICON[member.lane]
+  const LaneIcon = laneUnset ? UserRound : LANE_ICON[member.lane]
+  const laneName = laneUnset ? 'Chưa chọn lane' : LANE_NAME[member.lane]
   const [dragging, setDragging] = useState(false)
   return (
     <li
@@ -555,12 +1111,15 @@ function MemberRow({
         )}
       </div>
       <span
-        title={LANE_NAME[member.lane]}
-        className="inline-flex h-8 min-w-16 shrink-0 items-center justify-center gap-2 rounded-btn bg-lane-chip px-2 text-sm font-medium ring-1 ring-white/5"
+        title={laneName}
+        className={cn(
+          'inline-flex h-8 min-w-16 shrink-0 items-center justify-center gap-2 rounded-btn bg-lane-chip px-2 text-sm font-medium ring-1 ring-white/5',
+          laneUnset && 'text-fg-muted',
+        )}
       >
         <LaneIcon size={16} aria-hidden className="text-fg/80" />
-        {member.lane}
-        <span className="sr-only">({LANE_NAME[member.lane]})</span>
+        {laneUnset ? '—' : member.lane}
+        <span className="sr-only">({laneName})</span>
       </span>
       {member.ready ? (
         <span className="grid size-6 shrink-0 place-items-center rounded-full bg-ready" title="Đã sẵn sàng">
@@ -573,7 +1132,7 @@ function MemberRow({
           <span className="sr-only">Chưa sẵn sàng</span>
         </span>
       )}
-      {editable && <MemberMenu member={member} side={side} isHost={isHost} onMove={onMove} onKick={onKick} />}
+      {editable && <MemberMenu member={member} side={side} isHost={isHost} canKick={canKick} onMove={onMove} onKick={onKick} />}
     </li>
   )
 }
@@ -583,12 +1142,14 @@ function MemberMenu({
   member,
   side,
   isHost,
+  canKick,
   onMove,
   onKick,
 }: {
   member: RoomMember
   side: Side
   isHost: boolean
+  canKick: boolean
   onMove: (playerId: string, to: Side) => void
   onKick: (m: RoomMember) => void
 }) {
@@ -629,19 +1190,21 @@ function MemberMenu({
           >
             <ArrowLeftRight size={16} aria-hidden className="text-gold" /> Chuyển sang {TEAM_NAME[to]}
           </button>
-          <button
-            role="menuitem"
-            type="button"
-            disabled={isHost}
-            title={isHost ? 'Không thể mời chủ phòng ra khỏi phòng' : undefined}
-            className={cn(item, 'text-danger')}
-            onClick={() => {
-              close()
-              onKick(member)
-            }}
-          >
-            <UserMinus size={16} aria-hidden /> Mời ra khỏi phòng
-          </button>
+          {canKick && (
+            <button
+              role="menuitem"
+              type="button"
+              disabled={isHost}
+              title={isHost ? 'Không thể mời chủ phòng ra khỏi phòng' : undefined}
+              className={cn(item, 'text-danger')}
+              onClick={() => {
+                close()
+                onKick(member)
+              }}
+            >
+              <UserMinus size={16} aria-hidden /> Mời ra khỏi phòng
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -715,15 +1278,59 @@ function RoomConfig({ room, role }: { room: Room; role: RoomRole }) {
 
 /* ---------------- Chat ---------------- */
 
-function RoomChat({ room, canChat, className }: { room: Room; canChat: boolean; className?: string }) {
+/** Chat mock: tin gửi chỉ thêm vào state cục bộ */
+function MockRoomChat({ room, canChat, className }: { room: Room; canChat: boolean; className?: string }) {
   const load = useRoomMessages(room.id)
   const [messages, setMessages] = useState<ChatMessage[]>(load.data)
-  const [draft, setDraft] = useState('')
-  const listRef = useRef<HTMLOListElement>(null)
 
   useEffect(() => {
     if (load.status === 'ready') setMessages(load.data)
   }, [load.status, load.data])
+
+  return (
+    <RoomChat
+      className={className}
+      status={load.status}
+      onRetry={load.retry}
+      messages={messages}
+      meId={currentUser.id}
+      composer={canChat ? 'enabled' : 'disabled'}
+      onSend={(text) => {
+        setMessages((list) => [...list, { id: `local-${list.length}-${Date.now()}`, author: currentUser, text, time: nowHHMM() }])
+        return true
+      }}
+    />
+  )
+}
+
+function RoomChat({
+  status,
+  onRetry,
+  messages,
+  meId,
+  composer,
+  composerNote,
+  locked,
+  onSend,
+  className,
+}: {
+  status: 'loading' | 'error' | 'ready'
+  onRetry: () => void
+  messages: ChatMessage[]
+  meId?: string
+  /** `disabled`: ô nhập hiện nhưng khoá (mock); `hidden`: không hiện ô gửi (api, khán giả) */
+  composer: 'enabled' | 'disabled' | 'hidden'
+  composerNote?: string
+  /** Không đủ quyền đọc chat: thay danh sách bằng thông báo này */
+  locked?: string
+  /** Trả về `true` khi gửi được (xoá ô nhập). Có thể bất đồng bộ (api). */
+  onSend: (text: string) => boolean | Promise<boolean>
+  className?: string
+}) {
+  const [draft, setDraft] = useState('')
+  const [sending, setSending] = useState(false)
+  const listRef = useRef<HTMLOListElement>(null)
+  const canChat = composer === 'enabled'
 
   // Tin mới → cuộn xuống cuối khung chat (chỉ trong khung, không cuộn cả trang)
   useEffect(() => {
@@ -733,9 +1340,17 @@ function RoomChat({ room, canChat, className }: { room: Room; canChat: boolean; 
 
   const send = () => {
     const text = draft.trim()
-    if (!text) return
-    setMessages((list) => [...list, { id: `local-${list.length}-${Date.now()}`, author: currentUser, text, time: nowHHMM() }])
-    setDraft('')
+    if (!text || sending) return
+    const result = onSend(text)
+    if (typeof result === 'boolean') {
+      if (result) setDraft('')
+      return
+    }
+    setSending(true)
+    void result.then((ok) => {
+      setSending(false)
+      if (ok) setDraft((current) => (current.trim() === text ? '' : current))
+    })
   }
 
   return (
@@ -745,11 +1360,16 @@ function RoomChat({ room, canChat, className }: { room: Room; canChat: boolean; 
           <MessageSquareText size={20} aria-hidden className="text-gold" />
           Chat phòng
         </h2>
-        <span className="text-xs text-fg-muted tabular">{messages.length} tin nhắn</span>
+        {!locked && <span className="text-xs text-fg-muted tabular">{messages.length} tin nhắn</span>}
       </div>
 
-      {load.status !== 'ready' ? (
-        <ListStatus status={load.status} onRetry={load.retry} label="tin nhắn" className="m-3" skeleton={<SkeletonRows count={3} className="px-1" />}>
+      {locked ? (
+        <p className="flex items-center justify-center gap-2 px-4 py-8 text-center text-sm text-fg-muted">
+          <Lock size={16} aria-hidden />
+          {locked}
+        </p>
+      ) : status !== 'ready' ? (
+        <ListStatus status={status} onRetry={onRetry} label="tin nhắn" className="m-3" skeleton={<SkeletonRows count={3} className="px-1" />}>
           {null}
         </ListStatus>
       ) : messages.length === 0 ? (
@@ -757,7 +1377,7 @@ function RoomChat({ room, canChat, className }: { room: Room; canChat: boolean; 
       ) : (
         <ol ref={listRef} role="log" aria-label="Tin nhắn trong phòng" className="relative flex max-h-80 flex-col gap-3 overflow-y-auto px-4 py-3">
           {messages.map((m) => {
-            const mine = m.author.id === currentUser.id
+            const mine = !m.system && !!meId && m.author.id === meId
             return (
               <li key={m.id} className={cn('flex items-start gap-3', mine && 'flex-row-reverse')}>
                 <Avatar src={m.author.avatar} name={m.author.name} alt="" size={32} />
@@ -781,30 +1401,35 @@ function RoomChat({ room, canChat, className }: { room: Room; canChat: boolean; 
         </ol>
       )}
 
-      <form
-        className="mt-auto border-t border-line p-3"
-        onSubmit={(e) => {
-          e.preventDefault()
-          send()
-        }}
-      >
-        <div className="flex h-12 items-center rounded-btn border border-line-strong bg-surface-2/80 pr-1 pl-4 transition-colors focus-within:border-gold/60">
-          <label htmlFor="room-chat" className="sr-only">
-            Nhập tin nhắn
-          </label>
-          <input
-            id="room-chat"
-            value={draft}
-            disabled={!canChat}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder={canChat ? 'Nhập tin nhắn…' : 'Chỉ người trong phòng mới gửi được tin nhắn'}
-            className="h-full min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-fg-muted disabled:cursor-not-allowed"
-          />
-          <IconButton label="Gửi tin nhắn" type="submit" variant="ghost" className="size-10" disabled={!canChat || !draft.trim()}>
-            <SendHorizontal size={20} aria-hidden />
-          </IconButton>
-        </div>
-      </form>
+      {composer === 'hidden' ? (
+        composerNote && <p className="mt-auto border-t border-line px-4 py-3 text-sm text-fg-muted">{composerNote}</p>
+      ) : (
+        <form
+          className="mt-auto border-t border-line p-3"
+          onSubmit={(e) => {
+            e.preventDefault()
+            send()
+          }}
+        >
+          <div className="flex h-12 items-center rounded-btn border border-line-strong bg-surface-2/80 pr-1 pl-4 transition-colors focus-within:border-gold/60">
+            <label htmlFor="room-chat" className="sr-only">
+              Nhập tin nhắn
+            </label>
+            <input
+              id="room-chat"
+              value={draft}
+              disabled={!canChat}
+              maxLength={500}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder={canChat ? 'Nhập tin nhắn…' : 'Chỉ người trong phòng mới gửi được tin nhắn'}
+              className="h-full min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-fg-muted disabled:cursor-not-allowed"
+            />
+            <IconButton label="Gửi tin nhắn" type="submit" variant="ghost" className="size-10" disabled={!canChat || sending || !draft.trim()}>
+              <SendHorizontal size={20} aria-hidden />
+            </IconButton>
+          </div>
+        </form>
+      )}
     </section>
   )
 }

@@ -622,3 +622,32 @@ Chỉ đổi hành vi ở chế độ `api` (`VITE_DATA_SOURCE=api`). Chế đ�
 - Test: `Activities.api.test.tsx` (dashboard 5 mục; phân trang; empty state), `Activities.test.tsx` (mock), `api/time.test.ts`.
 - Hoàn tác: revert commit của task E6-T01.
 - Còn tồn: activity `register`/`invite` do task khác sinh (E5-T03/E5-T04b); `timeAgo` tính lúc tải, không tự cập nhật khi để trang lâu.
+
+---
+
+## E4-T05 — Nối trang phòng `/rooms/:code` với API + realtime (15/11/2026)
+
+### File đã sửa / tạo mới
+- `src/pages/RoomDetail.tsx`: tách giao diện `RoomView` (dùng chung) khỏi nguồn dữ liệu. `MockRoomView` giữ nguyên hành vi Phase 4b (10 test cũ xanh). Chế độ `api` (`ApiRoomLoader`/`ApiRoomView`):
+  - tải `GET /api/rooms/:code?key=` (đọc `key` từ URL); bản `restricted` chỉ hiện thông tin cơ bản + nút "Vào phòng", không có đội/chat;
+  - vào phòng / vào xem / rời phòng / khán giả "Vào đội" (rời rồi vào lại vì server trả 409 khi đã là thành viên);
+  - chủ phòng: chia lại (random), chia cân bằng (tier), đổi chỗ (kéo thả + menu, gửi `userId` uuid), mời ra, random lane, ghi kết quả ("Kết quả trận");
+  - thành viên: khối "Vị trí của bạn" (chọn lane, Sẵn sàng/Huỷ sẵn sàng → `PATCH /me`); lane `null` hiện "—" (Chưa chọn lane);
+  - xuất kết quả qua `GET /export` rồi copy; "Chia sẻ" của chủ phòng copy `shareUrl` (có mã mời);
+  - chat `GET`/`POST /messages`; khán giả không có ô gửi, người ngoài thấy thông báo khoá; gộp tin theo `id` nên tin WS không trùng tin POST;
+  - nút ẩn/tắt theo `myRole` + `ROOM_PERMISSIONS`; phòng `finished` khoá thao tác ghi, hiện badge kết quả;
+  - lỗi 409/403… hiện toast với thông báo của server.
+- `src/api/realtime.ts` (mới): `useRoomChannel(code, key, handlers)` — mở `/api/ws`, gửi `subscribe` (kèm `key`), xử lý `room.updated` (bản đầy đủ hoặc restricted), `chat.message`, `room.kicked` (toast + về `/dashboard`), `error`; tự nối lại với backoff 1s → 2s → 5s → 10s, nối lại được thì tải lại phòng + chat; unmount/đổi phòng gửi `unsubscribe` và đóng socket. Đọc tin bằng schema lỏng (`RoomDetail | RoomSummary`) vì contracts trên `main` chưa có thay đổi 9.5b của E4-T03.
+- `src/api/room.ts` (mới): `useApiRoom`, `useApiRoomMessages`, `mergeMessages`, `isRoomDetail`. `src/api/index.ts` export thêm hai module trên.
+- Test: `src/pages/RoomDetail.api.test.tsx` (10 test, fetch giả theo URL + WebSocket giả), `src/api/realtime.test.tsx` (6 test: subscribe, backoff, unmount, đổi phòng, phân loại tin, gộp tin), `src/test/fakeWebSocket.ts`.
+
+### Kiểm tra
+- `npm run build` ✅ sau khi sửa kiểu `RoomMember` của callback trong test; `npm run lint` ✅ (0 lỗi, 2 cảnh báo cũ ở `AppContext.tsx`); `npm test` ✅ (frontend 75/75, thêm 16 test; backend 109/109; team-core 15/15).
+- `node scripts/e2e-auth.mjs http://localhost:5201` ✅; `node scripts/screenshot.mjs E4-T05 http://localhost:5201`: **36/36 ok**, trang phòng mock giữ nguyên bố cục.
+
+### Cách hoàn tác
+`git revert` commit của task E4-T05.
+
+### Còn tồn
+- Chưa kiểm thử end-to-end với backend thật + WS (E4-T03 chưa merge); giao thức theo API.md 4, 9.1, 9.5b.
+- Chưa có UI chọn mức cân bằng (`balanceLevel`) và nhập tier; server coi tier thiếu = 3.
