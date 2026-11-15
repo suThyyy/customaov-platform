@@ -1,4 +1,4 @@
-import { randomBytes, randomInt, timingSafeEqual } from "node:crypto";
+import { randomBytes, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import {
   normalizeVi,
   type CreateRoomBody,
@@ -22,7 +22,15 @@ import {
 import { and, asc, desc, eq, exists, inArray, or, sql } from "drizzle-orm";
 
 import type { DbClient } from "../db/client.js";
-import { roomMatches, roomMembers, roomMessages, rooms, users } from "../db/schema.js";
+import {
+  activities,
+  activityRecipients,
+  roomMatches,
+  roomMembers,
+  roomMessages,
+  rooms,
+  users,
+} from "../db/schema.js";
 
 export type DbOrTx = Pick<DbClient, "select" | "insert" | "update" | "delete">;
 
@@ -535,6 +543,46 @@ export async function getRoomDetail(
   return { ...detail, restricted: false };
 }
 
+/**
+ * Ghi activity `join` (E6-T01) khi một người vào phòng với vai người chơi. Recipients: người vào + chủ phòng.
+ * Chỉ ghi một lần cho mỗi cặp (người vào, phòng): vào lại sau khi rời không tạo thêm mục trùng.
+ */
+async function recordJoinActivity(
+  tx: DbOrTx,
+  room: typeof rooms.$inferSelect,
+  currentUser: Me,
+  now: Date,
+): Promise<void> {
+  const [existing] = await tx
+    .select({ id: activities.id })
+    .from(activities)
+    .where(
+      and(
+        eq(activities.kind, "join"),
+        eq(activities.actorId, currentUser.id),
+        eq(activities.roomId, room.id),
+      ),
+    )
+    .limit(1);
+  if (existing) return;
+
+  const activityId = randomUUID();
+  await tx.insert(activities).values({
+    id: activityId,
+    kind: "join",
+    actorId: currentUser.id,
+    roomId: room.id,
+    tournamentId: null,
+    text: `${currentUser.displayName} đã vào phòng "${room.title}"`,
+    emphasis: null,
+    createdAt: now,
+  });
+  const recipientIds = [...new Set([currentUser.id, room.hostId])];
+  await tx
+    .insert(activityRecipients)
+    .values(recipientIds.map((userId) => ({ activityId, userId })));
+}
+
 export async function joinRoom(
   db: DbClient,
   code: string,
@@ -660,6 +708,10 @@ export async function joinRoom(
               position: nextPosition,
             },
           });
+      }
+
+      if (body.as === "player") {
+        await recordJoinActivity(tx, room, currentUser, now);
       }
 
       await tx.insert(roomMessages).values({

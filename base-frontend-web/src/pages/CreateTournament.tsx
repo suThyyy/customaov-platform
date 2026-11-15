@@ -21,7 +21,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { CreateTournamentBodySchema, type CreateTournamentBody, type Series, type TeamCount } from '@customaov/contracts'
-import { createTournament } from '../api'
+import { ApiError, DATA_SOURCE, createTournament } from '../api'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Button, IconButton } from '../components/ui/Button'
 import { useToast } from '../context/AppContext'
@@ -97,6 +97,17 @@ function mapIssueMessage(pathKey: string, defaultMessage: string, isCustom: bool
   return defaultMessage
 }
 
+function apiFieldErrors(details: unknown): Record<string, string> {
+  const result: Record<string, string> = {}
+  if (!Array.isArray(details)) return result
+  for (const item of details) {
+    if (typeof item !== 'object' || item === null) continue
+    const { path, message } = item as { path?: unknown; message?: unknown }
+    if (typeof path === 'string' && path && typeof message === 'string' && !result[path]) result[path] = message
+  }
+  return result
+}
+
 export default function CreateTournament() {
   const navigate = useNavigate()
   const { notify } = useToast()
@@ -106,6 +117,7 @@ export default function CreateTournament() {
   const [reached, setReached] = useState<Step>(1)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   // Bước 1: Thông tin
   const [name, setName] = useState('Cúp Cộng Đồng Liên Quân')
@@ -266,12 +278,30 @@ export default function CreateTournament() {
 
     const payload = buildPayload()
     setSubmitting(true)
+    setSubmitError('')
     try {
-      await createTournament(payload)
-      notify('Đã tạo giải (giả lập)', `${payload.name} · ${payload.teamCount} đội · ${payload.series}.`)
-      navigate('/tournaments')
-    } catch {
-      notify('Không thể tạo giải đấu', 'Vui lòng kiểm tra lại thông tin và thử lại.')
+      const created = await createTournament(payload)
+      if (DATA_SOURCE === 'api') {
+        navigate(`/tournaments/${created.slug}`)
+      } else {
+        notify('Đã tạo giải (giả lập)', `${payload.name} · ${payload.teamCount} đội · ${payload.series}.`)
+        navigate('/tournaments')
+      }
+    } catch (error) {
+      const fieldErrors = error instanceof ApiError && error.status === 400 ? apiFieldErrors(error.details) : {}
+      const keys = Object.keys(fieldErrors)
+      const badStep = ([1, 2, 3, 4] as Step[]).find((s) => keysForStep(s, fieldErrors).length > 0)
+      if (badStep) {
+        setErrors(fieldErrors)
+        setStep(badStep)
+        requestAnimationFrame(() => {
+          const first = STEP_FIELDS[badStep].find((k) => k in fieldErrors) ?? keys[0]
+          document.getElementById(fieldDomId(first))?.focus()
+        })
+      } else {
+        setSubmitError(error instanceof ApiError ? error.message : 'Không thể tạo giải đấu. Vui lòng thử lại.')
+        if (DATA_SOURCE !== 'api') notify('Không thể tạo giải đấu', 'Vui lòng kiểm tra lại thông tin và thử lại.')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -764,6 +794,11 @@ export default function CreateTournament() {
             Thanh hành động: < 768 dính đáy (ngay trên BottomNav), ≥ 768 nằm cuối form.
             Nút vàng đặc duy nhất của màn: "Tiếp tục" / "Tạo giải".
           */}
+          {submitError && (
+            <p role="alert" className="mt-6 rounded-btn border border-danger px-4 py-3 text-sm text-danger">
+              {submitError}
+            </p>
+          )}
           <div className="sticky bottom-[calc(var(--bottom-nav-h)+env(safe-area-inset-bottom))] z-10 -mx-4 mt-6 flex items-center gap-3 border-t border-line-strong/70 bg-surface px-4 py-3 md:static md:mx-0 md:mt-auto md:bg-transparent md:px-0 md:py-4">
             {step > 1 ? (
               <Button variant="ghost" leftIcon={<ArrowLeft size={18} aria-hidden />} onClick={() => goTo((step - 1) as Step)}>

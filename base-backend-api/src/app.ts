@@ -1,5 +1,7 @@
+import type { ChatMessage } from "@customaov/contracts";
 import cookie from "@fastify/cookie";
 import rateLimit from "@fastify/rate-limit";
+import websocket from "@fastify/websocket";
 import Fastify, {
   type FastifyInstance,
   type FastifyRequest,
@@ -9,11 +11,17 @@ import { ZodError } from "zod";
 
 import { registerAuthPlugin } from "./auth/plugin.js";
 import { registerAuthRoutes } from "./auth/routes.js";
+import { createRoomRealtimeHub } from "./realtime/hub.js";
+import { registerRealtimePlugin } from "./realtime/plugin.js";
+import { registerActivityRoutes } from "./routes/activities.js";
 import { registerRoomRoutes } from "./routes/rooms.js";
+import { registerSearchRoutes } from "./routes/search.js";
 import { registerUserRoutes } from "./routes/users.js";
 import { loadConfig, type AppConfig } from "./config.js";
 import type { DbClient } from "./db/client.js";
 import { registerTournamentRoutes } from "./routes/tournaments.js";
+import { registerTournamentBracketRoutes } from "./routes/tournament-bracket.js";
+import { registerRegistrationRoutes } from "./routes/registrations.js";
 
 const REDACT_PATHS = [
   "req.headers.cookie",
@@ -116,17 +124,34 @@ export function buildApp(opts: BuildAppOptions = {}): FastifyInstance {
   });
 
   if (opts.db) {
+    const hub = createRoomRealtimeHub({
+      db: opts.db,
+      logger: app.log,
+    });
     const deps = {
       config,
       db: opts.db,
       now: opts.now ?? (() => new Date()),
+      onRoomChanged: (code: string) => hub.notifyRoomChanged(code),
+      onChatMessage: (code: string, message: ChatMessage) =>
+        hub.notifyChatMessage(code, message),
+      onRoomKicked: (code: string, userId: string) =>
+        hub.notifyRoomKicked(code, userId),
     };
+    app.register(websocket, {
+      options: { maxPayload: 64 * 1024 },
+    });
     registerAuthPlugin(app, deps);
+    registerRealtimePlugin(app, { config, hub });
     app.register(async (instance) => {
       registerAuthRoutes(instance, deps);
       registerUserRoutes(instance, deps);
       registerRoomRoutes(instance, deps);
       registerTournamentRoutes(instance, deps);
+      registerTournamentBracketRoutes(instance, deps);
+      registerSearchRoutes(instance, deps);
+      registerRegistrationRoutes(instance, deps);
+      registerActivityRoutes(instance, deps);
     });
   }
 

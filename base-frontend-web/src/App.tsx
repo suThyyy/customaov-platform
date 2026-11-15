@@ -10,6 +10,7 @@ import Tournaments from './pages/Tournaments'
 import TournamentDetail from './pages/TournamentDetail'
 import CreateTournament from './pages/CreateTournament'
 import Profile from './pages/Profile'
+import Activities from './pages/Activities'
 import NotFound from './pages/NotFound'
 
 export default function App() {
@@ -28,6 +29,7 @@ export default function App() {
             {/* Nội bộ: cần session (mock) — khách bị chuyển tới /?login=login&next=<route> */}
             <Route element={<RequireAuth />}>
               <Route path="/dashboard" element={<HomeUser />} />
+              <Route path="/activities" element={<Activities />} />
               <Route path="/rooms/new" element={<CreateRoom />} />
               <Route path="/rooms/:roomId" element={<RoomDetail />} />
               <Route path="/profile" element={<Profile />} />

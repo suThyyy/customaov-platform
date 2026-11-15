@@ -6,7 +6,7 @@ import {
   UserProfileSchema,
   formatTeamsText,
 } from "@customaov/contracts";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { buildApp } from "../app.js";
@@ -532,7 +532,7 @@ describe("room host, export, and chat API", () => {
       const acts = await app.db
         .select()
         .from(activities)
-        .where(eq(activities.roomId, dbRoom!.id));
+        .where(and(eq(activities.roomId, dbRoom!.id), eq(activities.kind, "result")));
       expect(acts).toHaveLength(1);
       expect(acts[0]?.kind).toBe("result");
       const recipients = await app.db

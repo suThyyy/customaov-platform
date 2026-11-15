@@ -43,6 +43,7 @@ import {
 export interface RoomRoutesDeps extends AuthDeps {
   onRoomChanged?: (code: string) => void;
   onChatMessage?: (code: string, message: ChatMessage) => void;
+  onRoomKicked?: (code: string, userId: string) => void;
 }
 
 const RoomCodeParamsSchema = z.object({ code: RoomCodeSchema });
@@ -63,6 +64,7 @@ export function registerRoomRoutes(app: FastifyInstance, deps: RoomRoutesDeps): 
   const { db } = deps;
   const onRoomChanged = deps.onRoomChanged ?? (() => {});
   const onChatMessage = deps.onChatMessage ?? (() => {});
+  const onRoomKicked = deps.onRoomKicked ?? (() => {});
 
   const rateLimited = (
     max: number,
@@ -189,6 +191,7 @@ export function registerRoomRoutes(app: FastifyInstance, deps: RoomRoutesDeps): 
       const { code } = RoomCodeParamsSchema.parse(request.params);
       const body = KickRoomMemberBodySchema.parse(request.body);
       const room = await kickRoomMember(db, code, body, request.user!, deps.now());
+      onRoomKicked(code, body.userId);
       onRoomChanged(code);
       return room;
     },

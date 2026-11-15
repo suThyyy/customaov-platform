@@ -31,6 +31,7 @@ const ROUTES = [
   { name: 'tournament-detail', path: '/tournaments/ngu-kiet-cup-mua-1', loggedIn: true },
   { name: 'tournament-live', path: '/tournaments/custom-league-3', loggedIn: true },
   { name: 'profile', path: '/profile', loggedIn: true },
+  { name: 'activities', path: '/activities', loggedIn: true },
 ]
 
 const browser = await chromium.launch()

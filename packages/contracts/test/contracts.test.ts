@@ -356,6 +356,42 @@ test("API.md section 9 contract rules: restricted union, trim message, unschedul
     contracts.RoomDetailResponseSchema.safeParse({ ...roomSummary, restricted: true }).success,
     true,
   );
+  assert.equal(
+    contracts.WsServerMessageSchema.safeParse({
+      type: "error",
+      code: "VALIDATION",
+    }).success,
+    true,
+  );
+  assert.equal(
+    contracts.WsServerMessageSchema.safeParse({
+      type: "error",
+      code: "VALIDATION",
+      room: "bad-code",
+    }).success,
+    false,
+  );
+  assert.equal(
+    contracts.WsServerMessageSchema.safeParse({
+      type: "room.updated",
+      room: { ...roomDetail, restricted: false },
+    }).success,
+    true,
+  );
+  assert.equal(
+    contracts.WsServerMessageSchema.safeParse({
+      type: "room.updated",
+      room: { ...roomSummary, restricted: true },
+    }).success,
+    true,
+  );
+  assert.equal(
+    contracts.WsServerMessageSchema.safeParse({
+      type: "room.updated",
+      room: { ...roomSummary, restricted: false },
+    }).success,
+    false,
+  );
   const msg = contracts.CreateMessageBodySchema.parse({ text: "  Xin chào  " });
   assert.equal(msg.text, "Xin chào");
   assert.equal(

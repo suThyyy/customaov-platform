@@ -521,3 +521,197 @@ Xoá 3 file mới; bỏ `<ListStatus>`/`useMockStatus` ở các trang (nội dun
 
 ### Còn tồn
 - Dữ liệu tướng, KDA, vai trò và trang bị phụ thuộc nguồn telemetry game nên chủ động để empty state sau MVP theo PRD 3.2.
+
+---
+
+## E5-T02b — Nối form /tournaments/new với API (15/11/2026)
+- File: `src/pages/CreateTournament.tsx`, `src/api/client.ts` (`ApiError.details`), `src/pages/CreateTournament.api.test.tsx` (mới).
+- Chế độ `api`: submit gọi `POST /api/tournaments`, thành công điều hướng `/tournaments/<slug>`; lỗi 400 map `details[].path` vào ô và quay về bước chứa ô; lỗi khác hiện `role="alert"`. Chế độ `mock` giữ nguyên toast giả lập.
+- Hoàn tác: revert commit của task E5-T02b.
+- Còn tồn: chưa có UI sửa giải (PATCH mới chỉ có ở API).
+
+---
+
+## E6-T02 — API tìm kiếm + nối `SearchDialog` (15/11/2026)
+
+### File đã sửa / tạo mới
+- Backend `src/services/search.ts` (mới): `searchAll(db, q, userId)` — trim + `normalizeVi`, < 2 ký tự → 400 `VALIDATION`; phòng/giải dùng lại `listRooms`/`listTournaments` (pageSize 5, cùng luật phòng private: chỉ public + phòng mình là thành viên); người dùng so khớp `users.search_text` (`LIKE … ESCAPE '\'`, escape `\ % _`), tối đa 5, chỉ trả `UserSummary`.
+- Backend `src/routes/search.ts` (mới): `GET /api/search?q=` công khai, validate bằng `SearchQuerySchema`, rate limit 30/phút/IP (429 `RATE_LIMITED` + `retry-after`). `src/app.ts`: thêm import + 1 dòng đăng ký route.
+- Backend `src/routes/search.test.ts` (mới, 13 test): "giao luu" khớp AOV-1025, có dấu/hoa = không dấu, "ngu kiet" khớp giải, khách/người ngoài không thấy phòng private, suthy thấy AOV-1024 nhưng không thấy AOV-1028, user chỉ có khoá `UserSummary`, ≤ 5/nhóm, `q` 1 ký tự / thiếu / chỉ khoảng trắng → 400, `%` `_` không khớp tất cả, rate limit 30/phút/IP.
+- `src/api/hooks.ts`: `useSearch` trả thêm `pending`, `tooShort`; chế độ `api` debounce 250ms (`useDebouncedValue`, `SEARCH_DEBOUNCE_MS`), không gọi API khi < 2 ký tự (`SEARCH_MIN_LENGTH`), request cũ bị huỷ qua `AbortController` của `useResource` khi từ khoá đổi. Chế độ `mock` giữ nguyên (lọc đồng bộ, ô trống hiện gợi ý).
+- `src/components/layout/SearchDialog.tsx`: mẫu combobox — ô nhập `role="combobox"` + `aria-activedescendant`, kết quả `role="listbox"` chia nhóm `role="group"` Phòng / Giải đấu / Người chơi, ↑/↓ chọn (vòng), Enter mở kết quả đang chọn rồi đóng hộp, rê chuột đổi mục chọn. Trạng thái: gợi ý "nhập ít nhất 2 ký tự" (api), loading (cả lúc chờ debounce), lỗi + "Thử lại", trống.
+- `src/components/layout/SearchDialog.test.tsx` (mới, 7 test, chế độ api với `fetch` giả): < 2 ký tự không gọi API, debounce, huỷ request, hiển thị nhóm, ↑/↓ + Enter điều hướng, trống, lỗi → thử lại. `SearchDialog.mock.test.tsx` (mới, 1 test): chế độ mock không debounce, không fetch.
+
+### Cách hoàn tác
+`git revert` commit của task E6-T02.
+
+### Còn tồn
+- Kết quả phòng kèm phòng `finished` (giống `GET /api/rooms`). Nếu muốn ẩn thì lọc ở `searchAll`.
+- Mục kết quả là `Link` `tabIndex=-1` (focus ở ô nhập theo mẫu combobox); bàn phím dùng ↑/↓ + Enter thay cho Tab.
+
+---
+
+## E5-T03 — Đăng ký đội vào giải: API + hộp thoại đăng ký + BTC duyệt/từ chối (15/11/2026)
+
+### File đã sửa / tạo mới
+- Backend (`base-backend-api`, file mới để không đụng `services/tournaments.ts`):
+  - `src/services/registrations.ts`: tạo / liệt kê / duyệt / từ chối / rút đơn. Mọi thao tác ghi chạy trong transaction và khoá hàng giải bằng `SELECT … FOR UPDATE`. Chặn 409 khi giải không `open`, quá hạn, đã đủ `teamCount` đội `approved`, tên đội trùng (không phân biệt hoa thường) hoặc thành viên đã có đội active (thông báo kèm tên). Vi phạm partial unique index khi chạy song song cũng được đổi thành 409. Từ chối / rút → `active=false` cho thành viên. Mỗi thao tác sinh `activities` kind `register` cho đội trưởng và BTC.
+  - `src/routes/registrations.ts`: `POST|GET /api/tournaments/:slug/registrations`, `POST …/:id/approve`, `POST …/:id/reject`, `DELETE …/:id` (204). CSRF do auth plugin kiểm.
+  - `src/routes/registrations.test.ts` (mới, 17 test): tạo thành công + activity; 401; CSRF; 400; 404; 409 (người đã có đội, đủ chỗ, quá hạn, tên trùng, giải không open); 403 không phải BTC; duyệt tới đủ `teamCount` thì lần sau 409; từ chối rồi thành viên đăng ký đội khác được; rút đơn.
+  - `src/app.ts`: đăng ký `registerRegistrationRoutes`.
+- Frontend (`base-frontend-web`):
+  - `src/api/types.ts`: `TournamentDetail` thêm `myRole?`, `myRegistration?` (chỉ chế độ api); export `Registration`.
+  - `src/api/map.ts`: `mapTournamentDetail` giữ `myRole`, `myRegistration`.
+  - `src/api/hooks.ts`: `HookResult.refresh()` tải lại ngầm (không về loading, không gỡ trang); thêm `useRegistrations(slug)`.
+  - `src/components/domain/RegisterTeamDialog.tsx` (mới): tên đội + 5 thành viên (thành viên 1 = mình, chỉ đọc) + 2 dự bị; validate bằng `CreateRegistrationBodySchema`, lỗi tại ô (`aria-invalid`), lỗi server trong `role="alert"`; `data-autofocus` ở ô tên đội.
+  - `src/components/domain/RegistrationsPanel.tsx` (mới): bảng BTC liệt kê đơn chờ duyệt với Duyệt (viền) / Từ chối (ghost, lý do tuỳ chọn); khoá Duyệt khi đủ đội; dùng `ListStatus` + empty state.
+  - `src/pages/TournamentDetail.tsx`: ở chế độ api, nút "Đăng ký tham gia" / "Đăng ký đội" mở hộp thoại (khách → `loginHref`); thẻ "Đăng ký của bạn" hiện trạng thái (Chờ duyệt / Đã duyệt / Bị từ chối + lý do / Đã rút) và nút "Rút đăng ký" (hộp xác nhận); BTC thấy `RegistrationsPanel` ở tab "Danh sách đội". Sau mỗi thao tác xoá cache và `refresh()` để `RegistrationProgress` cập nhật. Chế độ mock giữ nút `comingSoon` như cũ (ảnh chụp không đổi).
+  - Test mới: `RegisterTeamDialog.test.tsx` (4), `RegistrationsPanel.test.tsx` (4), `pages/TournamentDetail.test.tsx` (4, chế độ api qua `vi.mock('../api/source')`).
+
+### Cách hoàn tác
+`git revert` commit của task E5-T03.
+
+### Còn tồn
+- Index `unique(tournament_id, lower(name))` áp cho mọi trạng thái, nên đội đã bị từ chối / đã rút vẫn giữ tên: đăng ký lại phải đổi tên đội. Muốn dùng lại tên cần đổi schema (partial index), ngoài phạm vi task.
+- Đội trong seed chỉ có đội trưởng (1 người) nên không khớp `RegistrationSchema` (5 thành viên); `GET …/registrations` bỏ qua các đội này. Đội seed đều `approved`, vẫn hiện qua `teamList`.
+- Username không tồn tại hoặc người gửi không nằm trong `members` → 400 `VALIDATION` (API.md chưa quy định mã).
+- Đội mới dùng logo mặc định `/mock-assets/logo.png` (chưa có upload logo).
+
+---
+
+## E4-T04 — Nối dashboard `#rooms` và wizard `/rooms/new` với API phòng (15/11/2026)
+
+Chỉ đổi hành vi ở chế độ `api` (`VITE_DATA_SOURCE=api`). Chế độ `mock` giữ như cũ (bảng lọc tại chỗ, "Vào phòng" điều hướng thẳng, "Tạo phòng" hiện toast giả lập); e2e mock + screenshot 36/36 đạt.
+
+### File đã sửa / tạo mới (`base-frontend-web/`)
+- `src/api/client.ts`: `ApiError` giữ `details` của server và có `fieldErrors()` (`details[{path, message}]` → `{path: message}`).
+- `src/api/adapter.ts`, `http.ts`, `mock.ts`, `hooks.ts`: thêm `roomsPage` / `useRoomsPage({q, mode, page, pageSize})` gọi `GET /api/rooms` với lọc chế độ, `q` và phân trang ở server (bản mock `readMockRoomsPage` lọc + cắt trang tại chỗ).
+- `src/api/types.ts`: `Room` có thêm `isMember?` (chỉ chế độ api, lấy từ `RoomSummary.isMember`, vì danh sách server không kèm đội); `ROOM_MODE_SHORT_LABEL` khớp `MODE_LABELS` của server. `map.ts` ánh xạ `isMember`.
+- `src/api/index.ts`: `joinRoom(code)` (`POST /api/rooms/:code/join` `{as:'player'}`; mock không gọi gì) và `createRoom(body)` (`POST /api/rooms`); cả hai xoá cache dữ liệu sau khi thành công.
+- `src/components/domain/RoomsTable.tsx`:
+  - `ActiveRoomsCard` nhận prop `server` (chế độ api): thêm ô tìm kiếm, chip lọc không kèm số (server chỉ trả tổng của bộ lọc đang chọn), dòng "N phòng", `Pagination`; không có `server` thì giữ lọc tại chỗ như cũ.
+  - `RemoteActiveRoomsCard` (mới): tự gọi `useRoomsPage`, debounce `q` 300ms, đổi bộ lọc/từ khoá về trang 1, vẫn bọc `ListStatus`.
+  - Nút hành động và nhãn "Phòng của bạn" dùng `isMember` khi có; thêm `pendingId` (nút "Đang vào…", khoá các nút "Vào phòng" khi đang gửi).
+  - Empty state chế độ "Tất cả" đổi tiêu đề thành "Chưa có phòng nào đang mở" (trước đây hiện “all”).
+- `src/pages/HomeUser.tsx`: chế độ api dùng `RemoteActiveRoomsCard`; "Vào phòng" gọi `joinRoom` rồi điều hướng `/rooms/<code>` (đã là thành viên thì vào thẳng); lỗi (409 phòng đầy / đang là người chơi ở phòng khác — thông báo của server có mã phòng hiện tại, 403, 429…) hiện toast "Không vào được phòng #<mã>". "Theo dõi"/"Xem" điều hướng thẳng. "Phòng bạn đang tham gia" dùng `GET /api/rooms?mine=1`; lời chào và `userId` lấy từ `useAuth().user`.
+- `src/pages/CreateRoom.tsx`:
+  - Chế độ api: bước cuối gửi `POST /api/rooms` `{title, mode, visibility, config:{format:'5v5', pickMode, series, tools, notes: mô tả}}`, thành công thì toast + điều hướng `/rooms/<code>`; nút "Đang tạo…" khi gửi.
+  - Lỗi 400 hiện tại ô (`details[].path` → ô tương ứng, về bước chứa ô đầu tiên bị lỗi; lỗi tên phòng thì focus ô tên; thông báo "Sắp có" của server cho thể thức → ô Số người). Lỗi khác (409, 5xx, mạng) hiện `role="alert"` trên thanh hành động.
+  - 3v3 / 1v1 bị vô hiệu kèm `SoonBadge` "Sắp có" (PRD mục 4) — áp cho **cả hai chế độ** vì là luật sản phẩm; chỉ ảnh hưởng bước 2, không có trong bộ screenshot.
+  - Không thêm `overflow-hidden` cho khung ngoài; thanh hành động sticky giữ nguyên. Nút vàng đặc vẫn chỉ có "Tiếp tục"/"Tạo phòng".
+- Test mới: `src/pages/HomeUser.api.test.tsx` (6), `src/pages/CreateRoom.api.test.tsx` (5), thêm 1 test `details` ở `src/api/client.test.ts`; `src/api/testing.ts` (fetch giả + dữ liệu theo contracts, chỉ dùng trong test).
+
+### Kiểm tra
+- `npm run build`, `npm run lint` (0 lỗi, 2 cảnh báo có sẵn), `npm test` ở gốc: đạt.
+- Mock (cổng 5195): `e2e-auth.mjs` đạt hết; `screenshot.mjs E4-T04` 36/36 không cuộn ngang, không lỗi console.
+- Api (API 6196 đã seed + Vite 5196): probe Playwright tạm (đã xoá) đạt: đăng nhập suthy → bảng thấy 4 phòng, `AOV-1024` có "Phòng của bạn"; lọc Căng → `mode=tournament`; tìm "giao luu" → `q` lên server, 1 kết quả; "Vào phòng" AOV-1026 → toast 409 "(AOV-1024)"; tạo phòng khi đang ở AOV-1024 → `role="alert"`; rời AOV-1024 rồi tạo phòng → `/rooms/AOV-<mới>`; user mới @375 "Vào phòng" → `POST /join` → `/rooms/AOV-1026`, không cuộn ngang.
+
+### Cách hoàn tác
+`git revert` commit của task E4-T04.
+
+### Còn tồn
+- `RoomConfig` của contracts chưa có trường cho số lượt cấm, bản đồ, khán giả và cách chia đội mặc định; wizard vẫn hiện các lựa chọn này nhưng không gửi lên server (chỉ gửi `notes` = mô tả).
+- Chế độ api: `GET /api/activities` trả 404 (backend chưa có route), dashboard hiện trạng thái lỗi ở "Hoạt động gần đây" — ngoài phạm vi task này.
+- Chip lọc chế độ ở chế độ api không hiện số phòng theo từng chế độ (cần 4 request hoặc API đếm theo chế độ).
+
+---
+
+## E6-T01 — Hoạt động: feed API + "Hoạt động gần đây" + `/activities` (15/11/2026)
+- Backend: `GET /api/activities` (đăng nhập; chỉ mục có `activity_recipients.user_id = tôi`, mới nhất ở trên, phân trang `{items,total,page,pageSize}`) ở `src/services/activities.ts`, `src/routes/activities.ts` (+ test). `src/services/rooms.ts`: vào phòng với vai người chơi ghi activity `join` (người vào + chủ phòng là recipients) trong cùng transaction, mỗi cặp (người, phòng) chỉ ghi 1 lần; vào xem không ghi. `room-host.test.ts` lọc thêm `kind = 'result'` vì phòng giờ có cả activity `join`.
+- Frontend: `src/api/` — `useActivities({page,pageSize})` trả trang (`ActivityPage`), `timeAgo()` (`src/api/time.ts`: "Vừa xong", "5 phút trước", "3 giờ trước", "2 ngày trước", ≥ 7 ngày hiện dd/mm/yyyy giờ VN). Trang mới `src/pages/Activities.tsx` (`/activities`, trong `RequireAuth`): `PageHeader` (1 `<h1>`), `ListStatus`, `Pagination` theo `?page=`, empty state; export `ActivityList` dùng chung với dashboard. `HomeUser.tsx`: "Hoạt động gần đây" lấy 5 mục, link "Xem tất cả" → `/activities` (trước là toast `comingSoon`). Chế độ mock: dashboard như cũ, `/activities` dùng `mocks/activity.ts` (4 mục, 1 trang). `scripts/screenshot.mjs` thêm route `activities` (10 route × 4 khổ = 40).
+- Test: `Activities.api.test.tsx` (dashboard 5 mục; phân trang; empty state), `Activities.test.tsx` (mock), `api/time.test.ts`.
+- Hoàn tác: revert commit của task E6-T01.
+- Còn tồn: activity `register`/`invite` do task khác sinh (E5-T03/E5-T04b); `timeAgo` tính lúc tải, không tự cập nhật khi để trang lâu.
+
+---
+
+## E4-T05 — Nối trang phòng `/rooms/:code` với API + realtime (15/11/2026)
+
+### File đã sửa / tạo mới
+- `src/pages/RoomDetail.tsx`: tách giao diện `RoomView` (dùng chung) khỏi nguồn dữ liệu. `MockRoomView` giữ nguyên hành vi Phase 4b (10 test cũ xanh). Chế độ `api` (`ApiRoomLoader`/`ApiRoomView`):
+  - tải `GET /api/rooms/:code?key=` (đọc `key` từ URL); bản `restricted` chỉ hiện thông tin cơ bản + nút "Vào phòng", không có đội/chat;
+  - vào phòng / vào xem / rời phòng / khán giả "Vào đội" (rời rồi vào lại vì server trả 409 khi đã là thành viên);
+  - chủ phòng: chia lại (random), chia cân bằng (tier), đổi chỗ (kéo thả + menu, gửi `userId` uuid), mời ra, random lane, ghi kết quả ("Kết quả trận");
+  - thành viên: khối "Vị trí của bạn" (chọn lane, Sẵn sàng/Huỷ sẵn sàng → `PATCH /me`); lane `null` hiện "—" (Chưa chọn lane);
+  - xuất kết quả qua `GET /export` rồi copy; "Chia sẻ" của chủ phòng copy `shareUrl` (có mã mời);
+  - chat `GET`/`POST /messages`; khán giả không có ô gửi, người ngoài thấy thông báo khoá; gộp tin theo `id` nên tin WS không trùng tin POST;
+  - nút ẩn/tắt theo `myRole` + `ROOM_PERMISSIONS`; phòng `finished` khoá thao tác ghi, hiện badge kết quả;
+  - lỗi 409/403… hiện toast với thông báo của server.
+- `src/api/realtime.ts` (mới): `useRoomChannel(code, key, handlers)` — mở `/api/ws`, gửi `subscribe` (kèm `key`), xử lý `room.updated` (bản đầy đủ hoặc restricted), `chat.message`, `room.kicked` (toast + về `/dashboard`), `error`; tự nối lại với backoff 1s → 2s → 5s → 10s, nối lại được thì tải lại phòng + chat; unmount/đổi phòng gửi `unsubscribe` và đóng socket. Đọc tin bằng schema lỏng (`RoomDetail | RoomSummary`) vì contracts trên `main` chưa có thay đổi 9.5b của E4-T03.
+- `src/api/room.ts` (mới): `useApiRoom`, `useApiRoomMessages`, `mergeMessages`, `isRoomDetail`. `src/api/index.ts` export thêm hai module trên.
+- Test: `src/pages/RoomDetail.api.test.tsx` (10 test, fetch giả theo URL + WebSocket giả), `src/api/realtime.test.tsx` (6 test: subscribe, backoff, unmount, đổi phòng, phân loại tin, gộp tin), `src/test/fakeWebSocket.ts`.
+
+### Kiểm tra
+- `npm run build` ✅ sau khi sửa kiểu `RoomMember` của callback trong test; `npm run lint` ✅ (0 lỗi, 2 cảnh báo cũ ở `AppContext.tsx`); `npm test` ✅ (frontend 75/75, thêm 16 test; backend 109/109; team-core 15/15).
+- `node scripts/e2e-auth.mjs http://localhost:5201` ✅; `node scripts/screenshot.mjs E4-T05 http://localhost:5201`: **36/36 ok**, trang phòng mock giữ nguyên bố cục.
+
+### Cách hoàn tác
+`git revert` commit của task E4-T05.
+
+### Còn tồn
+- Chưa kiểm thử end-to-end với backend thật + WS (E4-T03 chưa merge); giao thức theo API.md 4, 9.1, 9.5b.
+- Chưa có UI chọn mức cân bằng (`balanceLevel`) và nhập tier; server coi tier thiếu = 3.
+
+---
+
+## E5-T05 — Nối 5 tab `/tournaments/:slug` + thao tác BTC (15/11/2026)
+
+### File đã sửa / tạo mới
+- `src/api/types.ts`: `BracketSlot.placeholder?: 'bye' | 'tbd'`; `TournamentDetail` thêm `series?`, `myRole?`, `registrationDeadlineAt?` (ISO), hằng `UNSCHEDULED_LABEL`. Mock không có các field này, nên không hiện panel BTC.
+- `src/api/map.ts`: slot API `bye=true` → đội giữ chỗ "BYE", `team=null` → "Chưa xác định", đánh dấu `placeholder`; giữ `series`, `myRole`, hạn đăng ký ISO.
+- `src/api/organizer.ts` (mới): `organizerActions` (close-registration, draw, score, `PATCH /matches/:id` với giờ VN `+07:00`), `seriesOf`, `WINS_NEEDED`, `organizerErrorMessage` (409 dùng thông điệp server: LOCKED / MATCH_NOT_READY). `src/api/index.ts` export.
+- `src/api/hooks.ts`: `HookResult.reload()`: tải lại ngầm, giữ dữ liệu cũ và trạng thái `ready` (không nháy skeleton sau thao tác BTC).
+- `src/lib/tournament.ts`: `isByeMatch`, `isReadyMatch`, `isScheduled`, `matchClock`, `readyMatches`, `hasScoredMatch`. Lịch/kết quả bỏ trận BYE và trận thiếu đội. Trận "Chưa xếp lịch" xếp cuối, gom thành nhóm riêng. Xếp hạng đội bỏ qua trận BYE. Tiến độ đếm n − 1 trận khi nhánh có BYE.
+- `src/components/domain/OrganizerPanel.tsx` (mới): chỉ render khi `myRole === 'organizer'`.
+  - Nút "Đóng đăng ký" và "Bốc thăm"/"Bốc lại", cả hai qua hộp xác nhận. Bốc thăm bị khoá khi còn mở đăng ký hoặc < 2 đội; bốc lại bị ẩn khi đã có tỉ số.
+  - Danh sách trận đủ 2 đội có nút "Nhập tỉ số" (viền) và "Xếp lịch" (ghost, `datetime-local`).
+  - Có `children` để gắn phần duyệt đăng ký (E5-T03).
+- `src/components/domain/ScoreDialog.tsx` (mới): chọn tỉ số 0..N theo BO, chặn bằng `isValidSeriesScore` (cảnh báo `role="alert"`, nút Lưu bị khoá). Lỗi 409 hiện trong hộp.
+- `src/pages/TournamentDetail.tsx`:
+  - Panel BTC đặt giữa banner và tab.
+  - Nhánh đấu: slot BYE / "Chưa xác định" có vòng tròn nét đứt, không có logo, không có nút xem trận.
+  - Lịch: nhóm "Chưa xếp lịch", giờ thiếu hiện bằng chữ màu cảnh báo. `id` heading theo chỉ số.
+  - Vẫn chỉ 1 nút vàng đặc (banner); hành động BTC dùng nút viền/ghost.
+- Test:
+  - `src/pages/TournamentDetail.api.test.tsx` (mới, 9 test, giả lập `fetch`): BYE/TBD, lịch "Chưa xếp lịch", nhà vô địch, panel chỉ cho BTC, bốc lại gọi API + tải lại, đóng đăng ký, ScoreDialog chặn sai BO, 409 hiện thông báo, xếp lịch gửi `+07:00`.
+  - `src/api/map.test.ts`: thêm mapping placeholder.
+  - `src/lib/tournament.test.ts`: thêm 2 test nhánh API.
+
+### Kiểm tra
+- `npm run build` ✅; `npm run lint` ✅ (0 lỗi, 2 cảnh báo cũ ở `AppContext.tsx`); `npm test` ✅ (web 71/71, api 109/109, contracts 89/89, team-core 15/15).
+- `node scripts/e2e-auth.mjs http://localhost:5202` ✅.
+- `node scripts/screenshot.mjs E5-T05 http://localhost:5202` (mock): **36/36 ok**.
+- Kiểm tra thêm ở chế độ `api` (Vite `VITE_DATA_SOURCE=api` + Playwright `page.route` trả dữ liệu giả, script tạm đã xoá):
+  - info/bracket/schedule ở 375 và 1280 đều không cuộn ngang, không lỗi console;
+  - đúng 1 nút vàng đặc trong `main`.
+
+### Cách hoàn tác
+`git revert` commit của task E5-T05.
+
+### Còn tồn
+- Hộp xếp lịch chưa điền sẵn giờ hiện tại, vì API chỉ trả nhãn "dd/mm HH:mm" không có năm.
+- Chưa có lệnh huỷ lịch.
+- Chưa kiểm tra với backend thật: E5-T04b đang review. Mã lỗi `LOCKED`/`MATCH_NOT_READY` của engine được trả dạng `409 CONFLICT` kèm thông điệp, nên UI hiện thông điệp đó.
+
+### Review fix 1 — dùng dữ liệu suy ra từ backend
+- `src/api/map.ts`, `src/api/types.ts`: giữ `champion`, `upcoming`, `results` trong mô hình UI thay vì làm mất nhà vô địch khi ánh xạ response.
+- `src/pages/TournamentDetail.tsx`: chế độ API dùng trực tiếp `upcoming` cho tab Lịch và `results`/`champion` cho tab Kết quả; chế độ mock vẫn dùng `scheduleOf`/`podium` như trước.
+- `src/pages/TournamentDetail.api.test.tsx`, `src/api/map.test.ts`: thêm hồi quy với lịch, kết quả và nhà vô địch backend cố ý khác dữ liệu có thể suy từ bracket.
+- Kiểm tra ở gốc: `npm run build` ✅; `npm run lint` ✅ (0 lỗi, 2 cảnh báo cũ); `npm test` ✅ (team-core 15/15, contracts 89/89, web 73/73, api 109/109).
+
+---
+
+## E6-T03 — Nối dashboard: promo giải đang mở, "Phòng của bạn", hoạt động (15/11/2026)
+
+### File đã sửa
+- `base-frontend-web/src/api/adapter.ts`, `base-frontend-web/src/api/http.ts`: `TournamentsParams` thêm `pageSize?: number` (mặc định `50` ở `httpAdapter.tournaments`).
+- `base-frontend-web/src/pages/HomeUser.tsx`:
+  - Promo chế độ `api` gọi `useTournaments({ status: 'open', sort: 'deadline', pageSize: 1 })` (`GET /api/tournaments?status=open&sort=deadline&pageSize=1`), ẩn khối khi không có giải mở đăng ký, bọc `ListStatus` riêng khi `loading`/`error` để lỗi một khối không làm hỏng cả trang; nút "Đăng ký ngay" điều hướng tới `/tournaments/:slug` ở chế độ `api`.
+  - Giữ nguyên khối `#rooms` (E4-T04), "Phòng bạn đang tham gia" (`GET /api/rooms?mine=1`, `ListStatus` riêng), "Hoạt động gần đây" (E6-T01), đúng 1 nút vàng đặc và bố cục grid ≥ 1024; chế độ `mock` giữ nguyên.
+- `base-frontend-web/src/pages/HomeUser.api.test.tsx`: thêm 4 test chế độ `api` (có promo + tiến độ + điều hướng; ẩn khối khi không có promo; "Phòng bạn đang tham gia" với `mine=1` + empty state; cô lập lỗi từng khối kèm "Thử lại").
+
+### Cách hoàn tác
+`git revert` commit của task E6-T03.
+
+### Còn tồn
+- Chưa kiểm thử end-to-end với backend thật cho toàn bộ dashboard (đã kiểm thử bằng `fetch` giả theo contracts).

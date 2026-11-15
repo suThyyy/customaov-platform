@@ -2,16 +2,12 @@ export type {
   Achievement,
   Activity,
   ActivityKind,
-  BracketMatch,
-  BracketRound,
-  BracketSlot,
   ChampionStat,
   ChatMessage,
   Lane,
   MatchHistoryItem,
   Player,
   RoleStat,
-  Room,
   RoomMember,
   RoomStatus,
   RoomVisibility,
@@ -19,11 +15,54 @@ export type {
   StageStatus,
   Team,
   Tournament,
-  TournamentDetail,
   TournamentStatus,
 } from '../mocks/types'
 
-import type { Room, UserProfile as MockUserProfile } from '../mocks/types'
+import type { Registration, RoomMode, Series, TournamentDetail as ApiTournamentDetail } from '@customaov/contracts'
+import type {
+  BracketMatch as MockBracketMatch,
+  BracketSlot as MockBracketSlot,
+  Room as MockRoom,
+  Team,
+  TournamentDetail as MockTournamentDetail,
+  UserProfile as MockUserProfile,
+} from '../mocks/types'
+
+export type { Registration }
+
+/**
+ * Slot nhánh đấu. Nguồn API có slot chưa có đội (API.md 9.3): `map.ts` thay bằng đội giữ chỗ
+ * và đánh dấu `placeholder` để UI hiện "BYE" / "Chưa xác định" thay vì tên đội.
+ */
+export interface BracketSlot extends MockBracketSlot {
+  placeholder?: 'bye' | 'tbd'
+}
+
+export interface BracketMatch extends Omit<MockBracketMatch, 'slots'> {
+  slots: [BracketSlot, BracketSlot]
+}
+
+export interface BracketRound {
+  name: string
+  matches: BracketMatch[]
+}
+
+export type TournamentRole = 'organizer' | 'captain' | 'member'
+
+/** Chi tiết giải. Các field tuỳ chọn chỉ có ở nguồn API (mock không có BTC / đăng ký thật). */
+export interface TournamentDetail extends Omit<MockTournamentDetail, 'bracket'> {
+  bracket: BracketRound[]
+  /** Nhà vô địch do backend suy ra; mock tiếp tục suy từ nhánh đấu. */
+  champion?: Team | null
+  series?: Series
+  myRole?: ApiTournamentDetail['myRole']
+  myRegistration?: Registration | null
+  /** Hạn đăng ký dạng ISO (để biết BTC đã đóng đăng ký hay chưa) */
+  registrationDeadlineAt?: string
+}
+
+/** Nhãn thời gian của trận chưa có giờ (API.md 9.3) */
+export const UNSCHEDULED_LABEL = 'Chưa xếp lịch'
 
 export interface ProfileRecordHistoryItem {
   id: string
@@ -44,6 +83,20 @@ export type UserProfile = Omit<MockUserProfile, 'stats'> & {
   recordHistory?: ProfileRecordHistoryItem[]
   /** API MVP không có dữ liệu tướng, KDA, vai trò hoặc trang bị. */
   hasGameData?: boolean
+}
+
+/**
+ * Phòng ở UI. `isMember` chỉ có ở chế độ api (`RoomSummary.isMember`): danh sách phòng của server
+ * không kèm đội, nên không suy ra thành viên từ `teams` được.
+ */
+export type Room = MockRoom & { isMember?: boolean }
+
+/** Nhãn ngắn của chế độ phòng, khớp `MODE_LABELS` của server ("5v5 · Căng" → "Căng") */
+export const ROOM_MODE_SHORT_LABEL: Record<RoomMode, string> = {
+  normal: 'Custom',
+  tournament: 'Căng',
+  friendly: 'Vui',
+  other: 'Khác',
 }
 
 export const roomFullTitle = (room: Pick<Room, 'title' | 'highlight'>): string =>
