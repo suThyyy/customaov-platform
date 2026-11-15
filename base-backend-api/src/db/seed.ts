@@ -5,7 +5,13 @@ import { eq } from "drizzle-orm";
 
 import { hashPassword } from "../auth/password.js";
 import { loadConfig } from "../config.js";
-import { closeDb, createDb, migrate, type DbClient } from "./client.js";
+import {
+  closeDb,
+  createDb,
+  formatDatabaseTarget,
+  migrate,
+  type DbClient,
+} from "./client.js";
 import {
   activities,
   activityRecipients,
@@ -297,7 +303,7 @@ if (isCliEntrypoint) {
   try {
     await migrate(db);
     await seedDatabase(db, { nodeEnv: config.NODE_ENV });
-    console.log(`Database seeded (${config.DATABASE_URL})`);
+    console.log(`Database seeded (${formatDatabaseTarget(config.DATABASE_URL)})`);
   } finally {
     await closeDb(db);
   }

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -35,26 +36,30 @@ export interface TournamentPrizeJson {
   reward: string;
 }
 
-export const users = pgTable("users", {
-  id: uuid("id")
-    .primaryKey()
-    .$defaultFn(() => randomUUID()),
-  uid: text("uid").notNull().unique(),
-  username: text("username").notNull().unique(),
-  displayName: text("display_name").notNull(),
-  passwordHash: text("password_hash").notNull(),
-  avatarUrl: text("avatar_url"),
-  bio: text("bio"),
-  bioExtra: text("bio_extra"),
-  roleBadge: text("role_badge"),
-  playerBadge: text("player_badge"),
-  level: integer("level").notNull().default(1),
-  crowned: boolean("crowned").notNull().default(false),
-  searchText: text("search_text").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    uid: text("uid").notNull().unique(),
+    username: text("username").notNull().unique(),
+    displayName: text("display_name").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    avatarUrl: text("avatar_url"),
+    bio: text("bio"),
+    bioExtra: text("bio_extra"),
+    roleBadge: text("role_badge"),
+    playerBadge: text("player_badge"),
+    level: integer("level").notNull().default(1),
+    crowned: boolean("crowned").notNull().default(false),
+    searchText: text("search_text").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [check("users_uid_format_check", sql`${table.uid} ~ '^[0-9]{6}$'`)],
+);
 
 export const sessions = pgTable(
   "sessions",
@@ -105,6 +110,18 @@ export const rooms = pgTable(
   },
   (table) => [
     index("rooms_status_visibility_idx").on(table.status, table.visibility),
+    check(
+      "rooms_mode_check",
+      sql`${table.mode} IN ('normal', 'tournament', 'friendly', 'other')`,
+    ),
+    check(
+      "rooms_visibility_check",
+      sql`${table.visibility} IN ('public', 'private')`,
+    ),
+    check(
+      "rooms_status_check",
+      sql`${table.status} IN ('waiting', 'live', 'finished')`,
+    ),
   ],
 );
 
@@ -131,6 +148,11 @@ export const roomMembers = pgTable(
   (table) => [
     primaryKey({ columns: [table.roomId, table.userId] }),
     index("room_members_user_id_idx").on(table.userId),
+    check("room_members_role_check", sql`${table.role} IN ('player', 'spectator')`),
+    check(
+      "room_members_side_check",
+      sql`${table.side} IS NULL OR ${table.side} IN ('blue', 'red')`,
+    ),
   ],
 );
 
@@ -211,7 +233,17 @@ export const tournaments = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [index("tournaments_status_idx").on(table.status)],
+  (table) => [
+    index("tournaments_status_idx").on(table.status),
+    check(
+      "tournaments_status_check",
+      sql`${table.status} IN ('open', 'live', 'finished')`,
+    ),
+    check(
+      "tournaments_series_check",
+      sql`${table.series} IN ('BO1', 'BO3', 'BO5')`,
+    ),
+  ],
 );
 
 export const tournamentTeams = pgTable(
@@ -239,6 +271,10 @@ export const tournamentTeams = pgTable(
     uniqueIndex("tournament_teams_tournament_id_lower_name_uidx").on(
       table.tournamentId,
       sql`lower(${table.name})`,
+    ),
+    check(
+      "tournament_teams_status_check",
+      sql`${table.status} IN ('pending', 'approved', 'rejected', 'withdrawn')`,
     ),
   ],
 );
@@ -299,6 +335,10 @@ export const bracketMatches = pgTable(
       table.round,
       table.position,
     ),
+    check(
+      "bracket_matches_next_slot_check",
+      sql`${table.nextSlot} IS NULL OR ${table.nextSlot} IN ('a', 'b')`,
+    ),
   ],
 );
 
@@ -324,7 +364,13 @@ export const activities = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [index("activities_created_at_idx").on(table.createdAt)],
+  (table) => [
+    index("activities_created_at_idx").on(table.createdAt),
+    check(
+      "activities_kind_check",
+      sql`${table.kind} IN ('join', 'register', 'invite', 'result')`,
+    ),
+  ],
 );
 
 export const activityRecipients = pgTable(

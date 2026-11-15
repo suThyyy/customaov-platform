@@ -3,8 +3,15 @@ import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { verifyPassword } from "../auth/password.js";
-import { closeDb, createDb, migrate, type DbClient } from "./client.js";
 import {
+  closeDb,
+  createDb,
+  formatDatabaseTarget,
+  migrate,
+  type DbClient,
+} from "./client.js";
+import {
+  activities,
   bracketMatches,
   roomMembers,
   roomMessages,
@@ -166,5 +173,215 @@ describe("database schema, migration, and seed", () => {
     await expect(
       seedDatabase(db, { nodeEnv: "production" }),
     ).rejects.toThrow(/production/i);
+  });
+
+  it("enforces CHECK constraints on uid format and enum columns", async () => {
+    const db = await setupSeededMemoryDb();
+    const [suthy] = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, "suthy"));
+    const [room] = await db
+      .select()
+      .from(rooms)
+      .where(eq(rooms.code, "AOV-1024"));
+    const [nguKiet] = await db
+      .select()
+      .from(tournaments)
+      .where(eq(tournaments.slug, "ngu-kiet-cup-mua-1"));
+    const [vanhh] = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, "vanhh"));
+    const [linh] = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, "linh"));
+
+    // users.uid ~ '^[0-9]{6}$'
+    await expect(
+      db.insert(users).values({
+        id: randomUUID(),
+        uid: "12345",
+        username: "bad_uid",
+        displayName: "Bad UID",
+        passwordHash: "scrypt$32768$8$1$00$00",
+        searchText: "bad uid",
+      }),
+    ).rejects.toThrow();
+
+    // room_members.role & room_members.side
+    await expect(
+      db.insert(roomMembers).values({
+        roomId: room!.id,
+        userId: linh!.id,
+        role: "admin",
+        side: "blue",
+      }),
+    ).rejects.toThrow();
+    await expect(
+      db.insert(roomMembers).values({
+        roomId: room!.id,
+        userId: linh!.id,
+        role: "player",
+        side: "green",
+      }),
+    ).rejects.toThrow();
+
+    // rooms.mode, visibility, status
+    await expect(
+      db.insert(rooms).values({
+        id: randomUUID(),
+        code: "AOV-9991",
+        title: "Bad Mode",
+        thumbnail: "/mock-assets/room-1.jpg",
+        hostId: suthy!.id,
+        mode: "ranked",
+        visibility: "public",
+        status: "waiting",
+        config: {
+          format: "5v5",
+          pickMode: "draft",
+          series: "BO1",
+          tools: [],
+          notes: "",
+        },
+        searchText: "bad mode",
+      }),
+    ).rejects.toThrow();
+    await expect(
+      db.insert(rooms).values({
+        id: randomUUID(),
+        code: "AOV-9992",
+        title: "Bad Visibility",
+        thumbnail: "/mock-assets/room-1.jpg",
+        hostId: suthy!.id,
+        mode: "normal",
+        visibility: "friends",
+        status: "waiting",
+        config: {
+          format: "5v5",
+          pickMode: "draft",
+          series: "BO1",
+          tools: [],
+          notes: "",
+        },
+        searchText: "bad visibility",
+      }),
+    ).rejects.toThrow();
+    await expect(
+      db.insert(rooms).values({
+        id: randomUUID(),
+        code: "AOV-9993",
+        title: "Bad Status",
+        thumbnail: "/mock-assets/room-1.jpg",
+        hostId: suthy!.id,
+        mode: "normal",
+        visibility: "public",
+        status: "paused",
+        config: {
+          format: "5v5",
+          pickMode: "draft",
+          series: "BO1",
+          tools: [],
+          notes: "",
+        },
+        searchText: "bad status",
+      }),
+    ).rejects.toThrow();
+
+    // tournament_teams.status
+    await expect(
+      db.insert(tournamentTeams).values({
+        id: randomUUID(),
+        tournamentId: nguKiet!.id,
+        name: "Invalid Status Team",
+        logo: "/mock-assets/team-xanh.png",
+        captainId: vanhh!.id,
+        status: "banned",
+      }),
+    ).rejects.toThrow();
+
+    // bracket_matches.next_slot
+    await expect(
+      db.insert(bracketMatches).values({
+        id: randomUUID(),
+        tournamentId: nguKiet!.id,
+        round: 1,
+        position: 0,
+        label: "Trận lỗi",
+        nextSlot: "c",
+      }),
+    ).rejects.toThrow();
+
+    // tournaments.status & tournaments.series
+    const now = new Date();
+    await expect(
+      db.insert(tournaments).values({
+        id: randomUUID(),
+        slug: "bad-tour-status",
+        name: "Bad Tour",
+        description: "desc",
+        intro: [],
+        organizerId: suthy!.id,
+        status: "draft",
+        teamCount: 8,
+        series: "BO3",
+        cover: "/mock-assets/tour-1.jpg",
+        registrationDeadline: now,
+        drawDate: now,
+        dateStart: now,
+        dateEnd: now,
+        rules: [],
+        prizes: [],
+        searchText: "bad tour",
+      }),
+    ).rejects.toThrow();
+    await expect(
+      db.insert(tournaments).values({
+        id: randomUUID(),
+        slug: "bad-tour-series",
+        name: "Bad Tour Series",
+        description: "desc",
+        intro: [],
+        organizerId: suthy!.id,
+        status: "open",
+        teamCount: 8,
+        series: "BO7",
+        cover: "/mock-assets/tour-1.jpg",
+        registrationDeadline: now,
+        drawDate: now,
+        dateStart: now,
+        dateEnd: now,
+        rules: [],
+        prizes: [],
+        searchText: "bad tour series",
+      }),
+    ).rejects.toThrow();
+
+    // activities.kind
+    await expect(
+      db.insert(activities).values({
+        id: randomUUID(),
+        kind: "system_alert",
+        actorId: suthy!.id,
+        text: "Bad activity",
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("masks credentials and file paths in formatDatabaseTarget", () => {
+    expect(
+      formatDatabaseTarget(
+        "postgres://admin:supersecret@db.internal:54329/customaov?sslmode=require",
+      ),
+    ).toBe("postgres (db.internal:54329)");
+    expect(
+      formatDatabaseTarget(
+        "postgresql://user:pass@localhost/customaov",
+      ),
+    ).toBe("postgres (localhost)");
+    expect(formatDatabaseTarget("./.data/pglite")).toBe("pglite");
+    expect(formatDatabaseTarget("memory://")).toBe("pglite (memory)");
   });
 });

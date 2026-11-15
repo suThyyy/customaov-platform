@@ -38,6 +38,22 @@ function isSpecialPgliteUrl(url: string): boolean {
   return url === "memory://" || url.startsWith("idb://");
 }
 
+/** Format database target for logs without exposing credentials or full URLs. */
+export function formatDatabaseTarget(url: string): string {
+  if (isPostgresUrl(url)) {
+    try {
+      const parsed = new URL(url);
+      return parsed.host ? `postgres (${parsed.host})` : "postgres";
+    } catch {
+      return "postgres";
+    }
+  }
+  if (url === "memory://") {
+    return "pglite (memory)";
+  }
+  return "pglite";
+}
+
 /** Create a Drizzle database instance using `pg` for postgres:// URLs or PGlite otherwise. */
 export function createDb(url: string): DbClient {
   if (isPostgresUrl(url)) {
