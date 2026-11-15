@@ -134,7 +134,7 @@ Codex không thay đổi thư mục `web`. Agent sở hữu frontend thực hi�
 1. Build module:
 
    ```powershell
-   cd D:\CustomAOV\base-workspace\packages\team-core
+   cd packages/team-core
    npm ci
    npm run build
    ```
@@ -143,7 +143,7 @@ Codex không thay đổi thư mục `web`. Agent sở hữu frontend thực hi�
    frontend vì sẽ sửa package/lockfile của `web`):
 
    ```powershell
-   cd D:\CustomAOV\base-workspace\web
+   cd web
    npm install ..\packages\team-core
    ```
 
@@ -156,7 +156,7 @@ Nếu workspace sau này dùng npm workspaces, có thể đổi dependency sang
 ## Kiểm thử
 
 ```powershell
-cd D:\CustomAOV\base-workspace\packages\team-core
+cd packages/team-core
 npm ci
 npm test
 ```

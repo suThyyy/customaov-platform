@@ -1,4 +1,4 @@
-# Inventory màn hình (nguồn: `D:\CustomAOV\UI-Mock`, khung 1672×941)
+# Inventory màn hình (nguồn: bộ ảnh mock `UI-Mock`, khung 1672×941)
 
 | # | File ảnh | Màn hình | Route | Khối chính | Thành phần dùng chung |
 |---|----------|----------|-------|------------|------------------------|
