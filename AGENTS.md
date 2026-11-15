@@ -71,6 +71,7 @@ diff -ru web_backup_2026-11-15/src base-frontend-web/src
 - `database/`: schema, dữ liệu mock và SQL scripts.
 - `packages/`: các package dùng chung, hiện có `team-core`.
 - `docs/`: tài liệu nghiệp vụ, tích hợp, API, hướng dẫn và tài liệu UI refactor.
+- Không bao giờ sửa `_old_web_DO_NOT_EDIT/` hay `web_backup_*/`.
 
 ### Các bẫy đã gặp (đừng lặp lại)
 - **React Router v7 điều hướng bên trong `startTransition`.** Mọi cập nhật state làm đổi cây route (đăng nhập, đăng xuất) phải nằm **cùng transition** với `navigate()`: gọi `navigate(...)` rồi `startTransition(login|logout)`. Nếu gọi đồng bộ:
