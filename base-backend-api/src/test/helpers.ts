@@ -5,6 +5,7 @@ import type { Writable } from "node:stream";
 import { buildApp } from "../app.js";
 import { loadConfig, type AppConfig } from "../config.js";
 import { closeDb, createDb, migrate, type DbClient } from "../db/client.js";
+import { seedDatabase } from "../db/seed.js";
 
 export interface TestApp {
   app: FastifyInstance;
@@ -44,6 +45,15 @@ export async function createTestApp(opts: TestAppOptions = {}): Promise<TestApp>
       await closeDb(db);
     },
   };
+}
+
+/** Fresh seeded app + PGlite `memory://` database. */
+export async function createSeededTestApp(
+  opts: TestAppOptions = {},
+): Promise<TestApp> {
+  const testApp = await createTestApp(opts);
+  await seedDatabase(testApp.db, { nodeEnv: "test" });
+  return testApp;
 }
 
 /** Minimal cookie jar + CSRF-aware client around `app.inject`. */

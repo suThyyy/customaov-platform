@@ -11,6 +11,7 @@ import { registerAuthPlugin } from "./auth/plugin.js";
 import { registerAuthRoutes } from "./auth/routes.js";
 import { loadConfig, type AppConfig } from "./config.js";
 import type { DbClient } from "./db/client.js";
+import { registerTournamentRoutes } from "./routes/tournaments.js";
 
 const REDACT_PATHS = [
   "req.headers.cookie",
@@ -121,6 +122,7 @@ export function buildApp(opts: BuildAppOptions = {}): FastifyInstance {
     registerAuthPlugin(app, deps);
     app.register(async (instance) => {
       registerAuthRoutes(instance, deps);
+      registerTournamentRoutes(instance, deps);
     });
   }
 
