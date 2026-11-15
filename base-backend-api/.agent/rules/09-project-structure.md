@@ -3,6 +3,8 @@ trigger: manual
 ---
 
 # Project Structure Guide
+
+> **TEMPLATE – stack chưa chốt, sẽ quyết trong PRD** (`docs/product/PRD.md`). Ví dụ Java/Spring/jOOQ… trong file này chỉ là mẫu, KHÔNG phải stack đã chọn của customAOV.
 **Activation Mode: Manual** (Sử dụng khi tạo file/folder mới)
 
 > ⚠️ **CHƯA CẤU HÌNH** — File này cần được cập nhật theo cấu trúc thực tế của dự án.

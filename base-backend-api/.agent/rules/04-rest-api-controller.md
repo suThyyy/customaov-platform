@@ -4,6 +4,8 @@ globs: **/*Controller*.java, **/*Controller*.ts, **/*controller*.go, **/*Handler
 ---
 
 # REST API Controller Pattern
+
+> **TEMPLATE – stack chưa chốt, sẽ quyết trong PRD** (`docs/product/PRD.md`). Ví dụ Java/Spring/jOOQ… trong file này chỉ là mẫu, KHÔNG phải stack đã chọn của customAOV.
 **Activation Mode: Glob Pattern — Kích hoạt khi làm việc với Controller files**
 
 > ⚠️ **PHẦN CODE MẪU CHƯA CẤU HÌNH** — Nguyên tắc REST chung đã sẵn sàng, code mẫu cần cập nhật theo dự án.

@@ -4,6 +4,8 @@ globs: **/*Repository*.java, **/*Repository*.ts, **/*Repository*.kt, **/*Repo*.g
 ---
 
 # Repository Pattern
+
+> **TEMPLATE – stack chưa chốt, sẽ quyết trong PRD** (`docs/product/PRD.md`). Ví dụ Java/Spring/jOOQ… trong file này chỉ là mẫu, KHÔNG phải stack đã chọn của customAOV.
 **Activation Mode: Glob Pattern — Kích hoạt khi làm việc với Repository files**
 
 > ⚠️ **CHƯA CẤU HÌNH** — File này cần được cập nhật theo data access pattern thực tế của dự án.

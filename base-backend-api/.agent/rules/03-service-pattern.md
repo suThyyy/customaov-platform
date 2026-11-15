@@ -4,6 +4,8 @@ globs: **/*Service*.java, **/*Service*.ts, **/*Service*.kt, **/*service*.go
 ---
 
 # Service Pattern
+
+> **TEMPLATE – stack chưa chốt, sẽ quyết trong PRD** (`docs/product/PRD.md`). Ví dụ Java/Spring/jOOQ… trong file này chỉ là mẫu, KHÔNG phải stack đã chọn của customAOV.
 **Activation Mode: Glob Pattern — Kích hoạt khi làm việc với Service files**
 
 > ⚠️ **CHƯA CẤU HÌNH** — File này cần được cập nhật theo service layer pattern thực tế của dự án.
