@@ -21,22 +21,25 @@ Muốn trả quyền cho Claude: báo Codex ghi "đang bàn giao cho claude" r�
 ## Đang chạy
 | Task | Task id Orca | Dispatch | Vai trò | Agent/model | Terminal | Cổng | Bắt đầu |
 |---|---|---|---|---|---|---|---|
-| E1-T02 review | task_67dab5e10356 | ctx_9c3a86723815 | reviewer | codex gpt-5.6-sol medium | term_a85e7270-364f-4c96-9eb2-d1f8b46457e5 | 5175 | 15/11 |
+| E1-T02 review | task_67dab5e10356 | ctx_9c3a86723815 | reviewer | codex gpt-5.6-sol medium (sandbox cũ: không tự commit/báo được) | term_a85e7270-364f-4c96-9eb2-d1f8b46457e5 | 5175 | 15/11 |
+| E2-T03 contracts | task_df036da6268b | ctx_0b058a392f07 | coder | codex gpt-5.6-sol medium (sandbox cũ: Lead commit thay) | term_8496bbf3-4ca1-4a51-aa61-e01436af0e3d | 5177 | 15/11 |
+| E2-T04 DB | task_b88e0a5ef19c | ctx_3a4df9061d91 (retry của ctx_937145fefa55) | coder | agy gemini-4-hydrogen-medium | term_f7858633-d0f9-4a6c-9c85-1d1478450f7c | 6178 | 15/11 |
 
-E1-T02 (coder agy sonnet): xong ở `b127f4e`, đang chờ review.
+**Đã xong**
+- E1-T01 audit: báo cáo đã merge.
+- E1-T02 code: commit `b127f4e`, chờ review.
+- E2-T01: Lead làm, `API.md` đã merge.
+- E2-T02: review PASS (agy hydrogen-medium), đã merge vào integration/mvp `0669d40`.
 
-E1-T01: **xong** (1 P0, 5 P1, 4 P2). Báo cáo đã merge vào integration/mvp (`docs/orchestration/reviews/E1-T01-audit.md`). Lead quyết: E1-T02 gộp P0 với 3 P1 CSS @375; 2 P1 về dữ liệu (phòng mẫu vai trò player, hạng 3 Custom League #3) và các P2 để backlog. E1-T03 và E1-T04 bỏ (không có P0 ở các nhóm đó).
-| E2-T02 review | task_013961f552e3 | ctx_2fdb1178c914 | reviewer | agy gemini-4-hydrogen-medium | term_048b8eab-27ab-4287-8353-5514146613cb | 6176 | 15/11 |
-| E2-T03 contracts | task_df036da6268b | ctx_0b058a392f07 | coder | codex gpt-5.6-sol medium | term_8496bbf3-4ca1-4a51-aa61-e01436af0e3d | 5177 | 15/11 |
-
-E2-T01 (Lead): **xong**, `docs/product/API.md` đã merge vào integration/mvp (`7e65016`). Review chéo (CX) xếp sau E2-T02. Ghi chú: sandbox Codex chặn cache npm ngoài worktree; đã báo worker đặt `npm_config_cache` trong worktree. Codex hỏi cập nhật 0.169 lúc khởi động → chọn Skip (không cài gì).
+**Ghi chú vận hành**
+- Lần dispatch đầu của E2-T04 thất bại: Orca kẹt ở trạng thái `agent-trust-workspace` dù agy đã sẵn sàng. Lead đóng terminal, mở terminal mới (thư mục đã được tin nên không hỏi lại) rồi `--retry-of` (lần 2/3 của chuỗi).
 
 ## Chờ
 | Task | Phụ thuộc | Lý do chờ |
 |---|---|---|
-| E1-T02..T05 | E1-T01 | Lead tạo sau khi có báo cáo audit |
-| E2-T03, E2-T04 | E2-T01 (+E2-T02) | |
-| E2-T05, E2-T06 | E2-T02 | |
+| E1-T05 hồi quy E1 + merge main | E1-T02 review | |
+| E2-T05 script gốc, E2-T06 rule backend | E2-T03 | Đợi slot trống (tối đa 3 worker) |
+| Review E2-T01 (API.md) | – | Gộp vào review E2-T03 (đối chiếu contracts với API.md) |
 | E3+ | xem ROADMAP | |
 
 ## Gate đang mở
