@@ -16,6 +16,13 @@ export const httpAdapter: DataAdapter = {
     )
     return response.items.map(mapRoom)
   },
+  async roomsPage(params, signal) {
+    const response = await endpoints.rooms(
+      { q: params.q?.trim() || undefined, mode: params.mode, page: params.page, pageSize: params.pageSize },
+      signal,
+    )
+    return { items: response.items.map(mapRoom), total: response.total, page: response.page, pageSize: response.pageSize }
+  },
   async room(code, signal) {
     return mapRoom(await endpoints.room(code, {}, signal))
   },

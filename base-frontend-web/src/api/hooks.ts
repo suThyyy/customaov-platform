@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMockStatus } from '../lib/mockStatus'
-import type { RoomsParams, SearchResult, TournamentsParams } from './adapter'
+import type { RoomsPage, RoomsPageParams, RoomsParams, SearchResult, TournamentsParams } from './adapter'
 import { httpAdapter } from './http'
 import {
   mockAdapter,
@@ -9,6 +9,7 @@ import {
   readMockProfile,
   readMockRoom,
   readMockRooms,
+  readMockRoomsPage,
   readMockSearch,
   readMockTournament,
   readMockTournaments,
@@ -83,6 +84,17 @@ const stableKey = (name: string, params?: object) => `${DATA_SOURCE}:${name}:${p
 export const useRooms = (params: RoomsParams = {}): HookResult<Room[]> => {
   const key = stableKey('rooms', params)
   return useResource(key, DATA_SOURCE === 'mock' ? readMockRooms(params) : [], (signal) => adapter.rooms(params, signal), DATA_SOURCE === 'mock')
+}
+
+/** Danh sách phòng có lọc/tìm/phân trang ở server (`GET /api/rooms`). Mỗi bộ tham số là một khoá cache. */
+export const useRoomsPage = (params: RoomsPageParams): HookResult<RoomsPage> => {
+  const key = stableKey('rooms-page', params)
+  return useResource(
+    key,
+    DATA_SOURCE === 'mock' ? readMockRoomsPage(params) : { items: [], total: 0, page: params.page, pageSize: params.pageSize },
+    (signal) => adapter.roomsPage(params, signal),
+    DATA_SOURCE === 'mock',
+  )
 }
 
 export const useRoom = (code: string | undefined): HookResult<Room | undefined> =>

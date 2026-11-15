@@ -11,7 +11,6 @@ export type {
   MatchHistoryItem,
   Player,
   RoleStat,
-  Room,
   RoomMember,
   RoomStatus,
   RoomVisibility,
@@ -24,7 +23,22 @@ export type {
   UserProfile,
 } from '../mocks/types'
 
-import type { Room } from '../mocks/types'
+import type { RoomMode } from '@customaov/contracts'
+import type { Room as MockRoom } from '../mocks/types'
+
+/**
+ * Phòng ở UI. `isMember` chỉ có ở chế độ api (`RoomSummary.isMember`): danh sách phòng của server
+ * không kèm đội, nên không suy ra thành viên từ `teams` được.
+ */
+export type Room = MockRoom & { isMember?: boolean }
+
+/** Nhãn ngắn của chế độ phòng, khớp `MODE_LABELS` của server ("5v5 · Căng" → "Căng") */
+export const ROOM_MODE_SHORT_LABEL: Record<RoomMode, string> = {
+  normal: 'Custom',
+  tournament: 'Căng',
+  friendly: 'Vui',
+  other: 'Khác',
+}
 
 export const roomFullTitle = (room: Pick<Room, 'title' | 'highlight'>): string =>
   room.highlight ? `${room.title} – ${room.highlight}` : room.title

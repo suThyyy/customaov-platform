@@ -11,8 +11,8 @@ import {
 } from '../mocks'
 import type { CreateTournamentBody } from '@customaov/contracts'
 import { normalizeVi } from '../lib/text'
-import type { DataAdapter, RoomsParams, SearchResult, TournamentsParams } from './adapter'
-import { roomFullTitle } from './types'
+import type { DataAdapter, RoomsPage, RoomsPageParams, RoomsParams, SearchResult, TournamentsParams } from './adapter'
+import { ROOM_MODE_SHORT_LABEL, roomFullTitle } from './types'
 
 const resolved = <T>(value: T, signal?: AbortSignal): Promise<T> =>
   signal?.aborted ? Promise.reject(new DOMException('Aborted', 'AbortError')) : Promise.resolve(value)
@@ -30,6 +30,13 @@ export const readMockRooms = (params: RoomsParams = {}) => {
     if (params.mine && !room.teams.blue.concat(room.teams.red).some((member) => member.player.id === currentUser.id)) return false
     return true
   })
+}
+
+/** Bản mock của `GET /api/rooms` có phân trang (lọc chế độ theo nhãn ngắn trong `modeLabel`) */
+export const readMockRoomsPage = (params: RoomsPageParams): RoomsPage => {
+  const all = readMockRooms({ q: params.q, mode: params.mode ? ROOM_MODE_SHORT_LABEL[params.mode] : undefined })
+  const start = (params.page - 1) * params.pageSize
+  return { items: all.slice(start, start + params.pageSize), total: all.length, page: params.page, pageSize: params.pageSize }
 }
 
 export const readMockRoom = (code: string | undefined) => rooms.find((room) => room.id === code)
@@ -69,6 +76,9 @@ export const readMockSearch = (q: string): SearchResult => {
 export const mockAdapter: DataAdapter = {
   rooms(params: RoomsParams, signal?: AbortSignal) {
     return resolved(readMockRooms(params), signal)
+  },
+  roomsPage(params, signal) {
+    return resolved(readMockRoomsPage(params), signal)
   },
   room(code, signal) {
     return resolved(readMockRoom(code), signal)

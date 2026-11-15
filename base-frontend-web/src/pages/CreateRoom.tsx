@@ -22,15 +22,19 @@ import {
   SlidersHorizontal,
   SquarePen,
   Swords,
+  TriangleAlert,
   Trophy,
   UsersRound,
   Wrench,
   type LucideIcon,
 } from 'lucide-react'
+import type { CreateRoomBody } from '@customaov/contracts'
 import { cn } from '../lib/cn'
 import { useToast } from '../context/AppContext'
+import { ApiError, DATA_SOURCE, createRoom } from '../api'
 import { Button } from '../components/ui/Button'
 import { PageHeader } from '../components/layout/PageHeader'
+import { SoonBadge } from '../components/layout/UserMenu'
 
 type Step = 1 | 2 | 3 | 4
 type Mode = 'normal' | 'tournament' | 'friendly' | 'other'
@@ -55,11 +59,49 @@ const MODES: Array<{ id: Mode; icon: LucideIcon; title: string; sub: string }> =
   { id: 'other', icon: Settings, title: 'Khác', sub: 'Tùy chỉnh nâng cao' },
 ]
 
-const TEAM_SIZES: Array<{ id: TeamSize; title: string; sub: string }> = [
+/** PRD mục 4: MVP chỉ xử lý 5v5; 3v3/1v1 vẫn hiện nhưng bị vô hiệu kèm nhãn "Sắp có" */
+const TEAM_SIZES: Array<{ id: TeamSize; title: string; sub: string; soon?: boolean }> = [
   { id: '5v5', title: '5 vs 5', sub: '10 người chơi' },
-  { id: '3v3', title: '3 vs 3', sub: '6 người chơi' },
-  { id: '1v1', title: '1 vs 1', sub: 'Solo, 2 người' },
+  { id: '3v3', title: '3 vs 3', sub: '6 người chơi', soon: true },
+  { id: '1v1', title: '1 vs 1', sub: 'Solo, 2 người', soon: true },
 ]
+
+/** Trường của form có thể nhận lỗi 400 từ server (`details[].path`) */
+type Field = 'name' | 'desc' | 'mode' | 'visibility' | 'teamSize' | 'pickRule' | 'series' | 'tools'
+
+/** `details[].path` của `POST /api/rooms` → trường + bước chứa trường đó */
+const FIELD_BY_PATH: Record<string, { field: Field; step: Step }> = {
+  title: { field: 'name', step: 1 },
+  'config.notes': { field: 'desc', step: 1 },
+  mode: { field: 'mode', step: 1 },
+  visibility: { field: 'visibility', step: 1 },
+  'config.format': { field: 'teamSize', step: 2 },
+  'config.pickMode': { field: 'pickRule', step: 2 },
+  'config.series': { field: 'series', step: 2 },
+  'config.tools': { field: 'tools', step: 3 },
+}
+
+const FORMAT_SOON = 'Sắp có: MVP chỉ hỗ trợ thể thức 5v5.'
+
+/**
+ * Lỗi 400 theo trường. Nguồn: `ApiError.details` của server, hoặc `ZodError.issues` khi
+ * `CreateRoomBodySchema.parse` ở client chặn trước. Server báo 3v3/1v1 bằng thông báo "Sắp có" không kèm `details`.
+ */
+function fieldErrorsOf(err: unknown): Array<{ field: Field; step: Step; message: string }> {
+  let byPath: Record<string, string> = {}
+  if (err instanceof ApiError) {
+    if (err.status !== 400) return []
+    byPath = err.fieldErrors()
+    if (!Object.keys(byPath).length && err.message.startsWith('Sắp có')) byPath = { 'config.format': err.message }
+  } else if (err instanceof Error && err.name === 'ZodError' && 'issues' in err && Array.isArray(err.issues)) {
+    for (const issue of err.issues as Array<{ path: PropertyKey[]; message: string }>)
+      byPath[issue.path.map(String).join('.')] ??= issue.message
+  }
+  return Object.entries(byPath).flatMap(([path, message]) => {
+    const target = FIELD_BY_PATH[path]
+    return target ? [{ ...target, message }] : []
+  })
+}
 
 const MAPS: Record<TeamSize, string[]> = {
   '5v5': ['Đấu trường 5v5 (3 đường)', 'Hỗn chiến 1 đường'],
@@ -124,6 +166,28 @@ export default function CreateRoom() {
     chat: true,
   })
   const [balanceBy, setBalanceBy] = useState<BalanceBy>('random')
+  // Gửi `POST /api/rooms` (chế độ api)
+  const [submitting, setSubmitting] = useState(false)
+  /** Lỗi 400 hiện tại ô (trừ tên phòng: dùng `nameError`) */
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<Field, string>>>({})
+  /** Lỗi không gắn được vào ô nào (409, 5xx, mạng…) → `role="alert"` trên thanh hành động */
+  const [formError, setFormError] = useState<string | null>(null)
+
+  const clearField = (field: Field) =>
+    setFieldErrors((current) => {
+      if (!(field in current)) return current
+      const next = { ...current }
+      delete next[field]
+      return next
+    })
+  /** Bọc setter: đổi giá trị thì bỏ lỗi server của ô đó */
+  const edit =
+    <T,>(field: Field, set: (value: T) => void) =>
+    (value: T) => {
+      clearField(field)
+      set(value)
+    }
+  const errId = (field: Field) => `${uid}-${field}-err`
 
   const validateStep1 = (): boolean => {
     if (!name.trim()) {
@@ -137,6 +201,7 @@ export default function CreateRoom() {
 
   const goTo = (target: Step) => {
     if (target > 1 && step === 1 && !validateStep1()) return
+    setFormError(null)
     setStep(target)
     setReached((r) => (target > r ? target : r))
     // Đổi bước → đưa đầu form vào khung nhìn (quan trọng trên mobile)
@@ -144,16 +209,70 @@ export default function CreateRoom() {
   }
 
   const changeTeamSize = (s: TeamSize) => {
+    if (TEAM_SIZES.find((t) => t.id === s)?.soon) return
+    clearField('teamSize')
     setTeamSize(s)
     if (!MAPS[s].includes(map)) setMap(MAPS[s][0])
   }
 
-  const create = () => {
+  /** Hiện lỗi 400 tại ô: chuyển về bước đầu tiên có lỗi; lỗi tên phòng thì focus ô tên */
+  const showFieldErrors = (errors: ReturnType<typeof fieldErrorsOf>) => {
+    const next: Partial<Record<Field, string>> = {}
+    for (const e of errors) {
+      if (e.field === 'name') setNameError(e.message)
+      else next[e.field] = e.message
+    }
+    setFieldErrors(next)
+    const first = Math.min(...errors.map((e) => e.step)) as Step
+    setStep(first)
+    if (errors.some((e) => e.field === 'name'))
+      window.requestAnimationFrame(() => document.getElementById(`${uid}-name`)?.focus())
+    else
+      window.requestAnimationFrame(() =>
+        document.getElementById(`${uid}-step-title`)?.scrollIntoView({ block: 'nearest' }),
+      )
+  }
+
+  const create = async () => {
     if (!validateStep1()) {
       setStep(1)
       return
     }
-    notify('Đã tạo phòng (giả lập)', `${name.trim()} · ${teamSize} · ${series}. Chức năng tạo phòng thật sẽ có khi nối backend.`)
+    if (DATA_SOURCE !== 'api') {
+      notify('Đã tạo phòng (giả lập)', `${name.trim()} · ${teamSize} · ${series}. Chức năng tạo phòng thật sẽ có khi nối backend.`)
+      return
+    }
+    if (teamSize !== '5v5') {
+      showFieldErrors([{ field: 'teamSize', step: 2, message: FORMAT_SOON }])
+      return
+    }
+    if (submitting) return
+    const body: CreateRoomBody = {
+      title: name.trim(),
+      mode,
+      visibility,
+      config: {
+        format: '5v5',
+        pickMode: pickRule,
+        series,
+        tools: TOOLS.filter((t) => tools[t.id]).map((t) => t.id),
+        notes: desc.trim(),
+      },
+    }
+    setSubmitting(true)
+    setFormError(null)
+    setFieldErrors({})
+    try {
+      const { code } = await createRoom(body)
+      notify('Đã tạo phòng', `Phòng #${code} đã sẵn sàng. Gửi mã phòng cho bạn bè để cùng vào.`)
+      navigate(`/rooms/${code}`)
+    } catch (err) {
+      const errors = fieldErrorsOf(err)
+      if (errors.length) showFieldErrors(errors)
+      else setFormError(err instanceof ApiError ? err.message : 'Không kết nối được máy chủ. Vui lòng thử lại.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const modeInfo = MODES.find((m) => m.id === mode)!
@@ -242,7 +361,7 @@ export default function CreateRoom() {
           onSubmit={(e) => {
             e.preventDefault()
             if (step < 4) goTo((step + 1) as Step)
-            else create()
+            else void create()
           }}
         >
           <p className="text-xs font-semibold tracking-[0.06em] text-gold uppercase">
@@ -288,14 +407,27 @@ export default function CreateRoom() {
                   )}
                 </FieldRow>
 
-                <FieldRow icon={FileText} label="Mô tả phòng" htmlFor={`${uid}-desc`}>
-                  <div className="relative rounded-btn border border-line-strong bg-black/25 transition-colors focus-within:border-gold/70">
+                <FieldRow
+                  icon={FileText}
+                  label="Mô tả phòng"
+                  htmlFor={`${uid}-desc`}
+                  error={fieldErrors.desc}
+                  errorId={errId('desc')}
+                >
+                  <div
+                    className={cn(
+                      'relative rounded-btn border bg-black/25 transition-colors focus-within:border-gold/70',
+                      fieldErrors.desc ? 'border-danger' : 'border-line-strong',
+                    )}
+                  >
                     <textarea
                       id={`${uid}-desc`}
                       value={desc}
                       maxLength={DESC_MAX}
                       rows={3}
-                      onChange={(e) => setDesc(e.target.value)}
+                      aria-invalid={fieldErrors.desc ? true : undefined}
+                      aria-describedby={fieldErrors.desc ? errId('desc') : undefined}
+                      onChange={(e) => edit('desc', setDesc)(e.target.value)}
                       className="block min-h-20 w-full resize-y bg-transparent px-4 pt-2 pb-6 text-base leading-snug outline-none"
                     />
                     <span className="pointer-events-none absolute right-4 bottom-2 text-sm text-fg-muted tabular">
@@ -304,21 +436,27 @@ export default function CreateRoom() {
                   </div>
                 </FieldRow>
 
-                <FieldRow icon={Gamepad2} label="Chế độ phòng" as="fieldset">
+                <FieldRow icon={Gamepad2} label="Chế độ phòng" as="fieldset" error={fieldErrors.mode} errorId={errId('mode')}>
                   <OptionCards
                     name="mode"
                     value={mode}
-                    onChange={setMode}
+                    onChange={edit('mode', setMode)}
                     className="grid-cols-2 2xl:grid-cols-4"
                     options={MODES.map(({ id, icon, title, sub }) => ({ id, icon, title, sub }))}
                   />
                 </FieldRow>
 
-                <FieldRow icon={Eye} label="Hiển thị phòng" as="fieldset">
+                <FieldRow
+                  icon={Eye}
+                  label="Hiển thị phòng"
+                  as="fieldset"
+                  error={fieldErrors.visibility}
+                  errorId={errId('visibility')}
+                >
                   <OptionCards
                     name="visibility"
                     value={visibility}
-                    onChange={setVisibility}
+                    onChange={edit('visibility', setVisibility)}
                     className="grid-cols-1 sm:grid-cols-2"
                     options={[
                       { id: 'public', title: 'Công khai', sub: 'Hiển thị trên danh sách phòng, bất kỳ ai cũng có thể tham gia' },
@@ -370,7 +508,13 @@ export default function CreateRoom() {
             <>
               <p className="mt-1 text-base text-fg/85">Thiết lập số người, luật cấm/chọn, bản đồ và thể thức cho trận đấu.</p>
               <div className="mt-6 flex flex-col gap-6">
-                <FieldRow icon={UsersRound} label="Số người" as="fieldset">
+                <FieldRow
+                  icon={UsersRound}
+                  label="Số người"
+                  as="fieldset"
+                  error={fieldErrors.teamSize}
+                  errorId={errId('teamSize')}
+                >
                   <OptionCards
                     name="team-size"
                     value={teamSize}
@@ -379,11 +523,17 @@ export default function CreateRoom() {
                     options={TEAM_SIZES}
                   />
                 </FieldRow>
-                <FieldRow icon={Ban} label="Luật cấm/chọn" as="fieldset">
+                <FieldRow
+                  icon={Ban}
+                  label="Luật cấm/chọn"
+                  as="fieldset"
+                  error={fieldErrors.pickRule}
+                  errorId={errId('pickRule')}
+                >
                   <OptionCards
                     name="pick-rule"
                     value={pickRule}
-                    onChange={setPickRule}
+                    onChange={edit('pickRule', setPickRule)}
                     className="grid-cols-1 sm:grid-cols-3"
                     options={PICK_RULES}
                   />
@@ -428,8 +578,14 @@ export default function CreateRoom() {
                   </span>
                   <p className="mt-2 text-xs text-fg-muted">Danh sách bản đồ đổi theo số người.</p>
                 </FieldRow>
-                <FieldRow icon={Repeat} label="Thể thức" as="fieldset">
-                  <OptionCards name="series" value={series} onChange={setSeries} className="grid-cols-3" options={SERIES} />
+                <FieldRow icon={Repeat} label="Thể thức" as="fieldset" error={fieldErrors.series} errorId={errId('series')}>
+                  <OptionCards
+                    name="series"
+                    value={series}
+                    onChange={edit('series', setSeries)}
+                    className="grid-cols-3"
+                    options={SERIES}
+                  />
                 </FieldRow>
               </div>
             </>
@@ -438,6 +594,11 @@ export default function CreateRoom() {
           {step === 3 && (
             <>
               <p className="mt-1 text-base text-fg/85">Chọn các công cụ sẽ bật trong phòng. Chỉ chủ phòng dùng được công cụ chia đội và random.</p>
+              {fieldErrors.tools && (
+                <p id={errId('tools')} role="alert" className="mt-3 text-sm text-danger">
+                  {fieldErrors.tools}
+                </p>
+              )}
               <ul className="mt-6 flex flex-col">
                 {TOOLS.map(({ id, icon: Icon, title, desc: d }, i) => (
                   <li key={id} className={cn('flex flex-col gap-3 py-4', i > 0 && 'border-t border-line')}>
@@ -448,7 +609,10 @@ export default function CreateRoom() {
                       <div className="min-w-0 flex-1">
                         <Toggle
                           checked={tools[id]}
-                          onChange={(v) => setTools((t) => ({ ...t, [id]: v }))}
+                          onChange={(v) => {
+                            clearField('tools')
+                            setTools((t) => ({ ...t, [id]: v }))
+                          }}
                           title={title}
                           desc={d}
                           reverse
@@ -518,6 +682,17 @@ export default function CreateRoom() {
             Thanh hành động: < 768 dính đáy (ngay trên BottomNav), ≥ 768 nằm cuối form.
             Nút vàng đặc duy nhất của màn: "Tiếp tục" / "Tạo phòng".
           */}
+          {formError && (
+            <p
+              role="alert"
+              className="mt-6 flex items-start gap-3 rounded-btn border border-danger/40 bg-danger-bg/30 px-4 py-3 text-sm text-danger"
+            >
+              <TriangleAlert size={18} aria-hidden className="mt-px shrink-0" />
+              <span className="min-w-0">
+                <span className="font-semibold">Chưa tạo được phòng.</span> {formError}
+              </span>
+            </p>
+          )}
           <div className="sticky bottom-[calc(var(--bottom-nav-h)+env(safe-area-inset-bottom))] z-10 -mx-4 mt-6 flex items-center gap-3 border-t border-line-strong/70 bg-surface px-4 py-3 md:static md:mx-0 md:mt-auto md:bg-transparent md:px-0 md:py-4">
             {step > 1 ? (
               <Button variant="ghost" leftIcon={<ArrowLeft size={18} aria-hidden />} onClick={() => goTo((step - 1) as Step)}>
@@ -540,10 +715,12 @@ export default function CreateRoom() {
               <Button
                 type="submit"
                 className="min-w-32"
+                disabled={submitting}
+                aria-busy={submitting || undefined}
                 leftIcon={step === 4 ? <Check size={18} aria-hidden /> : undefined}
                 rightIcon={step < 4 ? <ArrowRight size={18} aria-hidden /> : undefined}
               >
-                {step < 4 ? 'Tiếp tục' : 'Tạo phòng'}
+                {step < 4 ? 'Tiếp tục' : submitting ? 'Đang tạo…' : 'Tạo phòng'}
               </Button>
             </div>
           </div>
@@ -560,7 +737,9 @@ function FieldRow({
   htmlFor,
   as = 'div',
   className,
-  children,
+  error,
+  errorId,
+  children: field,
 }: {
   icon: LucideIcon
   label: string
@@ -568,8 +747,21 @@ function FieldRow({
   htmlFor?: string
   as?: 'div' | 'fieldset'
   className?: string
+  /** Lỗi 400 từ server cho ô này */
+  error?: string
+  errorId?: string
   children: ReactNode
 }) {
+  const children = (
+    <>
+      {field}
+      {error && (
+        <p id={errorId} role="alert" className="mt-2 text-sm text-danger">
+          {error}
+        </p>
+      )}
+    </>
+  )
   const labelContent = (
     <>
       <Icon size={20} aria-hidden strokeWidth={1.7} className="text-gold" />
@@ -587,7 +779,11 @@ function FieldRow({
   const labelCls = 'flex min-h-10 shrink-0 items-center gap-3 text-base font-medium md:w-44'
   if (as === 'fieldset') {
     return (
-      <fieldset className={cn('flex min-w-0 flex-col gap-2 md:flex-row md:items-start md:gap-0', className)}>
+      <fieldset
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        className={cn('flex min-w-0 flex-col gap-2 md:flex-row md:items-start md:gap-0', className)}
+      >
         <legend className="sr-only">{label}</legend>
         <span aria-hidden className={labelCls}>
           {labelContent}
@@ -617,28 +813,42 @@ function OptionCards<T extends string>({
   name: string
   value: T
   onChange: (v: T) => void
-  options: Array<{ id: T; title: string; sub: string; icon?: LucideIcon }>
+  /** `soon`: lựa chọn chưa hỗ trợ — vô hiệu, kèm nhãn "Sắp có" */
+  options: Array<{ id: T; title: string; sub: string; icon?: LucideIcon; soon?: boolean }>
   className?: string
 }) {
   return (
     <div className={cn('grid gap-3', className)}>
-      {options.map(({ id, title, sub, icon: Icon }) => {
+      {options.map(({ id, title, sub, icon: Icon, soon }) => {
         const on = value === id
         return (
           <label
             key={id}
             className={cn(
-              'relative flex min-h-16 min-w-0 cursor-pointer items-center gap-3 rounded-btn border py-2 pr-8 pl-3 transition-colors',
+              'relative flex min-h-16 min-w-0 items-center gap-3 rounded-btn border py-2 pr-8 pl-3 transition-colors',
               'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-gold',
-              on
-                ? 'border-gold/80 bg-[linear-gradient(135deg,rgb(242_180_99/0.16),rgb(242_180_99/0.04))]'
-                : 'border-line-strong bg-black/20 hover:border-white/30',
+              soon
+                ? 'cursor-not-allowed border-line bg-black/10 text-fg-muted'
+                : on
+                  ? 'cursor-pointer border-gold/80 bg-[linear-gradient(135deg,rgb(242_180_99/0.16),rgb(242_180_99/0.04))]'
+                  : 'cursor-pointer border-line-strong bg-black/20 hover:border-white/30',
             )}
           >
-            <input type="radio" name={name} value={id} checked={on} onChange={() => onChange(id)} className="sr-only" />
+            <input
+              type="radio"
+              name={name}
+              value={id}
+              checked={on}
+              disabled={soon}
+              onChange={() => onChange(id)}
+              className="sr-only"
+            />
             {Icon && <Icon size={24} aria-hidden strokeWidth={1.6} className={cn('shrink-0', on ? 'text-gold' : 'text-fg')} />}
             <span className="min-w-0">
-              <span className="block text-base font-medium">{title}</span>
+              <span className="flex flex-wrap items-center gap-2 text-base font-medium">
+                {title}
+                {soon && <SoonBadge />}
+              </span>
               <span className="block text-xs text-fg-muted">{sub}</span>
             </span>
             {on && (
