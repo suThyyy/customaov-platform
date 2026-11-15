@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { TournamentSummary } from '@customaov/contracts'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { clearDataCache } from '../api'
 import { errorResponse, jsonResponse, mockFetch, testRoomDetail, testRoomSummary, type FetchCall } from '../api/testing'
@@ -14,9 +15,33 @@ const OPEN = testRoomSummary('AOV-2001', { title: 'Kèo tối nay' })
 const LIVE = testRoomSummary('AOV-2002', { title: 'Đang đánh', status: 'live', mode: 'tournament', modeLabel: '5v5 · Căng' })
 const MINE = testRoomSummary('AOV-1024', { title: 'Phòng của tôi', isMember: true })
 
+const OPEN_TOURNAMENT: TournamentSummary = {
+  slug: 'ngu-kiet-cup-mua-2',
+  name: 'Ngũ Kiệt Cup – Mùa 2',
+  titleIcon: 'trophy',
+  cover: '/tour-1.jpg',
+  status: 'open',
+  format: '5v5 · BO3',
+  organizer: 'CustomAOV',
+  description: 'Giải cộng đồng cuối tuần',
+  teamCount: 16,
+  registeredTeams: 9,
+  registrationDeadline: '2026-11-20T16:59:00.000Z',
+  dateStart: '2026-11-22T12:00:00.000Z',
+  dateEnd: '2026-11-27T15:00:00.000Z',
+  createdAt: '2026-11-10T10:00:00.000Z',
+  timeLabel: '22/11 – 27/11',
+  dateRange: '22/11 – 27/11',
+}
+
 function RoomProbe() {
   const { pathname } = useLocation()
   return <p>room:{pathname}</p>
+}
+
+function TournamentProbe() {
+  const { pathname } = useLocation()
+  return <p>tournament:{pathname}</p>
 }
 
 function renderDashboard() {
@@ -26,6 +51,7 @@ function renderDashboard() {
         <Routes>
           <Route path="/dashboard" element={<HomeUser />} />
           <Route path="/rooms/:roomId" element={<RoomProbe />} />
+          <Route path="/tournaments/:slug" element={<TournamentProbe />} />
         </Routes>
       </MemoryRouter>
     </AppProviders>,
@@ -162,5 +188,92 @@ describe('Dashboard #rooms – chế độ api', () => {
     fail = false
     await user.click(retry)
     await within(await screen.findByRole('table')).findByText('Kèo tối nay')
+  })
+})
+
+describe('Dashboard promo, phòng của bạn & cô lập lỗi – chế độ api', () => {
+  it('hiện promo giải open gần hạn nhất với tiến độ đăng ký và nút Đăng ký ngay', async () => {
+    const user = userEvent.setup()
+    const { calls } = mockFetch((call) => {
+      if (call.url.pathname === '/api/tournaments') return jsonResponse({ items: [OPEN_TOURNAMENT], total: 1, page: 1, pageSize: 1 })
+      return baseRoute(call)
+    })
+    renderDashboard()
+
+    await screen.findByText('Ngũ Kiệt Cup')
+    const tourCall = calls.find((c) => c.url.pathname === '/api/tournaments')
+    expect(tourCall?.url.searchParams.get('status')).toBe('open')
+    expect(tourCall?.url.searchParams.get('sort')).toBe('deadline')
+    expect(tourCall?.url.searchParams.get('pageSize')).toBe('1')
+
+    const progress = screen.getByRole('progressbar', { name: 'Tiến độ đăng ký' })
+    expect(progress.getAttribute('aria-valuenow')).toBe('9')
+    expect(progress.getAttribute('aria-valuemax')).toBe('16')
+    expect(screen.getByText('9/16')).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: 'Đăng ký ngay' }))
+    expect(await screen.findByText('tournament:/tournaments/ngu-kiet-cup-mua-2')).toBeTruthy()
+  })
+
+  it('ẩn khối promo khi không có giải open nào', async () => {
+    mockFetch(baseRoute)
+    renderDashboard()
+
+    await within(await screen.findByRole('table', { name: 'Danh sách phòng custom đang hoạt động' })).findByText('Kèo tối nay')
+    await waitFor(() => {
+      expect(screen.queryByText('Giải đấu cộng đồng nổi bật')).toBeNull()
+    })
+    expect(screen.queryByRole('button', { name: 'Đăng ký ngay' })).toBeNull()
+  })
+
+  it('"Phòng bạn đang tham gia" gọi GET /api/rooms?mine=1 và hiện danh sách hoặc empty state', async () => {
+    const { calls } = mockFetch(baseRoute)
+    renderDashboard()
+
+    const aside = screen.getByRole('complementary', { name: 'Thông tin của bạn' })
+    await within(aside).findByText('Phòng của tôi')
+    expect(calls.some((c) => c.url.pathname === '/api/rooms' && c.url.searchParams.get('mine') === '1')).toBe(true)
+    const joinLink = within(aside).getByRole('link', { name: 'Vào phòng' })
+    expect(joinLink.getAttribute('href')).toBe('/rooms/AOV-1024')
+
+    cleanup()
+    clearDataCache()
+    mockFetch((call) => {
+      if (call.url.pathname === '/api/rooms' && call.url.searchParams.get('mine') === '1') return page([])
+      return baseRoute(call)
+    })
+    renderDashboard()
+    const emptyAside = screen.getByRole('complementary', { name: 'Thông tin của bạn' })
+    await within(emptyAside).findByText('Bạn chưa ở trong phòng nào.')
+    expect(within(emptyAside).getByRole('link', { name: 'Tạo phòng' }).getAttribute('href')).toBe('/rooms/new')
+  })
+
+  it('lỗi một khối (promo hoặc phòng của bạn) chỉ hiện ListStatus ở khối đó, các khối khác vẫn chạy', async () => {
+    const user = userEvent.setup()
+    let failPromo = true
+    mockFetch((call) => {
+      if (call.url.pathname === '/api/tournaments') {
+        return failPromo
+          ? errorResponse(500, 'INTERNAL', 'Lỗi giải đấu')
+          : jsonResponse({ items: [OPEN_TOURNAMENT], total: 1, page: 1, pageSize: 1 })
+      }
+      if (call.url.pathname === '/api/rooms' && call.url.searchParams.get('mine') === '1') {
+        return errorResponse(500, 'INTERNAL', 'Lỗi phòng của bạn')
+      }
+      return baseRoute(call)
+    })
+    renderDashboard()
+
+    // Bảng #rooms vẫn tải bình thường
+    await within(await screen.findByRole('table', { name: 'Danh sách phòng custom đang hoạt động' })).findByText('Kèo tối nay')
+
+    const aside = screen.getByRole('complementary', { name: 'Thông tin của bạn' })
+    await within(aside).findByText('Không tải được phòng của bạn')
+    await within(aside).findByText('Không tải được giải đấu nổi bật')
+
+    failPromo = false
+    const retryButtons = within(aside).getAllByRole('button', { name: /Thử lại/ })
+    await user.click(retryButtons[1])
+    await within(aside).findByText('Ngũ Kiệt Cup')
   })
 })

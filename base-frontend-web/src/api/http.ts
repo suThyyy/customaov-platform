@@ -36,7 +36,7 @@ export const httpAdapter: DataAdapter = {
         q: params.q,
         status: params.status as 'open' | 'live' | 'finished' | undefined,
         sort: params.sort,
-        pageSize: 50,
+        pageSize: params.pageSize ?? 50,
       },
       signal,
     )
