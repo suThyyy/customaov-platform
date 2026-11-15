@@ -1,6 +1,6 @@
 # PRD – customAOV MVP
 
-> Trạng thái: **BẢN ĐỀ XUẤT, chờ Owner duyệt.** Lead soạn ngày 15/11/2026.
+> Trạng thái: **ĐÃ DUYỆT 15/11/2026** (kèm yêu cầu bảo mật auth ở mục 5; xem `docs/orchestration/DECISIONS.md`). Lead soạn ngày 15/11/2026.
 > Nguồn: UI hiện có (`base-frontend-web/src/pages`, 8 route), mock data (`base-frontend-web/src/mocks`), logic (`src/lib/room.ts`, `src/lib/tournament.ts`), `packages/team-core`, tài liệu `docs/ui-refactor/`.
 > Các thư mục `docs/dac-ta`, `docs/design-api`, `docs/nghiep-vu`, `docs/tich-hop`, `docs/hdsd`, `docs/json`, `docs/pdf` chỉ là mẫu trình bày, không phải nguồn yêu cầu.
 
@@ -78,7 +78,7 @@ Frontend chạy được ở **hai chế độ**: `mock` (dữ liệu `src/mocks
 
 ## 5. Yêu cầu phi chức năng
 
-- **Bảo mật:** cookie `httpOnly` + `SameSite=Lax`, kiểm tra quyền ở server cho mọi hành động chủ phòng/BTC, validate mọi input bằng schema chung, giới hạn tần suất đăng nhập và chat, không log mật khẩu hay cookie.
+- **Bảo mật (Owner chốt 15/11):** cookie phiên `httpOnly` + **`SameSite=Lax` bắt buộc**; **CSRF token cho mọi request ghi** (POST/PUT/PATCH/DELETE và tin nhắn WebSocket ghi; mẫu double-submit: cookie `csrf` + header `X-CSRF-Token`); **rate-limit đăng nhập/đăng ký**; **không log mật khẩu, cookie, session token hay CSRF token** (redact trong logger). Kiểm tra quyền ở server cho mọi hành động chủ phòng/BTC, validate mọi input bằng schema chung, giới hạn tần suất đăng nhập và chat, không log mật khẩu hay cookie.
 - **Nhất quán:** một giải/phòng hiển thị giống nhau ở mọi trang (quy tắc AGENTS.md vẫn áp dụng cho dữ liệu thật).
 - **Hiệu năng:** API p95 < 200 ms trên máy local với dữ liệu seed. Chia đội 10 người chạy đồng bộ (team-core duyệt 252 tổ hợp).
 - **Giao diện:** giữ nguyên quy tắc UI ở AGENTS.md. Mọi danh sách mới có loading/error/empty qua `ListStatus`.

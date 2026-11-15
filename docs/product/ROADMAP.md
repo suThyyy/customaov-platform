@@ -1,6 +1,6 @@
 # ROADMAP – customAOV MVP
 
-> Trạng thái: **BẢN ĐỀ XUẤT, chờ Owner duyệt cùng `PRD.md`.** Lead soạn ngày 15/11/2026.
+> Trạng thái: **ĐÃ DUYỆT 15/11/2026.** Lead được toàn quyền điều chỉnh task/model; mọi thay đổi ghi ở mục "Điều chỉnh" cuối file và trong `docs/orchestration/DECISIONS.md`. Thư viện thêm ngoài PRD mục 6 phải ghi lý do ở mục "Thư viện thêm".
 > Chạy theo `docs/orchestration/ORCHESTRATION.md`: mỗi task có một `docs/orchestration/tasks/<id>.md`, nhánh `task/<id>-<slug>` rẽ từ `integration/mvp`, review khác hãng, task PASS thì merge vào `integration/mvp`, hết epic thì gate Owner merge vào `main`.
 
 ## Ký hiệu agent/model (bảng bậc ở ORCHESTRATION.md mục 3)
@@ -161,3 +161,16 @@ Tổng ước lượng khoảng **125 giờ agent** (chưa gồm review). Với 
 - **Gate schema DB** sau E2-T01 (và mọi migration sửa schema về sau).
 - **Merge từng epic** `integration/mvp → main` (7 lần).
 - Thư viện ngoài danh sách ở PRD mục 6, chi phí ngoài subscription, xoá dữ liệu, đổi phạm vi (vd. muốn đưa vòng bảng hay rank vào MVP).
+
+> Từ 15/11: Owner trao toàn quyền. Các gate trên do Lead tự quyết và ghi vào DECISIONS.md, **trừ chi phí ngoài subscription** (cấm tuyệt đối).
+
+## Điều chỉnh (Lead)
+
+- 15/11 · Copilot bị giới hạn 20 lượt, chỉ dùng khi agent cùng bậc khác không khả dụng, nên CP được thay ở mọi chỗ trong bảng: reviewer của FL → **CX**; coder E6-T02 → **CX** (reviewer HM). CP chỉ còn là dự phòng cuối.
+- 15/11 · E2-T01 không cần gate Owner (đã trao quyền). Lead làm xong thì cho chạy luôn E2-T03, E2-T04.
+- 15/11 · E2-T06: thay hẳn nội dung template Java/jOOQ bằng quy tắc thật của stack (Owner yêu cầu), không chỉ gắn nhãn.
+
+## Thư viện thêm (ngoài PRD mục 6)
+
+| Ngày | Thư viện | Nơi dùng | Lý do |
+|---|---|---|---|
