@@ -8,6 +8,7 @@ import RoomDetail from './pages/RoomDetail'
 import CreateRoom from './pages/CreateRoom'
 import Tournaments from './pages/Tournaments'
 import TournamentDetail from './pages/TournamentDetail'
+import CreateTournament from './pages/CreateTournament'
 import Profile from './pages/Profile'
 import NotFound from './pages/NotFound'
 
@@ -20,6 +21,9 @@ export default function App() {
           <Route element={<AppShell />}>
             {/* Công khai: khách xem được */}
             <Route path="/tournaments" element={<Tournaments />} />
+            <Route element={<RequireAuth />}>
+              <Route path="/tournaments/new" element={<CreateTournament />} />
+            </Route>
             <Route path="/tournaments/:slug" element={<TournamentDetail />} />
             {/* Nội bộ: cần session (mock) — khách bị chuyển tới /?login=login&next=<route> */}
             <Route element={<RequireAuth />}>

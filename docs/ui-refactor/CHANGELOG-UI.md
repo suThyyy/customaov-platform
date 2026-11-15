@@ -463,3 +463,21 @@ Xoá 3 file mới; bỏ `<ListStatus>`/`useMockStatus` ở các trang (nội dun
 ### Còn tồn
 - Auth vẫn dùng session mock/localStorage theo đúng phạm vi; E3-T03 sẽ nối auth API.
 - Các hành động ghi phòng, chat, hồ sơ và giải đấu vẫn là logic cục bộ/`comingSoon`; E4/E5 sẽ nối endpoint đã dựng sẵn.
+
+---
+
+## E5-T02a — Giao diện trang tạo giải `/tournaments/new` (15/11/2026)
+
+### File đã sửa / tạo mới
+- `src/pages/CreateTournament.tsx` (mới): wizard 4 bước (Thông tin · Thể thức · Lịch thi đấu · Luật & giải thưởng + Xem lại), validate bằng `CreateTournamentBodySchema` của `@customaov/contracts`, báo lỗi tại chỗ (`aria-invalid`, `aria-describedby`), focus vào ô lỗi đầu tiên, nút vàng đặc duy nhất ("Tiếp tục"/"Tạo giải").
+- `src/pages/CreateTournament.test.tsx` (mới): 4 test (chuyển hướng khách tới login, điều hướng 4 bước + validate tên, lỗi thứ tự ngày ở bước 3, submit gọi `createTournament` + toast giả lập + về `/tournaments`).
+- `src/App.tsx`: thêm route `/tournaments/new` trong `RequireAuth` trước `/tournaments/:slug`.
+- `src/pages/Tournaments.tsx`: nút "Tạo giải đấu" trỏ tới `/tournaments/new` (khách qua `loginHref('login', '/tournaments/new')`), bỏ `comingSoon`.
+- `src/api/mock.ts`, `src/api/index.ts`: thêm `createMockTournament` và `createTournament` (mock trả về slug giả).
+- `scripts/screenshot.mjs`: thêm route `tournament-new` (`/tournaments/new`, loggedIn).
+
+### Cách hoàn tác
+`git revert` commit của task E5-T02a.
+
+### Còn tồn
+- Chế độ mock hiện toast "Đã tạo giải (giả lập)" và về `/tournaments`; phần nối API thật và điều hướng tới `/tournaments/:slug` làm ở task sau.
