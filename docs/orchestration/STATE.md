@@ -23,7 +23,9 @@ Muốn trả quyền cho Claude: báo Codex ghi "đang bàn giao cho claude" r�
 |---|---|---|---|---|---|---|---|
 | E1-T01 audit | task_5bc8b77ac2bb | ctx_06ba749985ad | audit | agy gemini-4-hydrogen-medium | term_c0e1d281-0343-4f86-89b2-acdc2e85980d | 5175 | 15/11 |
 | E2-T02 backend scaffold | task_d9771f1c3922 | ctx_c61acecefa03 | coder | codex gpt-5.6-sol medium | term_7aebd674-4c89-4b96-a7ed-a252d874ed4b | 5176/6176 | 15/11 |
-| E2-T01 thiết kế API/schema | – (Lead tự làm) | – | kiến trúc | Lead | – | – | 15/11 |
+| E2-T03 contracts | task_df036da6268b | ctx_0b058a392f07 | coder | codex gpt-5.6-sol medium | term_8496bbf3-4ca1-4a51-aa61-e01436af0e3d | 5177 | 15/11 |
+
+E2-T01 (Lead): **xong**, `docs/product/API.md` đã merge vào integration/mvp (`7e65016`). Review chéo (CX) xếp sau E2-T02. Ghi chú: sandbox Codex chặn cache npm ngoài worktree; đã báo worker đặt `npm_config_cache` trong worktree. Codex hỏi cập nhật 0.169 lúc khởi động → chọn Skip (không cài gì).
 
 ## Chờ
 | Task | Phụ thuộc | Lý do chờ |
