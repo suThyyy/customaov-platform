@@ -483,5 +483,22 @@ describe("POST/PATCH /api/tournaments", () => {
       expect(conflict.statusCode).toBe(409);
       expect(ErrorBodySchema.parse(conflict.json()).error.code).toBe("CONFLICT");
     });
+
+    it("returns 400 VALIDATION for invalid :slug param on GET and PATCH", async () => {
+      const { testApp } = await setupSeeded();
+      const { client } = await createLoggedInClient(testApp.app, "btc_val");
+
+      for (const badSlug of ["InvalidSlug", "bad--slug", "bad_slug!", "a".repeat(95)]) {
+        const getRes = await client.request("GET", `/api/tournaments/${encodeURIComponent(badSlug)}`);
+        expect(getRes.statusCode).toBe(400);
+        expect(ErrorBodySchema.parse(getRes.json()).error.code).toBe("VALIDATION");
+
+        const patchRes = await client.request("PATCH", `/api/tournaments/${encodeURIComponent(badSlug)}`, {
+          payload: { description: "x" },
+        });
+        expect(patchRes.statusCode).toBe(400);
+        expect(ErrorBodySchema.parse(patchRes.json()).error.code).toBe("VALIDATION");
+      }
+    });
   });
 });

@@ -606,5 +606,35 @@ describe("rooms API", () => {
         expect(detail.teams.red).toHaveLength(5);
       }
     });
+
+    it("excludes finished rooms by default, but returns them with status=finished or mine=1", async () => {
+      const app = await setup();
+      await seedDatabase(app.db, { nodeEnv: "test" });
+
+      await app.db
+        .update(rooms)
+        .set({ status: "finished" })
+        .where(eq(rooms.code, "AOV-1025"));
+      await app.db
+        .update(rooms)
+        .set({ status: "finished" })
+        .where(eq(rooms.code, "AOV-1024"));
+
+      const guest = new TestClient(app.app);
+      const defaultList = RoomsResponseSchema.parse((await guest.request("GET", "/api/rooms")).json());
+      expect(defaultList.items.map((r) => r.code)).not.toContain("AOV-1025");
+
+      const finishedList = RoomsResponseSchema.parse(
+        (await guest.request("GET", "/api/rooms?status=finished")).json(),
+      );
+      expect(finishedList.items.map((r) => r.code)).toEqual(["AOV-1025"]);
+
+      const suthy = new TestClient(app.app);
+      await suthy.login("suthy", "customaov123");
+      const mineList = RoomsResponseSchema.parse(
+        (await suthy.request("GET", "/api/rooms?mine=1")).json(),
+      );
+      expect(mineList.items.map((r) => r.code)).toContain("AOV-1024");
+    });
   });
 });

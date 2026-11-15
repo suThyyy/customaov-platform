@@ -3,8 +3,10 @@ import {
   SearchResponseSchema,
   UserSummarySchema,
 } from "@customaov/contracts";
+import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { rooms } from "../db/schema.js";
 import { escapeLike } from "../services/search.js";
 import {
   createLoggedInClient,
@@ -169,5 +171,19 @@ describe("GET /api/search", () => {
 
     const otherIp = await search(client, "giao luu", "10.9.9.10");
     expect(otherIp.statusCode).toBe(200);
+  });
+
+  it("không trả phòng đã kết thúc (finished) trong kết quả tìm kiếm", async () => {
+    const { testApp, client } = await setupSeeded();
+
+    await testApp.db
+      .update(rooms)
+      .set({ status: "finished" })
+      .where(eq(rooms.code, "AOV-1025"));
+
+    const res = await search(client, "giao luu");
+    expect(res.statusCode).toBe(200);
+    const body = SearchResponseSchema.parse(res.json());
+    expect(body.rooms.map((r) => r.code)).not.toContain("AOV-1025");
   });
 });

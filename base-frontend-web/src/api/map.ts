@@ -66,7 +66,7 @@ export const mapRoom = (room: ApiRoomSummary | ApiRoomDetail): Room => ({
   visibility: room.visibility,
   playerCount: room.playerCount,
   capacity: room.capacity,
-  status: room.status === 'finished' ? 'live' : room.status,
+  status: room.status,
   isMember: room.isMember,
   teams:
     'teams' in room
