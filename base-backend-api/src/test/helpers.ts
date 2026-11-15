@@ -123,3 +123,40 @@ export class TestClient {
     });
   }
 }
+
+export async function createLoggedInClient(
+  app: FastifyInstance,
+  username: string,
+  displayName = username,
+  opts: { password?: string; remoteAddress?: string } = {},
+): Promise<{ client: TestClient; userId: string }> {
+  const client = new TestClient(app);
+  const res = await client.register(
+    username,
+    opts.password ?? "password123",
+    displayName,
+    opts.remoteAddress ? { remoteAddress: opts.remoteAddress } : {},
+  );
+  if (res.statusCode !== 201) {
+    throw new Error(`Failed to register ${username}: ${res.statusCode} ${res.body}`);
+  }
+  const { user } = res.json() as { user: { id: string } };
+  return { client, userId: user.id };
+}
+
+export async function createLoggedInClients(
+  app: FastifyInstance,
+  count: number,
+  prefix = "user",
+): Promise<Array<{ client: TestClient; userId: string; username: string }>> {
+  const result: Array<{ client: TestClient; userId: string; username: string }> = [];
+  for (let i = 0; i < count; i++) {
+    const username = `${prefix}_${i + 1}`;
+    const remoteAddress = `10.0.${Math.floor(i / 250)}.${(i % 250) + 1}`;
+    const { client, userId } = await createLoggedInClient(app, username, `Player ${i + 1}`, {
+      remoteAddress,
+    });
+    result.push({ client, userId, username });
+  }
+  return result;
+}
