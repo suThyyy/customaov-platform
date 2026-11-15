@@ -9,6 +9,7 @@ import {
   rooms,
   tournaments,
 } from '../mocks'
+import type { CreateTournamentBody } from '@customaov/contracts'
 import { normalizeVi } from '../lib/text'
 import type { DataAdapter, RoomsParams, SearchResult, TournamentsParams } from './adapter'
 import { roomFullTitle } from './types'
@@ -42,6 +43,14 @@ export const readMockTournaments = (params: TournamentsParams = {}) => {
   })
 }
 export const readMockTournament = (slug: string | undefined) => getTournamentDetail(slug)
+export const createMockTournament = (body: CreateTournamentBody, signal?: AbortSignal): Promise<{ slug: string }> => {
+  const base =
+    normalizeVi(body.name)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'giai-dau-moi'
+  return resolved({ slug: `${base}-mock` }, signal)
+}
 export const readMockProfile = (username?: string) => {
   if (!username || username === currentUser.id || username === profile.publicId.slice(1)) return profile
   const player = Object.values(players).find((item) => item.id === username)

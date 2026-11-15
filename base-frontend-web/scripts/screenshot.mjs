@@ -27,6 +27,7 @@ const ROUTES = [
   { name: 'room-detail', path: '/rooms/AOV-1024', loggedIn: true },
   { name: 'room-new', path: '/rooms/new', loggedIn: true },
   { name: 'tournaments', path: '/tournaments', loggedIn: true },
+  { name: 'tournament-new', path: '/tournaments/new', loggedIn: true },
   { name: 'tournament-detail', path: '/tournaments/ngu-kiet-cup-mua-1', loggedIn: true },
   { name: 'tournament-live', path: '/tournaments/custom-league-3', loggedIn: true },
   { name: 'profile', path: '/profile', loggedIn: true },
