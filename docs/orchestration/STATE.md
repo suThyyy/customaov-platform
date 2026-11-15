@@ -25,7 +25,10 @@ Lưu ý: lúc 10:00 Codex còn ~21% hạn mức 5 giờ (reset 12:19).
 ## Đang chạy
 | Task | Task id | Dispatch | Vai trò | Agent/model | Terminal | Cổng |
 |---|---|---|---|---|---|---|
-| E3-T01 sửa rate limit (retry) | task_64c77fc6fb5a | ctx_a88766a09865 | coder | agy gemini-4-hydrogen-medium | term_28a97e1e-7258-4a7a-a19d-ef55c306991b | 6181 |
+| E4-T01 rooms API | task_a246ededf574 | ctx_44cf513f1a8b (retry 2/3) | coder | agy gemini-4-hydrogen-medium | term_49fb4c2b-41e4-4f65-aacc-5d0caa1e691c | 6185 |
+| E3-T04 profile API | task_1f3194831f4f | ctx_df78e2e1bb60 | coder | agy gemini-4-hydrogen-medium | term_536cb6b8-20e3-4fa6-9213-87e923b03a43 | 6186 |
+
+**E3-T01 auth API đã merge** vào integration (~10:50; re-review Lead PASS). Test 64 api + 39 web.
 | E5-T02a UI /tournaments/new | task_74cf7f62676f | ctx_c47a8df9569c | coder | agy gemini-4-hydrogen-medium | term_c0cb9ca9-3ee4-47c8-af50-edfd64febaed | 5184 |
 
 Đã merge vào integration (10:35, `66af08d`):
@@ -63,5 +66,7 @@ Giờ trong file này lấy theo đồng hồ máy (`date`).
 
 ## Ghi chú vận hành
 - Prompt khởi động: agy hỏi tin thư mục → Enter (Orca có thể kẹt `agent-trust-workspace` → đóng và mở lại terminal); Codex hỏi update → "2" Skip; Codex hỏi hooks → "2" Trust.
+- agy đôi khi hiện banner ("Auto is now the default…", "Introducing…", có dòng "esc to dismiss"). Banner này làm lời nhắc bị dán mà không gửi (`agent_prompt_blocked`). **Gửi Esc trước khi `worker-start`.**
+- Khi Orca tự mở lại worker (`send` sau khi đã đóng terminal), agy chạy bằng model mặc định và **không có cờ tự duyệt**. Muốn gửi sửa cho coder thì đừng đóng terminal coder trước khi review xong; nếu đã đóng thì dùng `--retry-of` với terminal tự tạo.
 - **Đừng dùng `taskkill /IM node.exe`** để tắt server. Tắt bằng TaskStop của chính lệnh nền hoặc theo PID.
 - Cổng 5174 đang bị PID 37208 (không phải Lead) giữ.
