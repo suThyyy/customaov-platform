@@ -53,3 +53,8 @@
   - (1) Sửa `WsServerMessageSchema` trong contracts: `error.room` thành optional; `room.updated.room` là union RoomDetail | RoomRestricted.
   - (2) Thêm hook `onRoomKicked` vào `RoomRoutesDeps`.
   - Lý do: cần để làm đúng API.md 9.1 (bản restricted theo người nhận) và gửi `room.kicked` riêng. Đã ghi vào API.md mục 9.5b.
+- 15/11 ~15:55 · Owner yêu cầu tận dụng tối đa hạn mức 5 giờ của Claude trước khi tuần reset. Lead tạm **nâng giới hạn song song từ 3 lên ~8 worker** và dùng **Claude Code `claude-opus-5-5` effort high** (`claude --dangerously-skip-permissions`) làm coder cho E4-T04, E5-T03, E5-T04b, E6-T02, E4-T05, E5-T05, E6-T01. Reviewer luôn khác hãng (Codex hoặc agy Gemini).
+  - Khởi động Claude Code trong worktree mới: màn hình theme → Enter; Security notes → Enter; "trust this folder" → ↓ + Enter; "Bypass Permissions" → ↓ + Enter.
+  - Lưu ý: lựa chọn đầu tiên của các màn này là "No, exit".
+- 15/11 · Lead · E6-T02 review: agy kẹt `agent-trust-workspace` 2 lần nên chuyển sang Codex, không thử lần thứ 3 (tránh circuit breaker).
+- 15/11 · Lead · E5-T04b: chấp nhận cách `close-registration` đặt `registration_deadline = now` (schema không có cờ đóng). E5-T03 (registrations) phải từ chối đăng ký khi đã quá hạn.
