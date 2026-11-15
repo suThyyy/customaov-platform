@@ -11,6 +11,9 @@
 
 - 15:05 · E3-T03 **merged** integration (Lead review + tự chạy lại e2e api 5/5). E4-T02 code xong (`056149c`), đang review.
 - E5-T02b: khi worker xong, đọc terminal hoặc thư, kiểm tra rồi `task-update` bằng tay (dispatch đã đóng). Nếu worker không báo được, Lead tự đọc `git log` của nhánh.
+- 15:10 · E4-T02 **merged** integration. Review: codex FAIL lần 1 (khán giả xuất được kết quả) → coder sửa `0c29be7` → Lead re-review PASS. Integration: web 50 + api 100.
+- 15:10 · E3-T05 code xong (`7d9c2fc`, codex). Review do agy sonnet làm: `task_a972b6c3ade4`, dispatch `ctx_91d8056fe161` (cũng bị gắn cờ blocked nhưng vẫn chạy), terminal `term_c2ebc27b-dcbe-41b4-915e-9e732758cdfb`. Coder E3-T05 vẫn mở ở `term_78270659…` (`ctx_8155cc769e72`) để nhận sửa.
+- **Quy luật mới với agy (≥15:00):** gần như lần nào Orca cũng gắn `agent_prompt_blocked` vì agy gộp prompt dán vào thành "[Pasted text]". Lead gửi Enter thì worker vẫn chạy bình thường. Khi worker xong: đọc terminal hoặc thư, Lead tự `task-update`. Không `--retry-of` (tránh nhập lời nhắc 2 lần).
 
 Kết quả khi khôi phục:
 - Verify integration `feb6990`: build OK, lint 0 lỗi, test web 43 + api 91.
