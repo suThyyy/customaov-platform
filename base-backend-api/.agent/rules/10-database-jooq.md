@@ -4,6 +4,8 @@ description: User hỏi về database queries, đang viết code có chứa data
 ---
 
 # Database & ORM Rules
+
+> **TEMPLATE – stack chưa chốt, sẽ quyết trong PRD** (`docs/product/PRD.md`). Ví dụ Java/Spring/jOOQ… trong file này chỉ là mẫu, KHÔNG phải stack đã chọn của customAOV.
 **Activation Mode: Model Decision** (AI quyết định khi có database queries)
 
 > ⚠️ **CHƯA CẤU HÌNH** — File này cần được cập nhật theo ORM/database thực tế của dự án.

@@ -2,6 +2,8 @@
 trigger: always_on
 ---
 # Backend Core Conventions
+
+> **TEMPLATE – stack chưa chốt, sẽ quyết trong PRD** (`docs/product/PRD.md`). Ví dụ Java/Spring/jOOQ… trong file này chỉ là mẫu, KHÔNG phải stack đã chọn của customAOV.
 **Activation Mode: Always On**
 
 > ⚠️ **CHƯA CẤU HÌNH** — File này cần được cập nhật theo tech stack thực tế của dự án.

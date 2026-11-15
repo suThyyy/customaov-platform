@@ -12,7 +12,7 @@ const args = process.argv.slice(2)
 const flags = args.filter((a) => a.startsWith('--'))
 const pos = args.filter((a) => !a.startsWith('--'))
 const phase = pos[0] ?? 'current'
-const base = pos[1] ?? 'http://localhost:5173'
+const base = pos[1] ?? 'http://localhost:5174'
 const only = pos.slice(2)
 const widthsFlag = flags.find((f) => f.startsWith('--widths='))
 const WIDTHS = widthsFlag ? widthsFlag.split('=')[1].split(',').map(Number) : [375, 768, 1280, 1440]

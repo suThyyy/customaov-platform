@@ -1,9 +1,14 @@
 # Quy tắc UI refactor customAOV (11/2026)
 
+## Quy tắc cứng (mọi agent, mọi task)
+- Không bao giờ sửa `_old_web_DO_NOT_EDIT/` hay `web_backup_*/`.
+- Tài liệu trong `docs/dac-ta`, `docs/design-api`, `docs/nghiep-vu`, `docs/tich-hop`, `docs/hdsd`, `docs/json`, `docs/pdf` là **MẪU TRÌNH BÀY tham khảo**, không phải yêu cầu của customAOV. Chỉ mượn bố cục/cách trình bày; không lấy nội dung làm phạm vi hay tiêu chí nghiệm thu.
+- Làm việc nhiều agent qua Orca: theo `docs/orchestration/ORCHESTRATION.md`. Trạng thái hiện tại ở `docs/orchestration/STATE.md`, checkpoint từng task ở `docs/orchestration/tasks/<id>.md`.
+
 ## Tài liệu
 - Tài liệu gốc: docs/ui-refactor/UI_UX_CHECKLIST.md.
 - Nhật ký: docs/ui-refactor/CHANGELOG-UI.md. Đọc mục "Còn tồn" và phase gần nhất trước khi làm.
-- Ảnh chụp: base-frontend-web/docs/screenshots/<phase>/<route>-<width>.png. So với bộ của phase trước.
+- Ảnh chụp: base-frontend-web/docs/screenshots/<phase>/<route>-<width>.png (bị gitignore, chỉ nằm trên đĩa). So với bộ của phase trước. Bộ gốc để so cho các epic: `docs/screenshots/baseline/` (chụp 15/11/2026 từ `main` sau dọn repo, 8 route × 4 khổ, đều đạt).
 
 ## Quy trình
 - Mỗi lần chỉ làm một phase (hoặc một đợt của Phase 4). Trước khi sửa, tóm tắt kế hoạch 3–5 dòng. Xong thì DỪNG chờ review.
@@ -56,10 +61,10 @@
 
 ### Lệnh rà soát nhanh
 ```bash
-# Giá trị lẻ còn sót (bỏ qua 2 file deprecated)
-grep -rnE "text-\[[0-9.]+px\]|rounded(-[tblr])?-\[[^]]+\]|rounded-(sm|md|lg|2xl)\b" src | grep -v "Sidebar.tsx\|Topbar.tsx"
+# Giá trị lẻ còn sót (phải trả về rỗng)
+grep -rnE "text-\[[0-9.]+px\]|rounded(-[tblr])?-\[[^]]+\]|rounded-(sm|md|lg|2xl)\b" src
 # Spacing lẻ (= 0 từ Phase 5; lệnh này phải trả về rỗng)
-grep -rnE "\b-?(p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|gap|gap-x|gap-y)-\[[0-9.]+px\]" src | grep -v "Sidebar.tsx\|Topbar.tsx"
+grep -rnE "\b-?(p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|gap|gap-x|gap-y)-\[[0-9.]+px\]" src
 # Xem diff so với bản gốc (thay git diff), chạy trong base-workspace/
 diff -ru web_backup_2026-11-15/src base-frontend-web/src
 ```
@@ -68,9 +73,9 @@ diff -ru web_backup_2026-11-15/src base-frontend-web/src
 
 - `base-frontend-web/`: ứng dụng React + Vite + TypeScript + Tailwind.
 - `base-backend-api/`: khung backend API và hướng dẫn agent; hiện chưa có package.json.
-- `database/`: schema, dữ liệu mock và SQL scripts.
+- `database/`: hiện chỉ có `scripts/migration-template.sql` (mẫu migration). Chưa có schema hay dữ liệu thật; schema sẽ thiết kế theo PRD và mọi thay đổi schema phải qua Owner duyệt.
 - `packages/`: các package dùng chung, hiện có `team-core`.
-- `docs/`: tài liệu nghiệp vụ, tích hợp, API, hướng dẫn và tài liệu UI refactor.
+- `docs/`: `ui-refactor/` (tài liệu UI refactor), `orchestration/` (điều phối đa agent), `product/` (PRD/roadmap, khi có). Các thư mục `dac-ta`, `design-api`, `nghiep-vu`, `tich-hop`, `hdsd`, `json`, `pdf` chỉ là mẫu trình bày (xem "Quy tắc cứng").
 - Không bao giờ sửa `_old_web_DO_NOT_EDIT/` hay `web_backup_*/`.
 
 ### Các bẫy đã gặp (đừng lặp lại)
@@ -108,7 +113,7 @@ diff -ru web_backup_2026-11-15/src base-frontend-web/src
   - Ảnh bìa `tour-1/2/3.jpg` chọn theo trạng thái (`COVER`) vì ảnh có badge in sẵn.
 - Tên field dễ nhầm: `Tournament.registeredTeams` là **số** đội đã đăng ký (chỉ khi `open`); `TournamentDetail.teamList` là **danh sách** đội. `teamCount` là tổng số chỗ.
 - `TOURNAMENT_STATUS_LABEL` là nguồn duy nhất cho nhãn trạng thái giải. `RegistrationProgress` dùng chung cho cả 3 nơi hiển thị tiến độ đăng ký.
-- `roomMessages` (chat) và `homeSlides` đã có trong mock. `homeSlides` hiện **không dùng** (carousel dashboard đã bỏ).
+- `roomMessages` (chat) đã có trong mock. (`homeSlides` và carousel dashboard đã xoá.)
 - `Avatar` có fallback chữ cái đầu khi thiếu/lỗi ảnh (Phase 4a). Truyền `name` để chữ cái đúng.
 - **suthy chỉ là thành viên của AOV-1024** (từ Phase 4a; trước đó `partial()` vô tình cho suthy vào cả 5 phòng). Nhãn "Phòng của bạn" và nút "Vào phòng"/"Xem" dựa vào `isRoomMember`/`roomAction` trong `src/lib/room.ts`.
 
@@ -147,8 +152,5 @@ diff -ru web_backup_2026-11-15/src base-frontend-web/src
 - `scripts/e2e-auth.mjs` (`npm run test:e2e`): khoá session là `customaov.mockLoggedIn` = `'1'`; đăng xuất thì xoá khoá. Script tìm avatar qua `header button[aria-label^="Tài khoản"]` và nút đăng nhập qua `[role=dialog] button:has-text("tài khoản mẫu")`. Đổi các nhãn này thì phải sửa script.
 - `scripts/screenshot.mjs <phase> [baseUrl] [--widths=…] [--viewport-only] [route…]`: 8 route (`landing`, `dashboard`, `room-detail`, `room-new`, `tournaments`, `tournament-detail` = Ngũ Kiệt Cup, `tournament-live` = Custom League #3, `profile`). Báo `FAIL` khi có cuộn ngang hoặc lỗi console.
 
-### File deprecated / không dùng (chưa xoá)
-- `layout/Sidebar.tsx`, `layout/Topbar.tsx` (`@deprecated`; vẫn còn cỡ chữ/bo góc lẻ, được loại khỏi các lệnh rà soát).
-- Biến thể `Brand` `sidebar`/`header` (chỉ Sidebar dùng). `homeSlides`. Asset `sidebar-art.jpg` (chỉ Sidebar dùng).
-- Danh sách đầy đủ, cập nhật dần: mục "File không còn được dùng" trong CHANGELOG-UI.md.
-- `scripts/.blank-*.png` (7 ảnh): ảnh thừa của probe Phase 3b, đã xoá trong commit dọn file.
+### File đã xoá
+- `Sidebar.tsx`, `Topbar.tsx`, biến thể `Brand` `sidebar`/`header`, `homeSlides`, `sidebar-art.jpg` đã xoá (commit `656a94b`). Lịch sử: mục "File không còn được dùng" trong CHANGELOG-UI.md.
