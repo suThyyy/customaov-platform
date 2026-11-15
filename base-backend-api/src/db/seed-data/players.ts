@@ -159,4 +159,19 @@ export const SEED_USERS: SeedUser[] = [
     roleBadge: null,
     playerBadge: null,
   },
+  ...Array.from({ length: 35 }, (_, idx): SeedUser => {
+    const num = idx + 1;
+    return {
+      username: `player_${String(num).padStart(2, "0")}`,
+      uid: String(102500 + num),
+      displayName: `Player ${num}`,
+      avatarUrl: null,
+      level: (num % 30) + 1,
+      crowned: false,
+      bio: null,
+      bioExtra: null,
+      roleBadge: null,
+      playerBadge: null,
+    };
+  }),
 ];

@@ -16,6 +16,7 @@ import {
   roomMembers,
   roomMessages,
   rooms,
+  tournamentTeamMembers,
   tournamentTeams,
   tournaments,
   users,
@@ -383,5 +384,141 @@ describe("database schema, migration, and seed", () => {
     ).toBe("postgres (localhost)");
     expect(formatDatabaseTarget("./.data/pglite")).toBe("pglite");
     expect(formatDatabaseTarget("memory://")).toBe("pglite (memory)");
+  });
+
+  it("enforces partial unique index for active player in room_members and allows inactive", async () => {
+    const db = await setupSeededMemoryDb();
+    const [suthy] = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, "suthy"));
+    const [otherRoom] = await db
+      .select()
+      .from(rooms)
+      .where(eq(rooms.code, "AOV-1026"));
+
+    // suthy is already active player in AOV-1024 → inserting as active player in AOV-1026 must fail
+    await expect(
+      db.insert(roomMembers).values({
+        roomId: otherRoom!.id,
+        userId: suthy!.id,
+        role: "player",
+        side: "blue",
+        active: true,
+      }),
+    ).rejects.toThrow();
+
+    // inserting as inactive player in AOV-1026 must succeed
+    await db.insert(roomMembers).values({
+      roomId: otherRoom!.id,
+      userId: suthy!.id,
+      role: "player",
+      side: "blue",
+      active: false,
+    });
+  });
+
+  it("allows re-registration in another team when previous team is rejected (active=false)", async () => {
+    const db = await setupSeededMemoryDb();
+    const [nguKiet] = await db
+      .select()
+      .from(tournaments)
+      .where(eq(tournaments.slug, "ngu-kiet-cup-mua-1"));
+    const [suthy] = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, "suthy"));
+    const [vanhh] = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, "vanhh"));
+
+    const rejectedTeamId = randomUUID();
+    await db.insert(tournamentTeams).values({
+      id: rejectedTeamId,
+      tournamentId: nguKiet!.id,
+      name: "Đội Bị Từ Chối",
+      logo: "/mock-assets/team-xanh.png",
+      captainId: suthy!.id,
+      status: "rejected",
+      rejectReason: "Không đủ điều kiện",
+    });
+    await db.insert(tournamentTeamMembers).values({
+      teamId: rejectedTeamId,
+      userId: suthy!.id,
+      tournamentId: nguKiet!.id,
+      isSub: false,
+      active: false,
+    });
+
+    // suthy can now register in another team in the same tournament
+    const newTeamId = randomUUID();
+    await db.insert(tournamentTeams).values({
+      id: newTeamId,
+      tournamentId: nguKiet!.id,
+      name: "Đội Đăng Ký Lại",
+      logo: "/mock-assets/team-do.png",
+      captainId: vanhh!.id,
+      status: "pending",
+    });
+    await db.insert(tournamentTeamMembers).values({
+      teamId: newTeamId,
+      userId: suthy!.id,
+      tournamentId: nguKiet!.id,
+      isSub: false,
+      active: true,
+    });
+
+    // But a second active membership in the same tournament must fail
+    const duplicateTeamId = randomUUID();
+    await db.insert(tournamentTeams).values({
+      id: duplicateTeamId,
+      tournamentId: nguKiet!.id,
+      name: "Đội Trùng",
+      logo: "/mock-assets/team-do.png",
+      captainId: vanhh!.id,
+      status: "pending",
+    });
+    await expect(
+      db.insert(tournamentTeamMembers).values({
+        teamId: duplicateTeamId,
+        userId: suthy!.id,
+        tournamentId: nguKiet!.id,
+        isSub: false,
+        active: true,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("supports is_bye on bracket_matches and generates 16-byte base64url join_key for private rooms", async () => {
+    const db = await setupSeededMemoryDb();
+    const [nguKiet] = await db
+      .select()
+      .from(tournaments)
+      .where(eq(tournaments.slug, "ngu-kiet-cup-mua-1"));
+
+    const byeMatchId = randomUUID();
+    await db.insert(bracketMatches).values({
+      id: byeMatchId,
+      tournamentId: nguKiet!.id,
+      round: 1,
+      position: 0,
+      label: "Tứ kết 1",
+      isBye: true,
+    });
+    const [inserted] = await db
+      .select()
+      .from(bracketMatches)
+      .where(eq(bracketMatches.id, byeMatchId));
+    expect(inserted?.isBye).toBe(true);
+
+    const allRooms = await db.select().from(rooms);
+    for (const r of allRooms) {
+      if (r.visibility === "private") {
+        expect(r.joinKey).toMatch(/^[A-Za-z0-9_-]{22}$/);
+      } else {
+        expect(r.joinKey).toBeNull();
+      }
+    }
   });
 });

@@ -15,6 +15,13 @@
       "when": 1794706692104,
       "tag": "0001_confused_scourge",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794707537523,
+      "tag": "0002_conscious_machine_man",
+      "breakpoints": true
     }
   ]
 }
