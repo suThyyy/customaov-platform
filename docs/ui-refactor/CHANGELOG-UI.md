@@ -529,3 +529,22 @@ Xoá 3 file mới; bỏ `<ListStatus>`/`useMockStatus` ở các trang (nội dun
 - Chế độ `api`: submit gọi `POST /api/tournaments`, thành công điều hướng `/tournaments/<slug>`; lỗi 400 map `details[].path` vào ô và quay về bước chứa ô; lỗi khác hiện `role="alert"`. Chế độ `mock` giữ nguyên toast giả lập.
 - Hoàn tác: revert commit của task E5-T02b.
 - Còn tồn: chưa có UI sửa giải (PATCH mới chỉ có ở API).
+
+---
+
+## E6-T02 — API tìm kiếm + nối `SearchDialog` (15/11/2026)
+
+### File đã sửa / tạo mới
+- Backend `src/services/search.ts` (mới): `searchAll(db, q, userId)` — trim + `normalizeVi`, < 2 ký tự → 400 `VALIDATION`; phòng/giải dùng lại `listRooms`/`listTournaments` (pageSize 5, cùng luật phòng private: chỉ public + phòng mình là thành viên); người dùng so khớp `users.search_text` (`LIKE … ESCAPE '\'`, escape `\ % _`), tối đa 5, chỉ trả `UserSummary`.
+- Backend `src/routes/search.ts` (mới): `GET /api/search?q=` công khai, validate bằng `SearchQuerySchema`, rate limit 30/phút/IP (429 `RATE_LIMITED` + `retry-after`). `src/app.ts`: thêm import + 1 dòng đăng ký route.
+- Backend `src/routes/search.test.ts` (mới, 13 test): "giao luu" khớp AOV-1025, có dấu/hoa = không dấu, "ngu kiet" khớp giải, khách/người ngoài không thấy phòng private, suthy thấy AOV-1024 nhưng không thấy AOV-1028, user chỉ có khoá `UserSummary`, ≤ 5/nhóm, `q` 1 ký tự / thiếu / chỉ khoảng trắng → 400, `%` `_` không khớp tất cả, rate limit 30/phút/IP.
+- `src/api/hooks.ts`: `useSearch` trả thêm `pending`, `tooShort`; chế độ `api` debounce 250ms (`useDebouncedValue`, `SEARCH_DEBOUNCE_MS`), không gọi API khi < 2 ký tự (`SEARCH_MIN_LENGTH`), request cũ bị huỷ qua `AbortController` của `useResource` khi từ khoá đổi. Chế độ `mock` giữ nguyên (lọc đồng bộ, ô trống hiện gợi ý).
+- `src/components/layout/SearchDialog.tsx`: mẫu combobox — ô nhập `role="combobox"` + `aria-activedescendant`, kết quả `role="listbox"` chia nhóm `role="group"` Phòng / Giải đấu / Người chơi, ↑/↓ chọn (vòng), Enter mở kết quả đang chọn rồi đóng hộp, rê chuột đổi mục chọn. Trạng thái: gợi ý "nhập ít nhất 2 ký tự" (api), loading (cả lúc chờ debounce), lỗi + "Thử lại", trống.
+- `src/components/layout/SearchDialog.test.tsx` (mới, 7 test, chế độ api với `fetch` giả): < 2 ký tự không gọi API, debounce, huỷ request, hiển thị nhóm, ↑/↓ + Enter điều hướng, trống, lỗi → thử lại. `SearchDialog.mock.test.tsx` (mới, 1 test): chế độ mock không debounce, không fetch.
+
+### Cách hoàn tác
+`git revert` commit của task E6-T02.
+
+### Còn tồn
+- Kết quả phòng kèm phòng `finished` (giống `GET /api/rooms`). Nếu muốn ẩn thì lọc ở `searchAll`.
+- Mục kết quả là `Link` `tabIndex=-1` (focus ở ô nhập theo mẫu combobox); bàn phím dùng ↑/↓ + Enter thay cho Tab.

@@ -14,6 +14,7 @@ import { registerAuthRoutes } from "./auth/routes.js";
 import { createRoomRealtimeHub } from "./realtime/hub.js";
 import { registerRealtimePlugin } from "./realtime/plugin.js";
 import { registerRoomRoutes } from "./routes/rooms.js";
+import { registerSearchRoutes } from "./routes/search.js";
 import { registerUserRoutes } from "./routes/users.js";
 import { loadConfig, type AppConfig } from "./config.js";
 import type { DbClient } from "./db/client.js";
@@ -146,6 +147,7 @@ export function buildApp(opts: BuildAppOptions = {}): FastifyInstance {
       registerRoomRoutes(instance, deps);
       registerTournamentRoutes(instance, deps);
       registerTournamentBracketRoutes(instance, deps);
+      registerSearchRoutes(instance, deps);
     });
   }
 

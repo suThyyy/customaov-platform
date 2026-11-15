@@ -120,5 +120,50 @@ export const useProfile = (username?: string): HookResult<UserProfile | undefine
 export const useActivities = (): HookResult<Activity[]> =>
   useResource(stableKey('activities'), DATA_SOURCE === 'mock' ? readMockActivities() : [], (signal) => adapter.activities(signal), DATA_SOURCE === 'mock')
 
-export const useSearch = (q: string): HookResult<SearchResult> =>
-  useResource(stableKey('search', { q }), DATA_SOURCE === 'mock' ? readMockSearch(q) : { rooms: [], tournaments: [], players: [] }, (signal) => adapter.search(q, signal), DATA_SOURCE === 'mock')
+/** Chế độ api: chờ người dùng ngừng gõ 250ms mới gọi `GET /api/search`. */
+export const SEARCH_DEBOUNCE_MS = 250
+/** Chế độ api: server từ chối `q` ngắn hơn 2 ký tự (400), nên client không gọi. */
+export const SEARCH_MIN_LENGTH = 2
+
+const EMPTY_SEARCH: SearchResult = { rooms: [], tournaments: [], players: [] }
+
+/** Trả về `value` sau khi nó đứng yên `delay` ms. `delay <= 0` → trả ngay, không đặt timer. */
+export function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    if (delay <= 0) return
+    const id = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(id)
+  }, [value, delay])
+  return delay <= 0 ? value : debounced
+}
+
+export interface SearchHookResult extends HookResult<SearchResult> {
+  /** Đang chờ debounce (người dùng vừa gõ, chưa gửi request) */
+  pending: boolean
+  /** Chế độ api: từ khoá (đã trim) ngắn hơn SEARCH_MIN_LENGTH, chưa tìm */
+  tooShort: boolean
+}
+
+/**
+ * Tìm kiếm toàn cục.
+ * - mock: lọc đồng bộ trên mock data như trước (không debounce, `q` rỗng → gợi ý).
+ * - api: debounce 250ms; mỗi lần từ khoá đổi, `useResource` huỷ request cũ bằng `AbortController`.
+ */
+export function useSearch(q: string): SearchHookResult {
+  const isApi = DATA_SOURCE === 'api'
+  const typed = isApi ? q.trim() : q
+  const debounced = useDebouncedValue(typed, isApi ? SEARCH_DEBOUNCE_MS : 0)
+  const tooShort = isApi && debounced.length < SEARCH_MIN_LENGTH
+  const result = useResource(
+    stableKey('search', { q: debounced }),
+    isApi ? EMPTY_SEARCH : readMockSearch(debounced),
+    (signal) => (tooShort ? Promise.resolve(EMPTY_SEARCH) : adapter.search(debounced, signal)),
+    !isApi,
+  )
+  // `tooShort` phản ánh ô nhập hiện tại (không phải giá trị đã debounce), để gợi ý "nhập thêm" hiện ngay.
+  if (isApi && typed.length < SEARCH_MIN_LENGTH) {
+    return { ...result, status: 'ready', data: EMPTY_SEARCH, error: undefined, pending: false, tooShort: true }
+  }
+  return { ...result, pending: typed !== debounced, tooShort: false }
+}
