@@ -19,6 +19,20 @@ export interface SearchResult {
   players: Player[]
 }
 
+export interface ActivitiesParams {
+  /** Bắt đầu từ 1 */
+  page?: number
+  /** 1–50 (theo contracts) */
+  pageSize?: number
+}
+
+export interface ActivityPage {
+  items: Activity[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 export interface DataAdapter {
   rooms(params: RoomsParams, signal?: AbortSignal): Promise<Room[]>
   room(code: string, signal?: AbortSignal): Promise<Room | undefined>
@@ -26,6 +40,6 @@ export interface DataAdapter {
   tournaments(params: TournamentsParams, signal?: AbortSignal): Promise<Tournament[]>
   tournament(slug: string, signal?: AbortSignal): Promise<TournamentDetail | undefined>
   profile(username?: string, signal?: AbortSignal): Promise<UserProfile | undefined>
-  activities(signal?: AbortSignal): Promise<Activity[]>
+  activities(params: ActivitiesParams, signal?: AbortSignal): Promise<ActivityPage>
   search(q: string, signal?: AbortSignal): Promise<SearchResult>
 }

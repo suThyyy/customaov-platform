@@ -51,8 +51,10 @@ export const httpAdapter: DataAdapter = {
       throw error
     }
   },
-  async activities(signal) {
-    return (await endpoints.activities({ pageSize: 50 }, signal)).items.map(mapActivity)
+  async activities(params, signal) {
+    const response = await endpoints.activities({ page: params.page ?? 1, pageSize: params.pageSize ?? 10 }, signal)
+    const now = Date.now()
+    return { ...response, items: response.items.map((item) => mapActivity(item, now)) }
   },
   async search(q, signal) {
     if (q.trim().length < 2) return { rooms: [], tournaments: [], players: [] }

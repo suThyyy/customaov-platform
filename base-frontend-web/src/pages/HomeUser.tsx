@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Clock3,
   DoorOpen,
-  Gamepad2,
   LogIn,
   Plus,
   Trophy,
@@ -18,19 +17,16 @@ import { cn } from '../lib/cn'
 import { isRoomMember } from '../lib/room'
 import { ListStatus, SkeletonRows } from '../components/ui/ListStatus'
 import { useToast } from '../context/AppContext'
-import { currentUser, roomFullTitle, useActivities, useRooms, useTournaments, type ActivityKind } from '../api'
+import { currentUser, roomFullTitle, useActivities, useRooms, useTournaments } from '../api'
 import { Button, ButtonLink } from '../components/ui/Button'
 import { Card, SectionTitle, SeeAllLink } from '../components/ui/primitives'
 import { PageHeader } from '../components/layout/PageHeader'
 import { ActiveRoomsCard, RoomStatusBadge } from '../components/domain/RoomsTable'
 import { TournamentPromoCard } from '../components/domain/TournamentPromoCard'
+import { ActivityList } from './Activities'
 
-const ACTIVITY_ICON: Record<ActivityKind, typeof Gamepad2> = {
-  join: Gamepad2,
-  register: Trophy,
-  invite: UsersRound,
-  result: BarChart3,
-}
+/** "Hoạt động gần đây": 5 mục mới nhất; xem đủ ở /activities */
+const RECENT_ACTIVITIES = { page: 1, pageSize: 5 }
 
 const QUICK_TOOLS: Array<{ icon: ReactNode; title: string; description: string; to: string }> = [
   {
@@ -58,10 +54,10 @@ export default function HomeUser() {
   const navigate = useNavigate()
   const { comingSoon } = useToast()
   const roomLoad = useRooms()
-  const activityLoad = useActivities()
+  const activityLoad = useActivities(RECENT_ACTIVITIES)
   const tournamentLoad = useTournaments()
   const rooms = roomLoad.data
-  const activities = activityLoad.data
+  const activities = activityLoad.data.items
   const featuredTournament = tournamentLoad.data[0]
   const myRooms = rooms.filter((r) => isRoomMember(r, currentUser.id))
 
@@ -192,7 +188,7 @@ export default function HomeUser() {
             size="sm"
             icon={<Clock3 size={20} />}
             title="Hoạt động gần đây"
-            action={<SeeAllLink onClick={() => comingSoon('Lịch sử hoạt động')} />}
+            action={<SeeAllLink to="/activities" />}
           />
           <ListStatus status={activityLoad.status} onRetry={activityLoad.retry} label="hoạt động gần đây" className="mt-2" skeleton={<SkeletonRows count={4} />}>
           {activities.length === 0 ? (
@@ -200,29 +196,7 @@ export default function HomeUser() {
               Chưa có hoạt động nào. Tham gia một phòng hoặc theo dõi giải đấu để bắt đầu.
             </p>
           ) : (
-          <ul className="mt-2">
-            {activities.map((a, i) => {
-              const Icon = ACTIVITY_ICON[a.kind]
-              return (
-                <li key={a.id} className={cn('flex items-start gap-3 py-3 text-sm', i > 0 && 'border-t border-line')}>
-                  <Icon size={16} aria-hidden className="mt-0.5 shrink-0 text-fg-muted" />
-                  {/* Cột chính đủ rộng (≥ 640): thời gian dạt phải cùng dòng */}
-                  <span className="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-                    <span className="min-w-0">
-                      {a.text}
-                      {a.emphasis && (
-                        <>
-                          {' '}
-                          (<span className="font-medium text-gold">{a.emphasis}</span>)
-                        </>
-                      )}
-                    </span>
-                    <span className="shrink-0 text-xs whitespace-nowrap text-fg-muted">{a.timeAgo}</span>
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
+            <ActivityList items={activities} className="mt-2" />
           )}
           </ListStatus>
         </Card>

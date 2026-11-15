@@ -20,6 +20,7 @@ import type {
   TournamentDetail,
   UserProfile,
 } from './types'
+import { timeAgo } from './time'
 
 const dateOnly = (value: string | undefined): string | undefined => {
   if (!value) return undefined
@@ -129,15 +130,12 @@ export const mapTournamentDetail = (detail: ApiTournamentDetail): TournamentDeta
   results: detail.results,
 })
 
-export const mapActivity = (activity: ApiActivity): Activity => ({
+export const mapActivity = (activity: ApiActivity, now: number = Date.now()): Activity => ({
   id: activity.id,
   kind: activity.kind,
   text: activity.text,
   emphasis: activity.emphasis,
-  timeAgo: new Intl.RelativeTimeFormat('vi', { numeric: 'auto' }).format(
-    Math.round((Date.parse(activity.at) - Date.now()) / 60_000),
-    'minute',
-  ),
+  timeAgo: timeAgo(activity.at, now),
 })
 
 export const mapChatMessage = (message: ApiChatMessage): ChatMessage => ({

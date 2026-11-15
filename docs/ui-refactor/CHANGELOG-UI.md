@@ -529,3 +529,10 @@ Xoá 3 file mới; bỏ `<ListStatus>`/`useMockStatus` ở các trang (nội dun
 - Chế độ `api`: submit gọi `POST /api/tournaments`, thành công điều hướng `/tournaments/<slug>`; lỗi 400 map `details[].path` vào ô và quay về bước chứa ô; lỗi khác hiện `role="alert"`. Chế độ `mock` giữ nguyên toast giả lập.
 - Hoàn tác: revert commit của task E5-T02b.
 - Còn tồn: chưa có UI sửa giải (PATCH mới chỉ có ở API).
+
+## E6-T01 — Hoạt động: feed API + "Hoạt động gần đây" + `/activities` (15/11/2026)
+- Backend: `GET /api/activities` (đăng nhập; chỉ mục có `activity_recipients.user_id = tôi`, mới nhất ở trên, phân trang `{items,total,page,pageSize}`) ở `src/services/activities.ts`, `src/routes/activities.ts` (+ test). `src/services/rooms.ts`: vào phòng với vai người chơi ghi activity `join` (người vào + chủ phòng là recipients) trong cùng transaction, mỗi cặp (người, phòng) chỉ ghi 1 lần; vào xem không ghi. `room-host.test.ts` lọc thêm `kind = 'result'` vì phòng giờ có cả activity `join`.
+- Frontend: `src/api/` — `useActivities({page,pageSize})` trả trang (`ActivityPage`), `timeAgo()` (`src/api/time.ts`: "Vừa xong", "5 phút trước", "3 giờ trước", "2 ngày trước", ≥ 7 ngày hiện dd/mm/yyyy giờ VN). Trang mới `src/pages/Activities.tsx` (`/activities`, trong `RequireAuth`): `PageHeader` (1 `<h1>`), `ListStatus`, `Pagination` theo `?page=`, empty state; export `ActivityList` dùng chung với dashboard. `HomeUser.tsx`: "Hoạt động gần đây" lấy 5 mục, link "Xem tất cả" → `/activities` (trước là toast `comingSoon`). Chế độ mock: dashboard như cũ, `/activities` dùng `mocks/activity.ts` (4 mục, 1 trang). `scripts/screenshot.mjs` thêm route `activities` (10 route × 4 khổ = 40).
+- Test: `Activities.api.test.tsx` (dashboard 5 mục; phân trang; empty state), `Activities.test.tsx` (mock), `api/time.test.ts`.
+- Hoàn tác: revert commit của task E6-T01.
+- Còn tồn: activity `register`/`invite` do task khác sinh (E5-T03/E5-T04b); `timeAgo` tính lúc tải, không tự cập nhật khi để trang lâu.
