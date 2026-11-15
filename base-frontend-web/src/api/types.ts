@@ -2,9 +2,6 @@ export type {
   Achievement,
   Activity,
   ActivityKind,
-  BracketMatch,
-  BracketRound,
-  BracketSlot,
   ChampionStat,
   ChatMessage,
   Lane,
@@ -19,11 +16,48 @@ export type {
   StageStatus,
   Team,
   Tournament,
-  TournamentDetail,
   TournamentStatus,
 } from '../mocks/types'
 
-import type { Room, UserProfile as MockUserProfile } from '../mocks/types'
+import type { Series } from '@customaov/contracts'
+import type {
+  BracketMatch as MockBracketMatch,
+  BracketSlot as MockBracketSlot,
+  Room,
+  TournamentDetail as MockTournamentDetail,
+  UserProfile as MockUserProfile,
+} from '../mocks/types'
+
+/**
+ * Slot nhánh đấu. Nguồn API có slot chưa có đội (API.md 9.3): `map.ts` thay bằng đội giữ chỗ
+ * và đánh dấu `placeholder` để UI hiện "BYE" / "Chưa xác định" thay vì tên đội.
+ */
+export interface BracketSlot extends MockBracketSlot {
+  placeholder?: 'bye' | 'tbd'
+}
+
+export interface BracketMatch extends Omit<MockBracketMatch, 'slots'> {
+  slots: [BracketSlot, BracketSlot]
+}
+
+export interface BracketRound {
+  name: string
+  matches: BracketMatch[]
+}
+
+export type TournamentRole = 'organizer' | 'captain' | 'member'
+
+/** Chi tiết giải. Các field tuỳ chọn chỉ có ở nguồn API (mock không có BTC). */
+export interface TournamentDetail extends Omit<MockTournamentDetail, 'bracket'> {
+  bracket: BracketRound[]
+  series?: Series
+  myRole?: TournamentRole | null
+  /** Hạn đăng ký dạng ISO (để biết BTC đã đóng đăng ký hay chưa) */
+  registrationDeadlineAt?: string
+}
+
+/** Nhãn thời gian của trận chưa có giờ (API.md 9.3) */
+export const UNSCHEDULED_LABEL = 'Chưa xếp lịch'
 
 export interface ProfileRecordHistoryItem {
   id: string

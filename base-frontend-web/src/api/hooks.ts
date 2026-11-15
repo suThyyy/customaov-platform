@@ -26,6 +26,8 @@ export interface HookResult<T> {
   data: T
   error?: Error
   retry: () => void
+  /** Tải lại ngầm (giữ dữ liệu cũ và trạng thái `ready` trong lúc chờ), vd. sau thao tác ghi. Lỗi ném ra cho nơi gọi. */
+  reload: () => Promise<void>
 }
 
 export function useResource<T>(
@@ -38,7 +40,7 @@ export function useResource<T>(
   const loadRef = useRef(load)
   loadRef.current = load
   const [attempt, setAttempt] = useState(0)
-  const [state, setState] = useState<Omit<HookResult<T>, 'retry'>>(() =>
+  const [state, setState] = useState<Omit<HookResult<T>, 'retry' | 'reload'>>(() =>
     cache.has(key)
       ? { status: 'ready', data: cache.get(key) as T }
       : { status: readyImmediately ? mockStatus.status : 'loading', data: fallback },
@@ -75,7 +77,13 @@ export function useResource<T>(
     setAttempt((value) => value + 1)
   }, [key, mockStatus])
 
-  return { ...state, retry }
+  const reload = useCallback(async () => {
+    const data = await loadRef.current(new AbortController().signal)
+    cache.set(key, data)
+    setState({ status: 'ready', data })
+  }, [key])
+
+  return { ...state, retry, reload }
 }
 
 const stableKey = (name: string, params?: object) => `${DATA_SOURCE}:${name}:${params ? JSON.stringify(params) : ''}`

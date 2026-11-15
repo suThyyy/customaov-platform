@@ -93,14 +93,19 @@ export const mapTournament = (tournament: ApiTournamentSummary): Tournament => (
 
 type ApiBracketSlot = ApiTournamentDetail['bracket'][number]['matches'][number]['slots'][number]
 
-const mapBracketSlot = (slot: ApiBracketSlot, matchId: string, side: 'a' | 'b'): BracketSlot => ({
-  team: slot.team ?? {
-    id: `${matchId}-${side}-${slot.bye ? 'bye' : 'tbd'}`,
-    name: slot.bye ? 'BYE' : 'Chưa xác định',
-    logo: '',
-  },
-  score: slot.score,
-})
+const mapBracketSlot = (slot: ApiBracketSlot, matchId: string, side: 'a' | 'b'): BracketSlot => {
+  if (slot.team && !slot.bye) return { team: slot.team, score: slot.score }
+  const placeholder = slot.bye ? 'bye' : 'tbd'
+  return {
+    team: {
+      id: `${matchId}-${side}-${placeholder}`,
+      name: slot.bye ? 'BYE' : 'Chưa xác định',
+      logo: '',
+    },
+    score: null,
+    placeholder,
+  }
+}
 
 export const mapTournamentDetail = (detail: ApiTournamentDetail): TournamentDetail => ({
   ...mapTournament(detail),
@@ -127,6 +132,9 @@ export const mapTournamentDetail = (detail: ApiTournamentDetail): TournamentDeta
   })),
   upcoming: detail.upcoming,
   results: detail.results,
+  series: detail.series,
+  myRole: detail.myRole,
+  registrationDeadlineAt: detail.registrationDeadline,
 })
 
 export const mapActivity = (activity: ApiActivity): Activity => ({

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { RoomDetailSchema, TournamentSummarySchema, UserProfileSchema } from '@customaov/contracts'
-import { mapProfile, mapRoom, mapTournament } from './map'
+import { RoomDetailSchema, TournamentDetailSchema, TournamentSummarySchema, UserProfileSchema } from '@customaov/contracts'
+import { mapProfile, mapRoom, mapTournament, mapTournamentDetail } from './map'
 
 const user = {
   id: '00000000-0000-4000-8000-000000000001',
@@ -42,6 +42,35 @@ describe('contract → UI maps', () => {
       slug: 'giai-mau', status: 'open', teamCount: 8, registeredTeams: 3,
       groupStage: 'not-started', timeLabel: 'Hạn đăng ký: 20/11, 23:59',
     })
+  })
+
+  it('slot BYE / TBD của nhánh đấu được đánh dấu placeholder; giữ series, myRole, hạn ISO', () => {
+    const base = {
+      slug: 'giai-mau', name: 'Giải mẫu', titleIcon: 'trophy', cover: '/tour.jpg', status: 'live',
+      format: '5v5', organizer: 'CustomAOV', description: 'Mô tả', teamCount: 4,
+      registrationDeadline: '2026-11-10T23:59:00+07:00',
+      dateStart: '2026-11-12T12:00:00+07:00', dateEnd: '2026-11-20T12:00:00+07:00',
+      createdAt: '2026-11-01T12:00:00+07:00', timeLabel: 'Thời gian: 12/11 – 20/11', dateRange: '12/11 – 20/11',
+    }
+    const team = { id: '00000000-0000-4000-8000-000000000011', name: 'Đội A', logo: '' }
+    const matchId = '00000000-0000-4000-8000-000000000021'
+    const detail = TournamentDetailSchema.parse({
+      ...base, title: 'Giải mẫu', intro: [], mode: '5v5', category: 'Cộng đồng', formatLabel: 'Loại trực tiếp (BO3)',
+      series: 'BO3', heroImage: '/tour.jpg', rules: [], prizes: [], teamList: [team],
+      bracket: [{ name: 'Bán kết', matches: [{ id: matchId, label: 'Trận 1', time: 'Chưa xếp lịch', slots: [
+        { team, score: null, bye: false }, { team: null, score: null, bye: true },
+      ] }, { id: '00000000-0000-4000-8000-000000000022', label: 'Trận 2', time: 'Chưa xếp lịch', slots: [
+        { team: null, score: null, bye: false }, { team, score: null, bye: false },
+      ] }] }],
+      upcoming: [], results: [], champion: null, myRole: 'organizer', myRegistration: null,
+    })
+
+    const mapped = mapTournamentDetail(detail)
+    const [bye, tbd] = mapped.bracket[0].matches
+    expect(bye.slots[0]).toEqual({ team, score: null })
+    expect(bye.slots[1]).toMatchObject({ placeholder: 'bye', team: { name: 'BYE' }, score: null })
+    expect(tbd.slots[0]).toMatchObject({ placeholder: 'tbd', team: { name: 'Chưa xác định' } })
+    expect(mapped).toMatchObject({ series: 'BO3', myRole: 'organizer', registrationDeadlineAt: '2026-11-10T23:59:00+07:00' })
   })
 
   it('giữ số liệu và lịch sử hồ sơ API, đánh dấu dữ liệu game chưa có', () => {
