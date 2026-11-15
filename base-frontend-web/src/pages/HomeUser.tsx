@@ -16,10 +16,9 @@ import {
 } from 'lucide-react'
 import { cn } from '../lib/cn'
 import { isRoomMember } from '../lib/room'
-import { useMockStatus } from '../lib/mockStatus'
 import { ListStatus, SkeletonRows } from '../components/ui/ListStatus'
 import { useToast } from '../context/AppContext'
-import { activities, currentUser, featuredTournament, roomFullTitle, rooms, type ActivityKind } from '../mocks'
+import { currentUser, roomFullTitle, useActivities, useRooms, useTournaments, type ActivityKind } from '../api'
 import { Button, ButtonLink } from '../components/ui/Button'
 import { Card, SectionTitle, SeeAllLink } from '../components/ui/primitives'
 import { PageHeader } from '../components/layout/PageHeader'
@@ -58,7 +57,12 @@ const QUICK_TOOLS: Array<{ icon: ReactNode; title: string; description: string; 
 export default function HomeUser() {
   const navigate = useNavigate()
   const { comingSoon } = useToast()
-  const load = useMockStatus()
+  const roomLoad = useRooms()
+  const activityLoad = useActivities()
+  const tournamentLoad = useTournaments()
+  const rooms = roomLoad.data
+  const activities = activityLoad.data
+  const featuredTournament = tournamentLoad.data[0]
   const myRooms = rooms.filter((r) => isRoomMember(r, currentUser.id))
 
   return (
@@ -87,6 +91,8 @@ export default function HomeUser() {
           <ActiveRoomsCard
             id="rooms"
             rooms={rooms}
+            status={roomLoad.status}
+            onRetry={roomLoad.retry}
             userId={currentUser.id}
             onJoin={(r) => navigate(`/rooms/${r.id}`)}
             onWatch={(r) => navigate(`/rooms/${r.id}`)}
@@ -103,7 +109,7 @@ export default function HomeUser() {
         >
           <Card className="p-4">
             <SectionTitle size="sm" icon={<DoorOpen size={20} />} title="Phòng bạn đang tham gia" />
-            <ListStatus status={load.status} onRetry={load.retry} label="phòng của bạn" className="mt-3" skeleton={<SkeletonRows count={1} />}>
+            <ListStatus status={roomLoad.status} onRetry={roomLoad.retry} label="phòng của bạn" className="mt-3" skeleton={<SkeletonRows count={1} />}>
             {myRooms.length === 0 ? (
               <div className="mt-3 flex flex-col items-start gap-3">
                 <p className="text-sm text-fg-muted">Bạn chưa ở trong phòng nào.</p>
@@ -144,11 +150,13 @@ export default function HomeUser() {
             </ListStatus>
           </Card>
 
-          <TournamentPromoCard
-            tournament={featuredTournament}
-            onOpen={() => navigate(`/tournaments/${featuredTournament.slug}`)}
-            onRegister={() => comingSoon(`Đăng ký giải ${featuredTournament.name}`)}
-          />
+          {featuredTournament && (
+            <TournamentPromoCard
+              tournament={featuredTournament}
+              onOpen={() => navigate(`/tournaments/${featuredTournament.slug}`)}
+              onRegister={() => comingSoon(`Đăng ký giải ${featuredTournament.name}`)}
+            />
+          )}
 
           <Card className="p-4">
             <SectionTitle size="sm" icon={<Zap size={20} />} title="Công cụ nhanh" />
@@ -186,7 +194,7 @@ export default function HomeUser() {
             title="Hoạt động gần đây"
             action={<SeeAllLink onClick={() => comingSoon('Lịch sử hoạt động')} />}
           />
-          <ListStatus status={load.status} onRetry={load.retry} label="hoạt động gần đây" className="mt-2" skeleton={<SkeletonRows count={4} />}>
+          <ListStatus status={activityLoad.status} onRetry={activityLoad.retry} label="hoạt động gần đây" className="mt-2" skeleton={<SkeletonRows count={4} />}>
           {activities.length === 0 ? (
             <p className="mt-2 rounded-btn bg-surface-2/60 px-3 py-6 text-center text-sm text-fg-muted">
               Chưa có hoạt động nào. Tham gia một phòng hoặc theo dõi giải đấu để bắt đầu.

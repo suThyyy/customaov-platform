@@ -29,9 +29,8 @@ import {
 import { asset } from '../lib/asset'
 import { cn } from '../lib/cn'
 import { useToast } from '../context/AppContext'
-import { useMockStatus } from '../lib/mockStatus'
 import { ListStatus, SkeletonRows } from '../components/ui/ListStatus'
-import { currentUser, players, profile, type Achievement, type MatchHistoryItem, type RoleStat } from '../mocks'
+import { currentUser, useProfile, type Achievement, type HookResult, type MatchHistoryItem, type RoleStat, type UserProfile } from '../api'
 import { Button, ButtonLink, IconButton } from '../components/ui/Button'
 import { Avatar, Badge, Card, LevelPill, SectionTitle, SeeAllLink } from '../components/ui/primitives'
 import { Tabs } from '../components/ui/Tabs'
@@ -76,13 +75,21 @@ function Cover() {
 
 export default function Profile() {
   const { userId } = useParams()
+  const load = useProfile(userId)
+  if (load.status !== 'ready') {
+    return (
+      <ListStatus status={load.status} onRetry={load.retry} label="hồ sơ" className="mt-6" skeleton={<SkeletonRows count={6} />}>
+        {null}
+      </ListStatus>
+    )
+  }
   // /profile/:userId của người khác: mock chỉ có hồ sơ đầy đủ của người dùng hiện tại
-  if (userId && userId !== currentUser.id) return <OtherProfile userId={userId} />
-  return <MyProfile />
+  if (userId && userId !== currentUser.id) return <OtherProfile userId={userId} profile={load.data} />
+  return load.data ? <MyProfile profile={load.data} load={load} /> : null
 }
 
-function OtherProfile({ userId }: { userId: string }) {
-  const player = Object.values(players).find((p) => p.id === userId)
+function OtherProfile({ userId, profile }: { userId: string; profile: UserProfile | undefined }) {
+  const player = profile?.player
   if (!player) {
     return (
       <EmptyState
@@ -128,14 +135,12 @@ function OtherProfile({ userId }: { userId: string }) {
   )
 }
 
-function MyProfile() {
+function MyProfile({ profile: p, load }: { profile: UserProfile; load: HookResult<UserProfile | undefined> }) {
   const { comingSoon, notify } = useToast()
   const [params, setParams] = useSearchParams()
   const rawTab = params.get('tab')
   const tab: ProfileTab = isTab(rawTab) ? rawTab : 'overview'
   const setTab = (t: ProfileTab) => setParams(t === 'overview' ? {} : { tab: t })
-  const load = useMockStatus()
-  const p = profile
 
   const copyId = async () => {
     try {
@@ -230,15 +235,15 @@ function MyProfile() {
           label={`nội dung "${TAB_ITEMS.find((t) => t.id === tab)?.label}"`}
           skeleton={<SkeletonRows count={4} />}
         >
-          {tab === 'overview' && <Overview setTab={setTab} onMatchMore={(id) => comingSoon(`Chi tiết trận ${id}`)} />}
+          {tab === 'overview' && <Overview profile={p} setTab={setTab} onMatchMore={(id) => comingSoon(`Chi tiết trận ${id}`)} />}
           {tab === 'history' && (
             <Card className="p-4">
               <SectionTitle size="sm" icon={<Clock3 size={20} />} title={`Lịch sử trận (${p.history.length} trận gần nhất)`} />
               <HistoryList className="mt-3" items={p.history} onMore={(id) => comingSoon(`Chi tiết trận ${id}`)} />
             </Card>
           )}
-          {tab === 'champions' && <ChampionsTab />}
-          {tab === 'achievements' && <AchievementsTab />}
+          {tab === 'champions' && <ChampionsTab profile={p} />}
+          {tab === 'achievements' && <AchievementsTab profile={p} />}
         </ListStatus>
       </div>
     </div>
@@ -247,8 +252,7 @@ function MyProfile() {
 
 /* ---------------- Tổng quan: chỉ tóm tắt ---------------- */
 
-function Overview({ setTab, onMatchMore }: { setTab: (t: ProfileTab) => void; onMatchMore: (id: string) => void }) {
-  const p = profile
+function Overview({ profile: p, setTab, onMatchMore }: { profile: UserProfile; setTab: (t: ProfileTab) => void; onMatchMore: (id: string) => void }) {
   const stats: Array<{ icon: LucideIcon; label: string; value: string }> = [
     { icon: Swords, label: 'Tổng trận', value: String(p.stats.totalMatches) },
     { icon: BarChart3, label: 'Tỷ lệ thắng', value: `${p.stats.winRate}%` },
@@ -490,8 +494,7 @@ function ItemIcons({ items }: { items: string[] }) {
 
 /* ---------------- Tướng ưa thích ---------------- */
 
-function ChampionsTab() {
-  const p = profile
+function ChampionsTab({ profile: p }: { profile: UserProfile }) {
   return (
     <div className="flex flex-col gap-6">
       <Card className="p-4">
@@ -529,7 +532,7 @@ function ChampionsTab() {
 
 /* ---------------- Thành tích ---------------- */
 
-function AchievementsTab() {
+function AchievementsTab({ profile }: { profile: UserProfile }) {
   const list = profile.achievements
   if (list.length === 0) {
     return <EmptyState className="min-h-60" icon={<Award size={28} />} title="Chưa có thành tích" description="Chơi thêm trận custom để mở khoá." />

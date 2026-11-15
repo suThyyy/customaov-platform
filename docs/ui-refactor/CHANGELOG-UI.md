@@ -445,3 +445,21 @@ Xoá 3 file mới; bỏ `<ListStatus>`/`useMockStatus` ở các trang (nội dun
 
 ### Còn tồn
 - Chưa có.
+
+---
+
+## E3-T02 — Tầng dữ liệu frontend `src/api/` (15/11/2026)
+
+### File đã sửa / tạo mới
+- `src/api/` (mới): chọn nguồn `mock|api`, HTTP client có cookie session + CSRF, `ApiError`, toàn bộ endpoint REST trong API mục 2–6, adapter mock/http, ánh xạ contracts → kiểu UI, cache bộ nhớ và các hook `useRooms`, `useRoom`, `useTournaments`, `useTournament`, `useProfile`, `useActivities`, `useSearch`.
+- `src/api/*.test.ts(x)` (mới): kiểm tra CSRF, lỗi API, ánh xạ phòng/giải và vòng đời hook loading/error/retry.
+- `pages/*.tsx`, `components/domain/*`, `components/layout/SearchDialog.tsx`, `lib/room.ts`, `lib/tournament.ts`, `features/team-split/teamSplit.ts`: đọc dữ liệu/kiểu qua `src/api` thay vì import trực tiếp `src/mocks`; hành động ghi vẫn giữ state cục bộ như trước.
+- `vite.config.ts`: proxy `/api`, gồm WebSocket (`ws: true`), tới `API_TARGET` hoặc `http://127.0.0.1:6174`.
+- `package.json`, `package-lock.json`: thêm workspace dependency `@customaov/contracts`; `src/vite-env.d.ts` khai báo `VITE_DATA_SOURCE`.
+
+### Cách hoàn tác
+`git revert` commit của task E3-T02. Nếu hoàn tác thủ công: xoá `src/api/`, trả các import consumer về `src/mocks`, bỏ proxy Vite và dependency `@customaov/contracts`.
+
+### Còn tồn
+- Auth vẫn dùng session mock/localStorage theo đúng phạm vi; E3-T03 sẽ nối auth API.
+- Các hành động ghi phòng, chat, hồ sơ và giải đấu vẫn là logic cục bộ/`comingSoon`; E4/E5 sẽ nối endpoint đã dựng sẵn.

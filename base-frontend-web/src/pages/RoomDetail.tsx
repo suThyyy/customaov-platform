@@ -52,9 +52,8 @@ import {
   type Teams,
 } from '../lib/room'
 import { useToast } from '../context/AppContext'
-import { useMockStatus } from '../lib/mockStatus'
 import { ListStatus, SkeletonRows } from '../components/ui/ListStatus'
-import { currentUser, findRoom, roomMessages, type ChatMessage, type Lane, type Room, type RoomMember } from '../mocks'
+import { currentUser, useRoom, useRoomMessages, type ChatMessage, type Lane, type Room, type RoomMember } from '../api'
 import { Button, ButtonLink, IconButton } from '../components/ui/Button'
 import { Avatar, Badge } from '../components/ui/primitives'
 import { PageHeader } from '../components/layout/PageHeader'
@@ -108,7 +107,15 @@ const nowHHMM = () => {
 
 export default function RoomDetail() {
   const { roomId } = useParams()
-  const room = findRoom(roomId)
+  const load = useRoom(roomId)
+  const room = load.data
+  if (load.status !== 'ready') {
+    return (
+      <ListStatus status={load.status} onRetry={load.retry} label="phòng" className="mt-6" skeleton={<SkeletonRows count={6} />}>
+        {null}
+      </ListStatus>
+    )
+  }
   if (!room) {
     return (
       <EmptyState
@@ -709,10 +716,14 @@ function RoomConfig({ room, role }: { room: Room; role: RoomRole }) {
 /* ---------------- Chat ---------------- */
 
 function RoomChat({ room, canChat, className }: { room: Room; canChat: boolean; className?: string }) {
-  const [messages, setMessages] = useState<ChatMessage[]>(() => roomMessages[room.id] ?? [])
+  const load = useRoomMessages(room.id)
+  const [messages, setMessages] = useState<ChatMessage[]>(load.data)
   const [draft, setDraft] = useState('')
   const listRef = useRef<HTMLOListElement>(null)
-  const load = useMockStatus()
+
+  useEffect(() => {
+    if (load.status === 'ready') setMessages(load.data)
+  }, [load.status, load.data])
 
   // Tin mới → cuộn xuống cuối khung chat (chỉ trong khung, không cuộn cả trang)
   useEffect(() => {

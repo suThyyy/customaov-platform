@@ -1,7 +1,7 @@
 import { ArrowRight, CalendarDays, Trophy } from 'lucide-react'
 import { asset } from '../../lib/asset'
 import { cn } from '../../lib/cn'
-import type { Tournament } from '../../mocks'
+import type { Tournament } from '../../api'
 import { Button } from '../ui/Button'
 import { Card, SectionTitle } from '../ui/primitives'
 import { RegistrationProgress } from './RegistrationProgress'
