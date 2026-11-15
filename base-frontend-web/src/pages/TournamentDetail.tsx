@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState, type ReactNode, type Ref } from 'react'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   ArrowRight,
   Award,
@@ -24,19 +24,28 @@ import {
 } from 'lucide-react'
 import { cn } from '../lib/cn'
 import { groupByDate, matchProgress, podium, scheduleOf, standings, winnerOf, type StandingTone } from '../lib/tournament'
-import { useToast } from '../context/AppContext'
+import { useAuth, useToast } from '../context/AppContext'
 import { ListStatus, SkeletonCards, SkeletonRows } from '../components/ui/ListStatus'
 import {
+  ApiError,
+  DATA_SOURCE,
   TOURNAMENT_STATUS_LABEL,
+  clearDataCache,
+  endpoints,
   useTournament,
   type HookResult,
   type BracketMatch,
   type BracketRound,
+  type Registration,
   type ScheduledMatch,
   type Team,
   type TournamentDetail as Detail,
   type TournamentStatus,
 } from '../api'
+import { loginHref } from '../components/layout/nav'
+import { Modal } from '../components/ui/Modal'
+import { RegisterTeamDialog } from '../components/domain/RegisterTeamDialog'
+import { RegistrationsPanel } from '../components/domain/RegistrationsPanel'
 import { Button, ButtonLink, IconButton } from '../components/ui/Button'
 import { Card, Eyebrow, SectionTitle, SeeAllLink } from '../components/ui/primitives'
 import { Tabs } from '../components/ui/Tabs'
@@ -103,10 +112,49 @@ function TournamentView({ d, load }: { d: Detail; load: HookResult<Detail | unde
   const tab: DetailTab = isTab(rawTab) ? rawTab : 'info'
   const setTab = (t: DetailTab) => setParams(t === 'info' ? {} : { tab: t })
   const [following, setFollowing] = useState(false)
+  const { loggedIn, user } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
 
-  // TODO: nối API đăng ký giải khi có backend
-  const register = () => comingSoon(`Đăng ký giải ${d.name}`)
+  // Đăng ký đội: chỉ chế độ api. Mock giữ nút "Sắp có" như trước.
+  const apiMode = DATA_SOURCE === 'api'
+  const myReg = apiMode ? (d.myRegistration ?? null) : null
+  const hasActiveReg = myReg !== null && (myReg.status === 'pending' || myReg.status === 'approved')
+  const isOrganizer = apiMode && d.myRole === 'organizer'
+  const [registerOpen, setRegisterOpen] = useState(false)
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
+  const closeRegister = useCallback(() => setRegisterOpen(false), [])
+  const closeWithdraw = useCallback(() => setWithdrawOpen(false), [])
+  const myRegRef = useRef<HTMLElement>(null)
+
+  const { refresh } = load
+  /** Tải lại chi tiết giải (tiến độ đăng ký, myRegistration) mà không gỡ trang; xoá cache để /tournaments cũng mới. */
+  const refreshDetail = useCallback(async () => {
+    clearDataCache()
+    try {
+      await refresh()
+    } catch {
+      notify('Không tải lại được giải đấu', 'Tải lại trang để xem dữ liệu mới nhất.')
+    }
+  }, [refresh, notify])
+
+  const register = () => {
+    if (!apiMode) return comingSoon(`Đăng ký giải ${d.name}`)
+    if (!loggedIn || !user) return navigate(loginHref('login', location.pathname + location.search))
+    if (hasActiveReg) {
+      myRegRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      myRegRef.current?.focus({ preventScroll: true })
+      return
+    }
+    setRegisterOpen(true)
+  }
+  const onRegistered = async (reg: Registration) => {
+    setRegisterOpen(false)
+    notify('Đã gửi đăng ký', `Đội ${reg.teamName} đang chờ ban tổ chức duyệt.`)
+    await refreshDetail()
+  }
   const onPrimary = () => (d.status === 'open' ? register() : setTab(d.status === 'live' ? 'bracket' : 'results'))
+  const primaryLabel = d.status === 'open' && hasActiveReg ? 'Đăng ký của bạn' : PRIMARY_ACTION[d.status]
 
   const share = async () => {
     try {
@@ -171,7 +219,7 @@ function TournamentView({ d, load }: { d: Detail; load: HookResult<Detail | unde
               leftIcon={d.status === 'open' ? <UserPlus size={16} aria-hidden /> : <Play size={16} aria-hidden className="fill-current" />}
               onClick={onPrimary}
             >
-              {PRIMARY_ACTION[d.status]}
+              {primaryLabel}
             </Button>
             <Button
               pill
@@ -203,6 +251,16 @@ function TournamentView({ d, load }: { d: Detail; load: HookResult<Detail | unde
         </div>
       </PageBanner>
 
+      {myReg && (
+        <MyRegistrationCard
+          ref={myRegRef}
+          registration={myReg}
+          canWithdraw={hasActiveReg && d.status === 'open' && d.myRole !== 'member'}
+          onWithdraw={() => setWithdrawOpen(true)}
+          className="mt-4"
+        />
+      )}
+
       <Tabs<DetailTab>
         label="Nội dung giải đấu"
         idPrefix="tour"
@@ -221,13 +279,157 @@ function TournamentView({ d, load }: { d: Detail; load: HookResult<Detail | unde
           skeleton={tab === 'teams' ? <SkeletonCards count={3} className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" /> : <SkeletonRows count={5} />}
         >
           {tab === 'info' && <InfoTab d={d} setTab={setTab} onContact={() => comingSoon(`Liên hệ ${d.organizer}`)} />}
-          {tab === 'teams' && <TeamsTab d={d} onRegister={register} />}
+          {tab === 'teams' && (
+            <div className="flex flex-col gap-6">
+              {isOrganizer && d.status === 'open' && (
+                <RegistrationsPanel
+                  slug={d.slug}
+                  teamCount={d.teamCount}
+                  approvedCount={d.registeredTeams ?? d.teamList.length}
+                  onChanged={refreshDetail}
+                />
+              )}
+              <TeamsTab d={d} onRegister={register} canRegister={!hasActiveReg} />
+            </div>
+          )}
           {tab === 'bracket' && <BracketTab d={d} onPlay={(m) => comingSoon(`Xem ${m.label.toLowerCase()}`)} />}
           {tab === 'schedule' && <ScheduleTab d={d} />}
           {tab === 'results' && <ResultsTab d={d} />}
         </ListStatus>
       </div>
+
+      {apiMode && user && (
+        <RegisterTeamDialog
+          open={registerOpen}
+          onClose={closeRegister}
+          slug={d.slug}
+          tournamentName={d.name}
+          captainUsername={user.username}
+          onRegistered={onRegistered}
+        />
+      )}
+      {myReg && (
+        <WithdrawDialog
+          open={withdrawOpen}
+          onClose={closeWithdraw}
+          slug={d.slug}
+          registration={myReg}
+          onWithdrawn={async () => {
+            setWithdrawOpen(false)
+            notify('Đã rút đăng ký', `Đội ${myReg.teamName} không còn trong danh sách giải.`)
+            await refreshDetail()
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+/* ---------------- Đăng ký của tôi (chế độ api) ---------------- */
+
+const REG_STATUS: Record<Registration['status'], { label: string; tone: string }> = {
+  pending: { label: 'Chờ duyệt', tone: 'bg-warning-bg text-warning ring-warning/30' },
+  approved: { label: 'Đã duyệt', tone: 'bg-success-bg text-success ring-success/30' },
+  rejected: { label: 'Bị từ chối', tone: 'bg-danger-bg text-danger ring-danger/30' },
+  withdrawn: { label: 'Đã rút', tone: 'bg-surface-3 text-fg-muted ring-line-strong' },
+}
+
+function MyRegistrationCard({
+  ref,
+  registration: r,
+  canWithdraw,
+  onWithdraw,
+  className,
+}: {
+  ref: Ref<HTMLElement>
+  registration: Registration
+  canWithdraw: boolean
+  onWithdraw: () => void
+  className?: string
+}) {
+  const status = REG_STATUS[r.status]
+  return (
+    <section ref={ref} tabIndex={-1} aria-labelledby="my-reg-title" className={cn('rounded-card outline-none', className)}>
+      <Card className="flex min-w-0 flex-wrap items-start justify-between gap-3 p-4 md:p-6">
+        <div className="min-w-0">
+          <h2 id="my-reg-title" className="text-sm text-fg-muted">
+            Đăng ký của bạn
+          </h2>
+          <p className="mt-1 flex flex-wrap items-center gap-3 text-lg font-semibold">
+            <span className="min-w-0 break-words">{r.teamName}</span>
+            <span className={cn('inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1', status.tone)}>
+              {status.label}
+            </span>
+          </p>
+          <p className="mt-2 text-sm break-words text-fg-muted">
+            {r.members.map((m) => m.displayName).join(', ')}
+            {r.subs.length > 0 && <> · Dự bị: {r.subs.map((m) => m.displayName).join(', ')}</>}
+          </p>
+          {r.status === 'rejected' && (
+            <p className="mt-2 text-sm text-danger">Lý do: {r.rejectReason ?? 'Ban tổ chức không ghi lý do.'}</p>
+          )}
+        </div>
+        {canWithdraw && (
+          <Button variant="outline" size="sm" onClick={onWithdraw}>
+            Rút đăng ký
+          </Button>
+        )}
+      </Card>
+    </section>
+  )
+}
+
+function WithdrawDialog({
+  open,
+  onClose,
+  slug,
+  registration,
+  onWithdrawn,
+}: {
+  open: boolean
+  onClose: () => void
+  slug: string
+  registration: Registration
+  onWithdrawn: () => Promise<void>
+}) {
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    if (open) setError(null)
+  }, [open])
+
+  const confirm = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      await endpoints.deleteRegistration(slug, registration.id)
+      await onWithdrawn()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Không thể kết nối máy chủ, vui lòng thử lại.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Rút đăng ký?">
+      <p className="text-sm text-fg-muted">
+        Đội <span className="font-medium text-fg">{registration.teamName}</span> sẽ rời giải. Thành viên có thể đăng ký đội khác.
+      </p>
+      {error && (
+        <div role="alert" className="mt-3 rounded-btn border border-danger/40 bg-danger-bg px-3 py-2 text-sm text-danger">
+          {error}
+        </div>
+      )}
+      <div className="mt-6 flex flex-wrap justify-end gap-3">
+        <Button variant="secondary" onClick={onClose} disabled={busy} data-autofocus>
+          Giữ lại
+        </Button>
+        <Button variant="outline" onClick={confirm} disabled={busy}>
+          {busy ? 'Đang rút…' : 'Rút đăng ký'}
+        </Button>
+      </div>
+    </Modal>
   )
 }
 
@@ -433,7 +635,7 @@ const STANDING_TONE: Record<StandingTone, string> = {
   muted: 'bg-surface-3 text-fg-subtle',
 }
 
-function TeamsTab({ d, onRegister }: { d: Detail; onRegister: () => void }) {
+function TeamsTab({ d, onRegister, canRegister = true }: { d: Detail; onRegister: () => void; canRegister?: boolean }) {
   const list = standings(d)
   const free = d.status === 'open' ? Math.max(0, d.teamCount - d.teamList.length) : 0
   return (
@@ -457,9 +659,11 @@ function TeamsTab({ d, onRegister }: { d: Detail; onRegister: () => void }) {
           <li className="flex min-w-0 flex-col items-start gap-3 rounded-card border border-dashed border-line-strong p-4">
             <p className="text-base font-semibold">Còn {free} chỗ trống</p>
             <p className="text-sm text-fg-muted">Hạn đăng ký {d.registrationDeadline}.</p>
-            <Button variant="gold-outline" size="sm" rightIcon={<ArrowRight size={16} aria-hidden />} onClick={onRegister}>
-              Đăng ký đội
-            </Button>
+            {canRegister && (
+              <Button variant="gold-outline" size="sm" rightIcon={<ArrowRight size={16} aria-hidden />} onClick={onRegister}>
+                Đăng ký đội
+              </Button>
+            )}
           </li>
         )}
       </ul>

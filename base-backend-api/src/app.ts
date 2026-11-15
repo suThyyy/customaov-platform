@@ -20,6 +20,7 @@ import { loadConfig, type AppConfig } from "./config.js";
 import type { DbClient } from "./db/client.js";
 import { registerTournamentRoutes } from "./routes/tournaments.js";
 import { registerTournamentBracketRoutes } from "./routes/tournament-bracket.js";
+import { registerRegistrationRoutes } from "./routes/registrations.js";
 
 const REDACT_PATHS = [
   "req.headers.cookie",
@@ -148,6 +149,7 @@ export function buildApp(opts: BuildAppOptions = {}): FastifyInstance {
       registerTournamentRoutes(instance, deps);
       registerTournamentBracketRoutes(instance, deps);
       registerSearchRoutes(instance, deps);
+      registerRegistrationRoutes(instance, deps);
     });
   }
 

@@ -548,3 +548,31 @@ Xoá 3 file mới; bỏ `<ListStatus>`/`useMockStatus` ở các trang (nội dun
 ### Còn tồn
 - Kết quả phòng kèm phòng `finished` (giống `GET /api/rooms`). Nếu muốn ẩn thì lọc ở `searchAll`.
 - Mục kết quả là `Link` `tabIndex=-1` (focus ở ô nhập theo mẫu combobox); bàn phím dùng ↑/↓ + Enter thay cho Tab.
+
+---
+
+## E5-T03 — Đăng ký đội vào giải: API + hộp thoại đăng ký + BTC duyệt/từ chối (15/11/2026)
+
+### File đã sửa / tạo mới
+- Backend (`base-backend-api`, file mới để không đụng `services/tournaments.ts`):
+  - `src/services/registrations.ts`: tạo / liệt kê / duyệt / từ chối / rút đơn. Mọi thao tác ghi chạy trong transaction và khoá hàng giải bằng `SELECT … FOR UPDATE`. Chặn 409 khi giải không `open`, quá hạn, đã đủ `teamCount` đội `approved`, tên đội trùng (không phân biệt hoa thường) hoặc thành viên đã có đội active (thông báo kèm tên). Vi phạm partial unique index khi chạy song song cũng được đổi thành 409. Từ chối / rút → `active=false` cho thành viên. Mỗi thao tác sinh `activities` kind `register` cho đội trưởng và BTC.
+  - `src/routes/registrations.ts`: `POST|GET /api/tournaments/:slug/registrations`, `POST …/:id/approve`, `POST …/:id/reject`, `DELETE …/:id` (204). CSRF do auth plugin kiểm.
+  - `src/routes/registrations.test.ts` (mới, 17 test): tạo thành công + activity; 401; CSRF; 400; 404; 409 (người đã có đội, đủ chỗ, quá hạn, tên trùng, giải không open); 403 không phải BTC; duyệt tới đủ `teamCount` thì lần sau 409; từ chối rồi thành viên đăng ký đội khác được; rút đơn.
+  - `src/app.ts`: đăng ký `registerRegistrationRoutes`.
+- Frontend (`base-frontend-web`):
+  - `src/api/types.ts`: `TournamentDetail` thêm `myRole?`, `myRegistration?` (chỉ chế độ api); export `Registration`.
+  - `src/api/map.ts`: `mapTournamentDetail` giữ `myRole`, `myRegistration`.
+  - `src/api/hooks.ts`: `HookResult.refresh()` tải lại ngầm (không về loading, không gỡ trang); thêm `useRegistrations(slug)`.
+  - `src/components/domain/RegisterTeamDialog.tsx` (mới): tên đội + 5 thành viên (thành viên 1 = mình, chỉ đọc) + 2 dự bị; validate bằng `CreateRegistrationBodySchema`, lỗi tại ô (`aria-invalid`), lỗi server trong `role="alert"`; `data-autofocus` ở ô tên đội.
+  - `src/components/domain/RegistrationsPanel.tsx` (mới): bảng BTC liệt kê đơn chờ duyệt với Duyệt (viền) / Từ chối (ghost, lý do tuỳ chọn); khoá Duyệt khi đủ đội; dùng `ListStatus` + empty state.
+  - `src/pages/TournamentDetail.tsx`: ở chế độ api, nút "Đăng ký tham gia" / "Đăng ký đội" mở hộp thoại (khách → `loginHref`); thẻ "Đăng ký của bạn" hiện trạng thái (Chờ duyệt / Đã duyệt / Bị từ chối + lý do / Đã rút) và nút "Rút đăng ký" (hộp xác nhận); BTC thấy `RegistrationsPanel` ở tab "Danh sách đội". Sau mỗi thao tác xoá cache và `refresh()` để `RegistrationProgress` cập nhật. Chế độ mock giữ nút `comingSoon` như cũ (ảnh chụp không đổi).
+  - Test mới: `RegisterTeamDialog.test.tsx` (4), `RegistrationsPanel.test.tsx` (4), `pages/TournamentDetail.test.tsx` (4, chế độ api qua `vi.mock('../api/source')`).
+
+### Cách hoàn tác
+`git revert` commit của task E5-T03.
+
+### Còn tồn
+- Index `unique(tournament_id, lower(name))` áp cho mọi trạng thái, nên đội đã bị từ chối / đã rút vẫn giữ tên: đăng ký lại phải đổi tên đội. Muốn dùng lại tên cần đổi schema (partial index), ngoài phạm vi task.
+- Đội trong seed chỉ có đội trưởng (1 người) nên không khớp `RegistrationSchema` (5 thành viên); `GET …/registrations` bỏ qua các đội này. Đội seed đều `approved`, vẫn hiện qua `teamList`.
+- Username không tồn tại hoặc người gửi không nằm trong `members` → 400 `VALIDATION` (API.md chưa quy định mã).
+- Đội mới dùng logo mặc định `/mock-assets/logo.png` (chưa có upload logo).

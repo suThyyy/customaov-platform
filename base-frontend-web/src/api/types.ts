@@ -19,11 +19,21 @@ export type {
   StageStatus,
   Team,
   Tournament,
-  TournamentDetail,
   TournamentStatus,
 } from '../mocks/types'
 
-import type { Room, UserProfile as MockUserProfile } from '../mocks/types'
+import type { Registration, TournamentDetail as ApiTournamentDetail } from '@customaov/contracts'
+import type { Room, TournamentDetail as MockTournamentDetail, UserProfile as MockUserProfile } from '../mocks/types'
+
+export type { Registration }
+
+/**
+ * Chi tiết giải dùng ở UI. `myRole`/`myRegistration` chỉ có ở chế độ api (mock không có đăng ký thật).
+ */
+export interface TournamentDetail extends MockTournamentDetail {
+  myRole?: ApiTournamentDetail['myRole']
+  myRegistration?: Registration | null
+}
 
 export interface ProfileRecordHistoryItem {
   id: string

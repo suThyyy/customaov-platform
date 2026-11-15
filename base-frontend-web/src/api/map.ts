@@ -127,6 +127,8 @@ export const mapTournamentDetail = (detail: ApiTournamentDetail): TournamentDeta
   })),
   upcoming: detail.upcoming,
   results: detail.results,
+  myRole: detail.myRole,
+  myRegistration: detail.myRegistration,
 })
 
 export const mapActivity = (activity: ApiActivity): Activity => ({
