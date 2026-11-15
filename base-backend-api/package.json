@@ -21,6 +21,7 @@
     "@electric-sql/pglite": "^0.5.16",
     "@fastify/cookie": "^11.0.0",
     "@fastify/rate-limit": "^10.0.0",
+    "@fastify/websocket": "^11.3.7",
     "drizzle-orm": "^0.45.4",
     "fastify": "^5.0.0",
     "pg": "^8.23.1",
