@@ -6,6 +6,11 @@
 | E3-T03 FE auth (tiếp WIP `eccf855`) | task_d1a61646b369 | ctx_2d5dd7418e79 | coder | agy gemini-4-hydrogen-medium | term_e8f65783-a5ce-4412-bcd2-d99cac067453 | 5188/5189/6188 |
 | E4-T02 room host API (tiếp WIP `373fba3`) | task_60fd360fee5a | ctx_45754bdbbfca | coder | agy gemini-4-hydrogen-medium | term_7b5db245-6fbd-4896-9d75-2ccf05ac071b | 6189 |
 | E3-T05 FE profile | task_ec1a126bd0ed | ctx_8155cc769e72 | coder | codex gpt-5.6-sol | term_78270659-b04e-4f8a-8af1-123ebef349b3 | 5191/6191 |
+| E4-T02 review | task_ae68fe0c543e | ctx_a6427fbbb0e2 | reviewer | codex gpt-5.6-sol | term_1f87a476-ef3c-4871-a93b-4ce3b9ca5d4f | – |
+| E5-T02b create tournament API | task_b58fbe5284fe | ctx_efe99d81738d (**Orca báo failed `agent_prompt_blocked`, nhưng worker VẪN ĐANG CHẠY** sau khi Lead gửi Enter) | coder | agy claude-sonnet-5-5-medium | term_8ac1ac07-489e-4caf-a939-7e0ddddcb349 | 5193/6193 |
+
+- 15:05 · E3-T03 **merged** integration (Lead review + tự chạy lại e2e api 5/5). E4-T02 code xong (`056149c`), đang review.
+- E5-T02b: khi worker xong, đọc terminal hoặc thư, kiểm tra rồi `task-update` bằng tay (dispatch đã đóng). Nếu worker không báo được, Lead tự đọc `git log` của nhánh.
 
 Kết quả khi khôi phục:
 - Verify integration `feb6990`: build OK, lint 0 lỗi, test web 43 + api 91.
