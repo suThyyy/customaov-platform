@@ -24,7 +24,25 @@ import { and, asc, desc, eq, exists, inArray, or, sql } from "drizzle-orm";
 import type { DbClient } from "../db/client.js";
 import { roomMatches, roomMembers, roomMessages, rooms, users } from "../db/schema.js";
 
-type DbOrTx = Pick<DbClient, "select" | "insert" | "update" | "delete">;
+export type DbOrTx = Pick<DbClient, "select" | "insert" | "update" | "delete">;
+
+const KICK_COOLDOWN_MS = 10 * 60 * 1000;
+const kickCooldowns = new Map<string, number>();
+
+export function recordKickCooldown(roomId: string, userId: string, now: Date): void {
+  kickCooldowns.set(`${roomId}:${userId}`, now.getTime() + KICK_COOLDOWN_MS);
+}
+
+export function isKickCooldownActive(roomId: string, userId: string, now: Date): boolean {
+  const key = `${roomId}:${userId}`;
+  const until = kickCooldowns.get(key);
+  if (until === undefined) return false;
+  if (now.getTime() >= until) {
+    kickCooldowns.delete(key);
+    return false;
+  }
+  return true;
+}
 
 const MODE_LABELS: Record<RoomMode, string> = {
   normal: "Custom",
@@ -51,7 +69,7 @@ export class RoomServiceError extends Error {
   }
 }
 
-function toUserSummary(user: typeof users.$inferSelect): UserSummary {
+export function toUserSummary(user: typeof users.$inferSelect): UserSummary {
   return {
     id: user.id,
     username: user.username,
@@ -142,7 +160,7 @@ function toRoomSummary(
   };
 }
 
-async function loadRoomDetail(
+export async function loadRoomDetail(
   db: DbOrTx,
   room: typeof rooms.$inferSelect,
   host: typeof users.$inferSelect,
@@ -546,6 +564,14 @@ export async function joinRoom(
 
       if (activeMembers.some((m) => m.userId === currentUser.id)) {
         throw new RoomServiceError(409, "CONFLICT", "Bạn đã ở trong phòng này");
+      }
+
+      if (isKickCooldownActive(room.id, currentUser.id, now)) {
+        throw new RoomServiceError(
+          409,
+          "CONFLICT",
+          "Bạn vừa bị mời ra khỏi phòng, vui lòng thử lại sau 10 phút",
+        );
       }
 
       if (room.visibility === "private" && !keysMatch(body.key, room.joinKey)) {

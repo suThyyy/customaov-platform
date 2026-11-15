@@ -17,6 +17,7 @@
     "db:seed": "tsx src/db/seed.ts"
   },
   "dependencies": {
+    "@customaov/team-core": "*",
     "@electric-sql/pglite": "^0.5.16",
     "@fastify/cookie": "^11.0.0",
     "@fastify/rate-limit": "^10.0.0",
