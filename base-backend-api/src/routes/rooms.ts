@@ -1,10 +1,17 @@
 import {
+  CreateMessageBodySchema,
   CreateRoomBodySchema,
   JoinRoomBodySchema,
+  KickRoomMemberBodySchema,
+  MessagesQuerySchema,
+  MoveRoomMemberBodySchema,
   RoomCodeSchema,
   RoomDetailQuerySchema,
+  RoomResultBodySchema,
   RoomsQuerySchema,
+  SplitRoomBodySchema,
   UpdateRoomMeBodySchema,
+  type ChatMessage,
   type RoomDetail,
   type RoomDetailResponse,
   type RoomsResponse,
@@ -14,6 +21,16 @@ import { z } from "zod";
 
 import type { AuthDeps } from "../auth/plugin.js";
 import {
+  exportRoomTeams,
+  getRoomMessages,
+  kickRoomMember,
+  moveRoomMember,
+  postRoomMessage,
+  randomRoomLanes,
+  splitRoom,
+  submitRoomResult,
+} from "../services/room-host.js";
+import {
   RoomServiceError,
   createRoom,
   getRoomDetail,
@@ -22,6 +39,11 @@ import {
   listRooms,
   updateRoomMe,
 } from "../services/rooms.js";
+
+export interface RoomRoutesDeps extends AuthDeps {
+  onRoomChanged?: (code: string) => void;
+  onChatMessage?: (code: string, message: ChatMessage) => void;
+}
 
 const RoomCodeParamsSchema = z.object({ code: RoomCodeSchema });
 
@@ -37,8 +59,10 @@ function requireAuth(
   done();
 }
 
-export function registerRoomRoutes(app: FastifyInstance, deps: AuthDeps): void {
+export function registerRoomRoutes(app: FastifyInstance, deps: RoomRoutesDeps): void {
   const { db } = deps;
+  const onRoomChanged = deps.onRoomChanged ?? (() => {});
+  const onChatMessage = deps.onChatMessage ?? (() => {});
 
   const rateLimited = (
     max: number,
@@ -65,6 +89,7 @@ export function registerRoomRoutes(app: FastifyInstance, deps: AuthDeps): void {
   };
 
   const joinLimit = rateLimited(10, 60_000, (r) => `room-join:${r.user!.id}`);
+  const chatLimit = rateLimited(10, 10_000, (r) => `room-chat:${r.user!.id}`);
 
   app.get("/api/rooms", async (request): Promise<RoomsResponse> => {
     const query = RoomsQuerySchema.parse(request.query);
@@ -104,7 +129,9 @@ export function registerRoomRoutes(app: FastifyInstance, deps: AuthDeps): void {
     async (request): Promise<RoomDetail> => {
       const { code } = RoomCodeParamsSchema.parse(request.params);
       const body = JoinRoomBodySchema.parse(request.body);
-      return joinRoom(db, code, body, request.user!, deps.now());
+      const room = await joinRoom(db, code, body, request.user!, deps.now());
+      onRoomChanged(code);
+      return room;
     },
   );
 
@@ -113,7 +140,9 @@ export function registerRoomRoutes(app: FastifyInstance, deps: AuthDeps): void {
     { preHandler: requireAuth },
     async (request): Promise<RoomDetail> => {
       const { code } = RoomCodeParamsSchema.parse(request.params);
-      return leaveRoom(db, code, request.user!, deps.now());
+      const room = await leaveRoom(db, code, request.user!, deps.now());
+      onRoomChanged(code);
+      return room;
     },
   );
 
@@ -123,7 +152,101 @@ export function registerRoomRoutes(app: FastifyInstance, deps: AuthDeps): void {
     async (request): Promise<RoomDetail> => {
       const { code } = RoomCodeParamsSchema.parse(request.params);
       const body = UpdateRoomMeBodySchema.parse(request.body);
-      return updateRoomMe(db, code, body, request.user!);
+      const room = await updateRoomMe(db, code, body, request.user!);
+      onRoomChanged(code);
+      return room;
+    },
+  );
+
+  app.post(
+    "/api/rooms/:code/split",
+    { preHandler: requireAuth },
+    async (request): Promise<RoomDetail> => {
+      const { code } = RoomCodeParamsSchema.parse(request.params);
+      const body = SplitRoomBodySchema.parse(request.body);
+      const room = await splitRoom(db, code, body, request.user!, deps.now());
+      onRoomChanged(code);
+      return room;
+    },
+  );
+
+  app.post(
+    "/api/rooms/:code/move",
+    { preHandler: requireAuth },
+    async (request): Promise<RoomDetail> => {
+      const { code } = RoomCodeParamsSchema.parse(request.params);
+      const body = MoveRoomMemberBodySchema.parse(request.body);
+      const room = await moveRoomMember(db, code, body, request.user!);
+      onRoomChanged(code);
+      return room;
+    },
+  );
+
+  app.post(
+    "/api/rooms/:code/kick",
+    { preHandler: requireAuth },
+    async (request): Promise<RoomDetail> => {
+      const { code } = RoomCodeParamsSchema.parse(request.params);
+      const body = KickRoomMemberBodySchema.parse(request.body);
+      const room = await kickRoomMember(db, code, body, request.user!, deps.now());
+      onRoomChanged(code);
+      return room;
+    },
+  );
+
+  app.post(
+    "/api/rooms/:code/random-lanes",
+    { preHandler: requireAuth },
+    async (request): Promise<RoomDetail> => {
+      const { code } = RoomCodeParamsSchema.parse(request.params);
+      const room = await randomRoomLanes(db, code, request.user!);
+      onRoomChanged(code);
+      return room;
+    },
+  );
+
+  app.post(
+    "/api/rooms/:code/result",
+    { preHandler: requireAuth },
+    async (request): Promise<RoomDetail> => {
+      const { code } = RoomCodeParamsSchema.parse(request.params);
+      const body = RoomResultBodySchema.parse(request.body);
+      const room = await submitRoomResult(db, code, body, request.user!, deps.now());
+      onRoomChanged(code);
+      return room;
+    },
+  );
+
+  app.get(
+    "/api/rooms/:code/export",
+    { preHandler: requireAuth },
+    async (request, reply): Promise<string> => {
+      const { code } = RoomCodeParamsSchema.parse(request.params);
+      const text = await exportRoomTeams(db, code, request.user!.id);
+      return reply.type("text/plain; charset=utf-8").send(text);
+    },
+  );
+
+  app.get(
+    "/api/rooms/:code/messages",
+    { preHandler: requireAuth },
+    async (request): Promise<ChatMessage[]> => {
+      const { code } = RoomCodeParamsSchema.parse(request.params);
+      const query = MessagesQuerySchema.parse(request.query);
+      return getRoomMessages(db, code, query, request.user!.id);
+    },
+  );
+
+  app.post(
+    "/api/rooms/:code/messages",
+    { preHandler: [requireAuth, chatLimit] },
+    async (request, reply): Promise<ChatMessage> => {
+      const { code } = RoomCodeParamsSchema.parse(request.params);
+      const body = CreateMessageBodySchema.parse(request.body);
+      const message = await postRoomMessage(db, code, body, request.user!, deps.now());
+      onChatMessage(code, message);
+      reply.status(201);
+      return message;
     },
   );
 }
