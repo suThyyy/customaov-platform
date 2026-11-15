@@ -25,11 +25,15 @@ Lưu ý: lúc 10:00 Codex còn ~21% hạn mức 5 giờ (reset 12:19).
 ## Đang chạy
 | Task | Task id | Dispatch | Vai trò | Agent/model | Terminal | Cổng |
 |---|---|---|---|---|---|---|
-| E3-T01 sửa rate limit (review FAIL lần 1) | task_64c77fc6fb5a | ctx_a58c9ebedd1c | coder | agy **Gemini 3.8 Flash high** (Orca mở lại bằng model mặc định) | term_817c10cc3f13e08d8614321f30be4c7f | 6181 |
-| E3-T02 review | task_bd8b8be5ab35 | ctx_240269d4c2a9 | reviewer | agy gemini-4-hydrogen-medium (thay SN do hết quota) | term_1cb25d5d-44dc-4501-aad2-fe991b5b6d04 | 5182 |
-| E5-T04a bracket engine | task_fa48606ed753 | ctx_cf323c57c23e | coder | agy gemini-4-hydrogen-high (thay OP do hết quota) | term_15407b4a-9b0b-4cbd-a39d-6d2f20f7e6b3 | – |
+| E3-T01 sửa rate limit (retry) | task_64c77fc6fb5a | ctx_a88766a09865 | coder | agy gemini-4-hydrogen-medium | term_28a97e1e-7258-4a7a-a19d-ef55c306991b | 6181 |
+| E5-T02a UI /tournaments/new | task_74cf7f62676f | ctx_c47a8df9569c | coder | agy gemini-4-hydrogen-medium | term_c0cb9ca9-3ee4-47c8-af50-edfd64febaed | 5184 |
 
-Đã merge vào integration: **E3-T01b** (`47b0d34`). E3-T02 code xong (`c226e32`), đang review.
+Đã merge vào integration (10:35, `66af08d`):
+- E3-T01b;
+- E3-T02 (kèm Lead sửa nối `map.ts` cho BracketSlot mới, `800948a`);
+- E5-T04a (Lead review, vì Codex hết quota giữa chừng).
+
+Re-review E3-T01 và review E5-T02a: Lead (coder Google → reviewer Anthropic).
 
 ## Tiếp theo (DAG)
 | Task | Phụ thuộc | Coder dự kiến → reviewer |
