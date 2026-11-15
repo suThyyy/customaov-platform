@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMockStatus } from '../lib/mockStatus'
-import type { RoomsPage, RoomsPageParams, RoomsParams, SearchResult, TournamentsParams } from './adapter'
+import type {
+  ActivitiesParams,
+  ActivityPage,
+  RoomsPage,
+  RoomsPageParams,
+  RoomsParams,
+  SearchResult,
+  TournamentsParams,
+} from './adapter'
 import { endpoints } from './endpoints'
 import { httpAdapter } from './http'
 import {
@@ -16,7 +24,7 @@ import {
   readMockTournaments,
 } from './mock'
 import { DATA_SOURCE } from './source'
-import type { Activity, ChatMessage, Registration, Room, Tournament, TournamentDetail, UserProfile } from './types'
+import type { ChatMessage, Registration, Room, Tournament, TournamentDetail, UserProfile } from './types'
 
 const adapter = DATA_SOURCE === 'api' ? httpAdapter : mockAdapter
 const cache = new Map<string, unknown>()
@@ -145,8 +153,21 @@ export const useRegistrations = (slug: string): HookResult<Registration[]> =>
 export const useProfile = (username?: string): HookResult<UserProfile | undefined> =>
   useResource(stableKey('profile', { username }), DATA_SOURCE === 'mock' ? readMockProfile(username) : undefined, (signal) => adapter.profile(username, signal), DATA_SOURCE === 'mock')
 
-export const useActivities = (): HookResult<Activity[]> =>
-  useResource(stableKey('activities'), DATA_SOURCE === 'mock' ? readMockActivities() : [], (signal) => adapter.activities(signal), DATA_SOURCE === 'mock')
+const EMPTY_ACTIVITY_PAGE = (params: ActivitiesParams): ActivityPage => ({
+  items: [],
+  total: 0,
+  page: params.page ?? 1,
+  pageSize: params.pageSize ?? 10,
+})
+
+/** Feed hoạt động của tôi, phân trang (`{items, total, page, pageSize}`). */
+export const useActivities = (params: ActivitiesParams = {}): HookResult<ActivityPage> =>
+  useResource(
+    stableKey('activities', params),
+    DATA_SOURCE === 'mock' ? readMockActivities(params) : EMPTY_ACTIVITY_PAGE(params),
+    (signal) => adapter.activities(params, signal),
+    DATA_SOURCE === 'mock',
+  )
 
 /** Chế độ api: chờ người dùng ngừng gõ 250ms mới gọi `GET /api/search`. */
 export const SEARCH_DEBOUNCE_MS = 250

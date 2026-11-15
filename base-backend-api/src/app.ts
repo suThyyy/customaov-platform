@@ -13,6 +13,7 @@ import { registerAuthPlugin } from "./auth/plugin.js";
 import { registerAuthRoutes } from "./auth/routes.js";
 import { createRoomRealtimeHub } from "./realtime/hub.js";
 import { registerRealtimePlugin } from "./realtime/plugin.js";
+import { registerActivityRoutes } from "./routes/activities.js";
 import { registerRoomRoutes } from "./routes/rooms.js";
 import { registerSearchRoutes } from "./routes/search.js";
 import { registerUserRoutes } from "./routes/users.js";
@@ -150,6 +151,7 @@ export function buildApp(opts: BuildAppOptions = {}): FastifyInstance {
       registerTournamentBracketRoutes(instance, deps);
       registerSearchRoutes(instance, deps);
       registerRegistrationRoutes(instance, deps);
+      registerActivityRoutes(instance, deps);
     });
   }
 

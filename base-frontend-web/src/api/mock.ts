@@ -11,7 +11,16 @@ import {
 } from '../mocks'
 import type { CreateTournamentBody } from '@customaov/contracts'
 import { normalizeVi } from '../lib/text'
-import type { DataAdapter, RoomsPage, RoomsPageParams, RoomsParams, SearchResult, TournamentsParams } from './adapter'
+import type {
+  ActivitiesParams,
+  ActivityPage,
+  DataAdapter,
+  RoomsPage,
+  RoomsPageParams,
+  RoomsParams,
+  SearchResult,
+  TournamentsParams,
+} from './adapter'
 import { ROOM_MODE_SHORT_LABEL, roomFullTitle } from './types'
 
 const resolved = <T>(value: T, signal?: AbortSignal): Promise<T> =>
@@ -41,7 +50,17 @@ export const readMockRoomsPage = (params: RoomsPageParams): RoomsPage => {
 
 export const readMockRoom = (code: string | undefined) => rooms.find((room) => room.id === code)
 export const readMockMessages = (code: string | undefined) => (code ? roomMessages[code] ?? [] : [])
-export const readMockActivities = () => activities
+/** Cắt trang từ `mocks/activity.ts` theo cùng quy ước với API (page ≥ 1, mặc định pageSize 10). */
+export const readMockActivities = (params: ActivitiesParams = {}): ActivityPage => {
+  const page = Math.max(1, params.page ?? 1)
+  const pageSize = params.pageSize ?? 10
+  return {
+    items: activities.slice((page - 1) * pageSize, page * pageSize),
+    total: activities.length,
+    page,
+    pageSize,
+  }
+}
 export const readMockTournaments = (params: TournamentsParams = {}) => {
   const q = normalizeVi(params.q?.trim() ?? '')
   return tournaments.filter((tournament) => {
@@ -95,8 +114,8 @@ export const mockAdapter: DataAdapter = {
   profile(username, signal) {
     return resolved(readMockProfile(username), signal)
   },
-  activities(signal) {
-    return resolved(activities, signal)
+  activities(params, signal) {
+    return resolved(readMockActivities(params), signal)
   },
   search(q, signal) {
     return resolved(readMockSearch(q), signal)

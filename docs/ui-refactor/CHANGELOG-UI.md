@@ -613,3 +613,12 @@ Chỉ đổi hành vi ở chế độ `api` (`VITE_DATA_SOURCE=api`). Chế đ�
 - `RoomConfig` của contracts chưa có trường cho số lượt cấm, bản đồ, khán giả và cách chia đội mặc định; wizard vẫn hiện các lựa chọn này nhưng không gửi lên server (chỉ gửi `notes` = mô tả).
 - Chế độ api: `GET /api/activities` trả 404 (backend chưa có route), dashboard hiện trạng thái lỗi ở "Hoạt động gần đây" — ngoài phạm vi task này.
 - Chip lọc chế độ ở chế độ api không hiện số phòng theo từng chế độ (cần 4 request hoặc API đếm theo chế độ).
+
+---
+
+## E6-T01 — Hoạt động: feed API + "Hoạt động gần đây" + `/activities` (15/11/2026)
+- Backend: `GET /api/activities` (đăng nhập; chỉ mục có `activity_recipients.user_id = tôi`, mới nhất ở trên, phân trang `{items,total,page,pageSize}`) ở `src/services/activities.ts`, `src/routes/activities.ts` (+ test). `src/services/rooms.ts`: vào phòng với vai người chơi ghi activity `join` (người vào + chủ phòng là recipients) trong cùng transaction, mỗi cặp (người, phòng) chỉ ghi 1 lần; vào xem không ghi. `room-host.test.ts` lọc thêm `kind = 'result'` vì phòng giờ có cả activity `join`.
+- Frontend: `src/api/` — `useActivities({page,pageSize})` trả trang (`ActivityPage`), `timeAgo()` (`src/api/time.ts`: "Vừa xong", "5 phút trước", "3 giờ trước", "2 ngày trước", ≥ 7 ngày hiện dd/mm/yyyy giờ VN). Trang mới `src/pages/Activities.tsx` (`/activities`, trong `RequireAuth`): `PageHeader` (1 `<h1>`), `ListStatus`, `Pagination` theo `?page=`, empty state; export `ActivityList` dùng chung với dashboard. `HomeUser.tsx`: "Hoạt động gần đây" lấy 5 mục, link "Xem tất cả" → `/activities` (trước là toast `comingSoon`). Chế độ mock: dashboard như cũ, `/activities` dùng `mocks/activity.ts` (4 mục, 1 trang). `scripts/screenshot.mjs` thêm route `activities` (10 route × 4 khổ = 40).
+- Test: `Activities.api.test.tsx` (dashboard 5 mục; phân trang; empty state), `Activities.test.tsx` (mock), `api/time.test.ts`.
+- Hoàn tác: revert commit của task E6-T01.
+- Còn tồn: activity `register`/`invite` do task khác sinh (E5-T03/E5-T04b); `timeAgo` tính lúc tải, không tự cập nhật khi để trang lâu.
