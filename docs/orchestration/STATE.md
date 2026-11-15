@@ -1,4 +1,22 @@
-# STATE – cập nhật 2026-11-15 ~11:10 bởi claude — **TẠM DỪNG (Owner tắt máy)**
+# STATE – cập nhật 2026-11-15 14:50 bởi claude — **ĐÃ CHẠY LẠI** (sau khi Owner bật máy, Orca restart)
+
+## Đang chạy (14:50)
+| Task | Task id | Dispatch | Vai trò | Agent/model | Terminal | Cổng |
+|---|---|---|---|---|---|---|
+| E3-T03 FE auth (tiếp WIP `eccf855`) | task_d1a61646b369 | ctx_2d5dd7418e79 | coder | agy gemini-4-hydrogen-medium | term_e8f65783-a5ce-4412-bcd2-d99cac067453 | 5188/5189/6188 |
+| E4-T02 room host API (tiếp WIP `373fba3`) | task_60fd360fee5a | ctx_45754bdbbfca | coder | agy gemini-4-hydrogen-medium | term_7b5db245-6fbd-4896-9d75-2ccf05ac071b | 6189 |
+| E3-T05 FE profile | task_ec1a126bd0ed | ctx_8155cc769e72 | coder | codex gpt-5.6-sol | term_78270659-b04e-4f8a-8af1-123ebef349b3 | 5191/6191 |
+
+Kết quả khi khôi phục:
+- Verify integration `feb6990`: build OK, lint 0 lỗi, test web 43 + api 91.
+- Probe quota 14:45: codex, agy sonnet, agy hydrogen đều OK.
+- Task cũ `task_285790b05819`, `task_89e34bd74fb7` đánh dấu failed (superseded) và được thay bằng 2 task "tiếp" ở trên.
+- Reviewer dự kiến:
+  - E3-T03, E4-T02 (Google) → Codex hoặc Lead;
+  - E3-T05 (OpenAI) → agy claude-sonnet.
+
+---
+(Phần dưới: bản ghi lúc tạm dừng 11:10, giữ để tra cứu)
 
 > Khung và quy tắc: `ORCHESTRATION.md` mục 6. Chỉ Lead hiện tại ghi file này, commit lên `orch/lead`.
 
