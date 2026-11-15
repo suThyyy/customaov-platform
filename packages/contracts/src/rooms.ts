@@ -193,14 +193,18 @@ export const WsClientMessageSchema = z.discriminatedUnion("type", [
 export type WsClientMessage = z.infer<typeof WsClientMessageSchema>;
 
 export const WsServerMessageSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("room.updated"), room: RoomDetailSchema }),
+  z.object({ type: z.literal("room.updated"), room: RoomDetailResponseSchema }),
   z.object({
     type: z.literal("chat.message"),
     room: RoomCodeSchema,
     message: ChatMessageSchema,
   }),
   z.object({ type: z.literal("room.kicked"), room: RoomCodeSchema }),
-  z.object({ type: z.literal("error"), code: ErrorCodeSchema, room: RoomCodeSchema }),
+  z.object({
+    type: z.literal("error"),
+    code: ErrorCodeSchema,
+    room: RoomCodeSchema.optional(),
+  }),
 ]);
 export type WsServerMessage = z.infer<typeof WsServerMessageSchema>;
 
