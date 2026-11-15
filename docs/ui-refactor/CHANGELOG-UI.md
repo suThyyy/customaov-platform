@@ -500,3 +500,24 @@ Xoá 3 file mới; bỏ `<ListStatus>`/`useMockStatus` ở các trang (nội dun
 
 ### Còn tồn
 - Chưa có.
+
+---
+
+## E3-T05 — Nối hồ sơ với API và sửa hồ sơ (15/11/2026)
+
+### File đã sửa / tạo mới
+- `src/api/http.ts`, `map.ts`, `types.ts`, `index.ts`: `/profile` lấy username từ phiên `/api/auth/me`, `/profile/:userId` gọi hồ sơ công khai; ánh xạ đầy đủ thắng/thua/tỷ lệ thắng/giải/danh hiệu/lịch sử; 404 trả về empty state; thêm mutation `PATCH /api/users/me` và giữ adapter mock không ghi dữ liệu.
+- `src/pages/Profile.tsx`: nguồn API hiện sáu KPI thật, lịch sử custom và thành tích; các phần cần telemetry game (tướng, KDA, vai trò, trang bị) dùng empty state “Chưa có dữ liệu từ game – sẽ có sau MVP”; hồ sơ người khác không có nút sửa; mock giữ nguyên giao diện Phase 5.
+- `src/components/domain/EditProfileDialog.tsx` (mới): sửa tên hiển thị, hai phần giới thiệu và avatar HTTPS; validate bằng `UpdateMeBodySchema`, lỗi tại chỗ, lỗi server `role="alert"`, focus modal ổn định, toast API/mock và làm mới hồ sơ sau khi lưu.
+- `src/pages/Profile.test.tsx`, `src/components/domain/EditProfileDialog.test.tsx`, `src/api/map.test.ts`: kiểm tra API bằng fetch giả, số liệu + game empty state, 404, mapping lịch sử, validate 281 ký tự/URL HTTP, lưu thành công/thất bại và trả focus.
+
+### Kiểm tra
+- `npm run build` ✅; `npm run lint` ✅ (0 lỗi, 2 cảnh báo cũ ở `AppContext.tsx`); `npm test` ✅ (frontend 49/49, backend 91/91, contracts 89/89, team-core 15/15).
+- `node scripts/e2e-auth.mjs http://localhost:5191` ✅.
+- `node scripts/screenshot.mjs E3-T05 http://localhost:5191`: **36/36 ok**, không cuộn ngang; ảnh profile mock giữ bố cục hiện có ở 375/768/1280/1440.
+
+### Cách hoàn tác
+`git revert` commit của task E3-T05.
+
+### Còn tồn
+- Dữ liệu tướng, KDA, vai trò và trang bị phụ thuộc nguồn telemetry game nên chủ động để empty state sau MVP theo PRD 3.2.

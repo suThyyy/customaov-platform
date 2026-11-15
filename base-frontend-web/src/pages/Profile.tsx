@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import {
   Award,
@@ -30,12 +30,13 @@ import { asset } from '../lib/asset'
 import { cn } from '../lib/cn'
 import { useToast } from '../context/AppContext'
 import { ListStatus, SkeletonRows } from '../components/ui/ListStatus'
-import { currentUser, useProfile, type Achievement, type HookResult, type MatchHistoryItem, type RoleStat, type UserProfile } from '../api'
+import { DATA_SOURCE, currentUser, useProfile, type Achievement, type HookResult, type MatchHistoryItem, type ProfileRecordHistoryItem, type RoleStat, type UserProfile } from '../api'
 import { Button, ButtonLink, IconButton } from '../components/ui/Button'
 import { Avatar, Badge, Card, LevelPill, SectionTitle, SeeAllLink } from '../components/ui/primitives'
 import { Tabs } from '../components/ui/Tabs'
 import { PageHeader } from '../components/layout/PageHeader'
 import { EmptyState } from '../components/domain/EmptyState'
+import { EditProfileDialog } from '../components/domain/EditProfileDialog'
 
 type ProfileTab = 'overview' | 'history' | 'champions' | 'achievements'
 
@@ -83,9 +84,23 @@ export default function Profile() {
       </ListStatus>
     )
   }
-  // /profile/:userId của người khác: mock chỉ có hồ sơ đầy đủ của người dùng hiện tại
-  if (userId && userId !== currentUser.id) return <OtherProfile userId={userId} profile={load.data} />
-  return load.data ? <MyProfile profile={load.data} load={load} /> : null
+  // Giữ nguyên màn hồ sơ công khai giả lập; nguồn API có đầy đủ số liệu hồ sơ người khác.
+  if (DATA_SOURCE === 'mock' && userId && userId !== currentUser.id) return <OtherProfile userId={userId} profile={load.data} />
+  if (!load.data) return <ProfileNotFound userId={userId} />
+  return <MyProfile profile={load.data} load={load} isOwn={!userId || userId === currentUser.id} />
+}
+
+function ProfileNotFound({ userId }: { userId?: string }) {
+  return (
+    <EmptyState
+      className="mt-6 min-h-96"
+      icon={<UserRound size={28} />}
+      as="h1"
+      title="Không tìm thấy người chơi"
+      description={userId ? `Không có người chơi "${userId}".` : 'Không tìm thấy hồ sơ của bạn.'}
+      action={<ButtonLink to="/profile" variant="outline">Về hồ sơ của tôi</ButtonLink>}
+    />
+  )
 }
 
 function OtherProfile({ userId, profile }: { userId: string; profile: UserProfile | undefined }) {
@@ -135,8 +150,11 @@ function OtherProfile({ userId, profile }: { userId: string; profile: UserProfil
   )
 }
 
-function MyProfile({ profile: p, load }: { profile: UserProfile; load: HookResult<UserProfile | undefined> }) {
+function MyProfile({ profile: p, load, isOwn }: { profile: UserProfile; load: HookResult<UserProfile | undefined>; isOwn: boolean }) {
   const { comingSoon, notify } = useToast()
+  const [editing, setEditing] = useState(false)
+  const closeEditor = useCallback(() => setEditing(false), [])
+  const openEditor = useCallback(() => setEditing(true), [])
   const [params, setParams] = useSearchParams()
   const rawTab = params.get('tab')
   const tab: ProfileTab = isTab(rawTab) ? rawTab : 'overview'
@@ -207,9 +225,11 @@ function MyProfile({ profile: p, load }: { profile: UserProfile; load: HookResul
         }
         actions={
           <>
-            <Button variant="outline" leftIcon={<PenLine size={16} aria-hidden />} onClick={() => comingSoon('Chỉnh sửa hồ sơ')}>
-              Chỉnh sửa hồ sơ
-            </Button>
+            {isOwn && (
+              <Button variant="outline" leftIcon={<PenLine size={16} aria-hidden />} onClick={openEditor}>
+                Chỉnh sửa hồ sơ
+              </Button>
+            )}
             <IconButton label="Tùy chọn hồ sơ" className="size-10" onClick={() => comingSoon('Tùy chọn hồ sơ')}>
               <MoreHorizontal size={20} aria-hidden />
             </IconButton>
@@ -238,14 +258,23 @@ function MyProfile({ profile: p, load }: { profile: UserProfile; load: HookResul
           {tab === 'overview' && <Overview profile={p} setTab={setTab} onMatchMore={(id) => comingSoon(`Chi tiết trận ${id}`)} />}
           {tab === 'history' && (
             <Card className="p-4">
-              <SectionTitle size="sm" icon={<Clock3 size={20} />} title={`Lịch sử trận (${p.history.length} trận gần nhất)`} />
-              <HistoryList className="mt-3" items={p.history} onMore={(id) => comingSoon(`Chi tiết trận ${id}`)} />
+              <SectionTitle
+                size="sm"
+                icon={<Clock3 size={20} />}
+                title={`Lịch sử trận (${p.recordHistory?.length ?? p.history.length} trận gần nhất)`}
+              />
+              {p.recordHistory ? (
+                <RecordHistoryList className="mt-3" items={p.recordHistory} />
+              ) : (
+                <HistoryList className="mt-3" items={p.history} onMore={(id) => comingSoon(`Chi tiết trận ${id}`)} />
+              )}
             </Card>
           )}
           {tab === 'champions' && <ChampionsTab profile={p} />}
           {tab === 'achievements' && <AchievementsTab profile={p} />}
         </ListStatus>
       </div>
+      {isOwn && <EditProfileDialog open={editing} onClose={closeEditor} profile={p} onSaved={load.retry} />}
     </div>
   )
 }
@@ -253,18 +282,27 @@ function MyProfile({ profile: p, load }: { profile: UserProfile; load: HookResul
 /* ---------------- Tổng quan: chỉ tóm tắt ---------------- */
 
 function Overview({ profile: p, setTab, onMatchMore }: { profile: UserProfile; setTab: (t: ProfileTab) => void; onMatchMore: (id: string) => void }) {
-  const stats: Array<{ icon: LucideIcon; label: string; value: string }> = [
-    { icon: Swords, label: 'Tổng trận', value: String(p.stats.totalMatches) },
-    { icon: BarChart3, label: 'Tỷ lệ thắng', value: `${p.stats.winRate}%` },
-    { icon: Gamepad2, label: 'Trận Custom', value: String(p.stats.customMatches) },
-    { icon: Trophy, label: 'MVP', value: String(p.stats.mvp) },
-  ]
+  const stats: Array<{ icon: LucideIcon; label: string; value: string }> = p.hasGameData === false
+    ? [
+        { icon: Gamepad2, label: 'Trận Custom', value: String(p.stats.customMatches) },
+        { icon: Trophy, label: 'Thắng', value: String(p.stats.wins ?? 0) },
+        { icon: Swords, label: 'Thua', value: String(p.stats.losses ?? 0) },
+        { icon: BarChart3, label: 'Tỷ lệ thắng', value: `${p.stats.winRate}%` },
+        { icon: UsersRound, label: 'Giải đã tham gia', value: String(p.stats.tournamentsJoined ?? 0) },
+        { icon: Crown, label: 'Danh hiệu', value: String(p.stats.titles ?? 0) },
+      ]
+    : [
+        { icon: Swords, label: 'Tổng trận', value: String(p.stats.totalMatches) },
+        { icon: BarChart3, label: 'Tỷ lệ thắng', value: `${p.stats.winRate}%` },
+        { icon: Gamepad2, label: 'Trận Custom', value: String(p.stats.customMatches) },
+        { icon: Trophy, label: 'MVP', value: String(p.stats.mvp) },
+      ]
   const topChampions = p.champions.slice(0, 3)
   const topRoles = p.roles.slice(0, 3)
 
   return (
     <div className="flex flex-col gap-6">
-      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-6">
+      <dl className={cn('grid grid-cols-2 gap-3 lg:gap-6', p.hasGameData === false ? 'lg:grid-cols-3' : 'lg:grid-cols-4')}>
         {stats.map(({ icon: Icon, label, value }) => (
           <Card key={label} className="flex min-h-20 items-center gap-4 px-4 py-3 lg:gap-6 lg:px-6">
             {/* < 640px: ẩn icon để số KPI (text-stat 32px) không tràn ô ~160px */}
@@ -277,7 +315,9 @@ function Overview({ profile: p, setTab, onMatchMore }: { profile: UserProfile; s
         ))}
       </dl>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {p.hasGameData === false ? (
+        <GameDataEmpty />
+      ) : <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="p-4">
           <SectionTitle
             size="sm"
@@ -313,7 +353,7 @@ function Overview({ profile: p, setTab, onMatchMore }: { profile: UserProfile; s
           />
           <RoleBars roles={topRoles} className="mt-4" />
         </Card>
-      </div>
+      </div>}
 
       <Card className="p-4">
         <SectionTitle
@@ -322,7 +362,11 @@ function Overview({ profile: p, setTab, onMatchMore }: { profile: UserProfile; s
           title="Trận gần đây"
           action={<SeeAllLink onClick={() => setTab('history')}>Xem lịch sử</SeeAllLink>}
         />
-        <HistoryList className="mt-3" items={p.history.slice(0, 3)} onMore={onMatchMore} />
+        {p.recordHistory ? (
+          <RecordHistoryList className="mt-3" items={p.recordHistory.slice(0, 3)} />
+        ) : (
+          <HistoryList className="mt-3" items={p.history.slice(0, 3)} onMore={onMatchMore} />
+        )}
       </Card>
     </div>
   )
@@ -352,6 +396,44 @@ function RoleBars({ roles, className }: { roles: RoleStat[]; className?: string 
           </li>
         )
       })}
+    </ul>
+  )
+}
+
+function GameDataEmpty() {
+  return (
+    <EmptyState
+      className="min-h-60"
+      icon={<Gamepad2 size={28} />}
+      title="Chưa có dữ liệu từ game – sẽ có sau MVP"
+      description="Tướng ưa thích, KDA, vai trò và trang bị chưa được hệ thống ghi nhận."
+    />
+  )
+}
+
+function RecordHistoryList({ items, className }: { items: ProfileRecordHistoryItem[]; className?: string }) {
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        className={cn('min-h-60', className)}
+        icon={<History size={28} />}
+        title="Chưa có lịch sử trận"
+        description="Vào một phòng custom để bắt đầu ghi lịch sử."
+      />
+    )
+  }
+  return (
+    <ul className={cn('flex flex-col', className)}>
+      {items.map((item, index) => (
+        <li key={item.id} className={cn('flex flex-wrap items-center gap-3 py-3', index > 0 && 'border-t border-line')}>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">{item.roomName}</p>
+            <p className="text-xs text-fg-muted">{item.roomCode}</p>
+          </div>
+          <ResultBadge result={item.result} />
+          <span className="whitespace-nowrap text-sm text-fg-muted">{item.timeAgo}</span>
+        </li>
+      ))}
     </ul>
   )
 }
@@ -495,6 +577,7 @@ function ItemIcons({ items }: { items: string[] }) {
 /* ---------------- Tướng ưa thích ---------------- */
 
 function ChampionsTab({ profile: p }: { profile: UserProfile }) {
+  if (p.hasGameData === false) return <GameDataEmpty />
   return (
     <div className="flex flex-col gap-6">
       <Card className="p-4">

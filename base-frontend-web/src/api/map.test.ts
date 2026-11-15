@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { RoomDetailSchema, TournamentSummarySchema } from '@customaov/contracts'
-import { mapRoom, mapTournament } from './map'
+import { RoomDetailSchema, TournamentSummarySchema, UserProfileSchema } from '@customaov/contracts'
+import { mapProfile, mapRoom, mapTournament } from './map'
 
 const user = {
   id: '00000000-0000-4000-8000-000000000001',
@@ -41,6 +41,36 @@ describe('contract → UI maps', () => {
     expect(mapTournament(tournament)).toMatchObject({
       slug: 'giai-mau', status: 'open', teamCount: 8, registeredTeams: 3,
       groupStage: 'not-started', timeLabel: 'Hạn đăng ký: 20/11, 23:59',
+    })
+  })
+
+  it('giữ số liệu và lịch sử hồ sơ API, đánh dấu dữ liệu game chưa có', () => {
+    const value = UserProfileSchema.parse({
+      user,
+      uid: '102394',
+      bio: 'Custom vui là chính',
+      bioExtra: 'Tìm đồng đội',
+      roleBadge: 'Chủ phòng',
+      playerBadge: 'Người chơi Custom',
+      stats: { customMatches: 12, wins: 8, losses: 4, winRate: 66.7, tournamentsJoined: 3, titles: 1 },
+      achievements: [],
+      history: [{
+        id: '00000000-0000-4000-8000-000000000002',
+        roomCode: 'AOV-1024',
+        roomTitle: 'Phòng mẫu',
+        winner: 'blue',
+        result: 'win',
+        at: '2026-11-15T10:00:00.000Z',
+      }],
+    })
+
+    expect(mapProfile(value)).toMatchObject({
+      stats: { customMatches: 12, wins: 8, losses: 4, winRate: 66.7, tournamentsJoined: 3, titles: 1 },
+      hasGameData: false,
+      champions: [],
+      roles: [],
+      history: [],
+      recordHistory: [{ roomCode: 'AOV-1024', roomName: 'Phòng mẫu', result: 'win' }],
     })
   })
 })

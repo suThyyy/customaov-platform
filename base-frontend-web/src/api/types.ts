@@ -21,10 +21,30 @@ export type {
   Tournament,
   TournamentDetail,
   TournamentStatus,
-  UserProfile,
 } from '../mocks/types'
 
-import type { Room } from '../mocks/types'
+import type { Room, UserProfile as MockUserProfile } from '../mocks/types'
+
+export interface ProfileRecordHistoryItem {
+  id: string
+  roomCode: string
+  roomName: string
+  result: 'win' | 'loss'
+  timeAgo: string
+}
+
+export type UserProfile = Omit<MockUserProfile, 'stats'> & {
+  stats: MockUserProfile['stats'] & {
+    wins?: number
+    losses?: number
+    tournamentsJoined?: number
+    titles?: number
+  }
+  /** Chỉ có ở nguồn API; dữ liệu này không phụ thuộc telemetry trong game. */
+  recordHistory?: ProfileRecordHistoryItem[]
+  /** API MVP không có dữ liệu tướng, KDA, vai trò hoặc trang bị. */
+  hasGameData?: boolean
+}
 
 export const roomFullTitle = (room: Pick<Room, 'title' | 'highlight'>): string =>
   room.highlight ? `${room.title} – ${room.highlight}` : room.title
