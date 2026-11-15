@@ -9,6 +9,8 @@ export { DATA_SOURCE } from './source'
 export { mockCommunityStats as communityStats, mockCurrentUser as currentUser, mockPlayers as players } from './mock'
 export * from './hooks'
 export * from './types'
+export * from './room'
+export * from './realtime'
 
 export async function createTournament(body: CreateTournamentBody, signal?: AbortSignal): Promise<{ slug: string }> {
   const parsed = CreateTournamentBodySchema.parse(body)
