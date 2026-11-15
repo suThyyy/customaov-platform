@@ -99,13 +99,6 @@ export interface ChatMessage {
   system?: boolean
 }
 
-export interface HomeSlide {
-  lead: string
-  line2: string
-  accent: string
-  desc: [string, string]
-}
-
 export interface Team {
   id: string
   name: string

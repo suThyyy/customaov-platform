@@ -169,28 +169,24 @@ export default function HomeGuest() {
           {/* Tính năng */}
           <section id="features" aria-label="Tính năng nổi bật" className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2">
             <FeatureCard
-              size="lg"
               icon={<SquarePlus strokeWidth={1.6} />}
               title="Tạo phòng nhanh"
               description="Lập phòng custom linh hoạt, thiết lập theo ý muốn."
               to={loginHref('start', '/rooms/new')}
             />
             <FeatureCard
-              size="lg"
               icon={<Scale strokeWidth={1.6} />}
               title="Chia đội công bằng"
               description="Cân bằng trình độ, xếp đội hợp lý cho trận đấu hấp dẫn."
               to="/#preview"
             />
             <FeatureCard
-              size="lg"
               icon={<Box strokeWidth={1.6} />}
               title="Random lane / tướng"
               description="Phân vị trí hoặc tướng ngẫu nhiên, đa dạng và công bằng."
               to="/#preview"
             />
             <FeatureCard
-              size="lg"
               icon={<Trophy strokeWidth={1.6} />}
               title="Giải đấu cộng đồng"
               description="Tham gia các giải đấu custom được tổ chức thường xuyên."
