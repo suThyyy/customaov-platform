@@ -58,3 +58,6 @@
   - Lưu ý: lựa chọn đầu tiên của các màn này là "No, exit".
 - 15/11 · Lead · E6-T02 review: agy kẹt `agent-trust-workspace` 2 lần nên chuyển sang Codex, không thử lần thứ 3 (tránh circuit breaker).
 - 15/11 · Lead · E5-T04b: chấp nhận cách `close-registration` đặt `registration_deadline = now` (schema không có cờ đóng). E5-T03 (registrations) phải từ chối đăng ký khi đã quá hạn.
+- 15/11 · Owner · **Ưu tiên Codex, tiết kiệm Claude**: không giao thêm task code cho Claude (Claude Code hay agy Claude). Lead (Claude) chỉ điều phối và gộp merge, giữ lượt ngắn gọn.
+  - Coder mặc định: Codex `gpt-5.6-sol`; dự phòng: agy Gemini.
+  - Reviewer: agy Gemini cho code Codex; Codex cho code Gemini/Claude.
