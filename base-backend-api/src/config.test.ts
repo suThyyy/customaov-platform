@@ -5,6 +5,8 @@ import { loadConfig } from "./config.js";
 describe("loadConfig", () => {
   it("uses the documented defaults", () => {
     expect(loadConfig({})).toEqual({
+      CSRF_SECRET: expect.any(String),
+      ALLOWED_ORIGINS: ["http://localhost:5174", "http://localhost:5173"],
       HOST: "127.0.0.1",
       PORT: 6174,
       LOG_LEVEL: "info",
@@ -23,3 +25,4 @@ describe("loadConfig", () => {
     );
   });
 });
+
