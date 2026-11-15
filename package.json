@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "build": "npm run build --workspace @customaov/team-core && npm run build --workspace @customaov/contracts && npm run build --workspace @customaov/api && npm run build --workspace base-frontend-web",
+    "dev:all": "node scripts/dev-all.mjs",
     "dev:api": "npm run dev --workspace @customaov/api",
     "dev:web": "npm run dev --workspace base-frontend-web",
     "lint": "npm run lint --workspace base-frontend-web && npm run typecheck --workspace @customaov/team-core && npm run typecheck --workspace @customaov/contracts && npm run typecheck --workspace @customaov/api",
