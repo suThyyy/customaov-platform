@@ -430,3 +430,18 @@ Xoá 3 file mới; bỏ `<ListStatus>`/`useMockStatus` ở các trang (nội dun
 | `public/mock-assets/sidebar-art.jpg` | Chỉ còn `Sidebar.tsx` (deprecated) dùng. |
 | `FeatureCard` biến thể `size="sm"` | Từ Phase 4a dashboard không dùng nữa; chỉ landing dùng `lg`. Chưa gắn `@deprecated` vì là biến thể, không phải file. |
 | `scripts/.blank-*.png` (7 file) | Ảnh thừa của script đo trắng trang ở Phase 3b (04:17), lẽ ra phải xoá ngay sau khi chạy. Không phải mã nguồn; có thể xoá. |
+
+## E1-T02 — Sửa P0 lệch số người phòng + 3 P1 @375 (15/11/2026)
+
+### File đã sửa
+- `mocks/rooms.ts`: `playerCount` suy ra từ `teams`; `partial()` thêm người thứ 10 nên phòng live đủ 5v5.
+- `mocks/rooms.test.ts` (mới): nhất quán `playerCount`, phòng live 10/10, không trùng người, suthy chỉ ở AOV-1024.
+- `pages/CreateRoom.tsx`: ô tên phòng có `gap-3`, bộ đếm `shrink-0`.
+- `components/ui/FilterChips.tsx`: bóng mờ mép (đo bằng `scrollLeft`/`ResizeObserver`, nằm ngoài vùng cuộn) như `Tabs`.
+- `components/ui/primitives.tsx`: `SeeAllLink` `shrink-0 whitespace-nowrap`; tiêu đề `SectionTitle` `min-w-0` để tự xuống dòng.
+
+### Cách hoàn tác
+`git revert` commit của task E1-T02.
+
+### Còn tồn
+- Chưa có.
