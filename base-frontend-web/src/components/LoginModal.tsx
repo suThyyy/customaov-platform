@@ -112,7 +112,10 @@ function SupabaseLoginModal({
     if (submitting || !authAdapter.emailAuth) return
     setError('')
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setError('Hãy nhập địa chỉ email hợp lệ.')
-    if (!needsOtp && password.length < 8) return setError('Mật khẩu phải có ít nhất 8 ký tự.')
+    // Đăng nhập: tài khoản CustomAOV cũ có thể dùng mật khẩu 6–7 ký tự, để Supabase tự kiểm.
+    // Đăng ký: tối thiểu 6 ký tự, khớp app cũ (minlength="6") và mặc định của Supabase Auth.
+    if (!needsOtp && tab === 'login' && !password) return setError('Hãy nhập mật khẩu.')
+    if (!needsOtp && tab === 'register' && password.length < 6) return setError('Mật khẩu phải có ít nhất 6 ký tự.')
     if (tab === 'register' && !needsOtp && !displayName.trim()) return setError('Tên hiển thị không được để trống.')
     setSubmitting(true)
     try {
