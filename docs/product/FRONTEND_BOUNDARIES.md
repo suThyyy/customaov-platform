@@ -106,7 +106,7 @@ Audit production `src` (loại `*.test.*` và `api/source.ts`) cho kết quả:
 - **60 lần xuất hiện token `DATA_SOURCE` trong 12 file**: gồm import/re-export và runtime use.
 - **44 điểm runtime dùng/kiểm**: 43 phép so sánh `===`/`!==` và 1 lần đưa nguồn vào cache key.
 - Nếu tính cả test mocks: 71 lần xuất hiện ngoài `source.ts` trong 23 file. Test chỉ ép mode để kiểm hành vi, không phải nhánh runtime nên không đưa vào danh sách refactor.
-- Con số “khoảng 59 trong 13 file” trước audit gần với số token production; thực tế `source.ts` là file thứ 13 nhưng được yêu cầu loại khỏi danh sách, còn token count ngoài nó là 60.
+- Ước lượng ban đầu ở spec ("khoảng 59 chỗ trong 13 file") tính cả `vite-env.d.ts` (khai báo kiểu, 1 lần) và chưa tính dòng import. Số chính xác cho việc refactor ở HUY-14 là **44 điểm runtime** ở trên.
 
 ### Mọi điểm runtime ngoài `source.ts`
 
@@ -240,4 +240,18 @@ Phần này được điền từ clone sạch và worktree, không suy diễn t
 
 ### Kết quả sau sửa
 
-Sẽ cập nhật sau khi chạy toàn bộ verify cuối.
+Chạy 17/11/2026 ở commit `9fcb2d6`. Verify trên một clone sạch mới (`git clone` → `npm ci`, chưa có `dist/` của shared package):
+
+- `npm run build --workspace base-frontend-web`: exit 0 (`prebuild` tự build `team-core` và `contracts`).
+- `npm test --workspace base-frontend-web`: exit 0, 28 file, 135 test.
+- Xoá `dist/` của 2 package rồi chạy `npm run dev -- --port 5196 --strictPort` trong `base-frontend-web`: `predev` build shared package, Vite phục vụ `/`, `/src/main.tsx`, `/src/api/types.ts` đều HTTP 200. Không khởi động Fastify hay PGlite.
+- `node scripts/e2e-auth.mjs http://localhost:5196`: "Tất cả kiểm tra đều đạt".
+- `node scripts/screenshot.mjs huy13 http://localhost:5196`: 40/40 `ok`, 0 `FAIL`.
+
+Ở gốc worktree:
+
+- `npm run build`: exit 0.
+- `npm run lint`: 0 lỗi, 2 cảnh báo có sẵn (`AppContext.tsx`).
+- `npm test`: team-core 15, contracts 89, web 135, api 170, đều đạt.
+
+Lưu ý khi truyền cổng: `npm run dev:web -- --port N` ở gốc **không** chuyển được `--port` qua hai tầng npm (Vite nhận `N` thành tham số vị trí và mở cổng mặc định). Muốn đổi cổng thì chạy `npm run dev -- --port N` bên trong `base-frontend-web`.
