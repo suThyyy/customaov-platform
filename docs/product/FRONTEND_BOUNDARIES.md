@@ -195,6 +195,18 @@ Audit production `src` (loại `*.test.*` và `api/source.ts`) cho kết quả:
 
 ## 6. Shared packages
 
+### Bảng nguồn khi `VITE_DATA_SOURCE=supabase` (HUY-14)
+
+| Feature | Nguồn | Ghi chú |
+| --- | --- | --- |
+| Auth | Supabase | password, signup + OTP, restore/listener; anonymous = khách. |
+| Profile | Supabase | `profiles`, `game_profiles`, UID RPC. |
+| Room detail UUID | Supabase | snapshot RPC/fallback bốn bảng + Realtime. |
+| Room list | Mock (sample) | RLS không có danh sách public tương đương; có nhãn “Dữ liệu mẫu”. |
+| Chat, tournaments, registrations, activities, search | Mock (sample) | Chưa có contract Supabase trong HUY-14; có nhãn “Dữ liệu mẫu”. |
+
+Component chọn hành vi theo capability của adapter (`authFlow`, `roomView`, `showsSampleBadge`), không đọc trực tiếp `DATA_SOURCE`.
+
 ### `@customaov/team-core`
 
 Giữ package. Thuật toán chia đội chạy phía client, framework-independent, có test riêng và không phải phụ thuộc Platform. Supabase migration không thay đổi lý do tồn tại của package này.

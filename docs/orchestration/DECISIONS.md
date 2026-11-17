@@ -21,6 +21,8 @@
 
 ## Lead
 
+- 17/11 · HUY-14 · Thêm chính xác `@supabase/supabase-js` để dùng Auth, PostgREST RPC và Realtime qua SDK chính thức; không thêm thư viện khác. Open Room Supabase giữ model riêng với Platform, danh sách room và các feature chưa có contract Supabase tiếp tục dùng mock có nhãn “Dữ liệu mẫu”.
+
 - 15/11 · Lead · **Worktree đặt trong `base-workspace/.worktrees/<id>-<slug>`** (gitignore), tạo bằng `git worktree add`, rồi Orca nhận qua `--worktree path:…` (đã bật `external-worktree-visibility show` cho repo). Lý do: `orca worktree create` đặt worktree ở thư mục do Orca quản lý, có thể nằm ngoài `base-workspace`, vi phạm hàng rào đọc/ghi.
 - 15/11 · Lead · Mọi worker (Codex, Antigravity, Copilot) chạy qua `orca terminal create --command "<CLI + cờ tự duyệt>"` + `worker-start --terminal`, vì `--agent` của Orca không cho truyền cờ tự duyệt hay `service_tier`.
 - 15/11 · Lead · Cổng dev: mỗi worker một cổng từ 5175 trở lên, Lead cấp theo slot đang trống và ghi trong `tasks/<id>.md` và `STATE.md`. Lead dùng 5174 để kiểm tra trước khi merge.
