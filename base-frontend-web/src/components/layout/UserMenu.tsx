@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ChevronDown, History, LogOut, UserRound } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { useAuth, useToast } from '../../context/AppContext'
-import { currentUser, DATA_SOURCE, endpoints } from '../../api'
+import { authAdapter, currentUser } from '../../api'
 import { Avatar, LevelPill } from '../ui/primitives'
 import { useDismiss } from './hooks'
 
@@ -66,10 +66,10 @@ export function UserMenu() {
             disabled={loggingOut}
             onClick={async () => {
               if (loggingOut) return
-              if (DATA_SOURCE === 'api') {
+              if (authAdapter.persistsWrites) {
                 setLoggingOut(true)
                 try {
-                  await endpoints.logout()
+                  await authAdapter.logout()
                 } catch {
                   // Vẫn xoá trạng thái phiên ở client nếu server lỗi
                 } finally {
@@ -78,7 +78,7 @@ export function UserMenu() {
               }
               close()
               notify(
-                DATA_SOURCE === 'api' ? 'Đã đăng xuất' : 'Đã đăng xuất (giả lập)',
+                authAdapter.persistsWrites ? 'Đã đăng xuất' : 'Đã đăng xuất (giả lập)',
                 'Bạn đang xem giao diện khách.',
               )
               navigate('/')
@@ -89,7 +89,7 @@ export function UserMenu() {
             }}
             className={cn(itemCls, 'text-fg-muted hover:bg-white/5 hover:text-fg disabled:opacity-50')}
           >
-            <LogOut size={17} aria-hidden /> {DATA_SOURCE === 'api' ? 'Đăng xuất' : 'Đăng xuất (giả lập)'}
+            <LogOut size={17} aria-hidden /> {authAdapter.persistsWrites ? 'Đăng xuất' : 'Đăng xuất (giả lập)'}
           </button>
         </div>
       )}

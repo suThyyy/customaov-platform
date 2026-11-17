@@ -31,7 +31,7 @@ import {
 import type { CreateRoomBody } from '@customaov/contracts'
 import { cn } from '../lib/cn'
 import { useToast } from '../context/AppContext'
-import { ApiError, DATA_SOURCE, createRoom } from '../api'
+import { ApiError, createRoom, roomsAdapter } from '../api'
 import { Button } from '../components/ui/Button'
 import { PageHeader } from '../components/layout/PageHeader'
 import { SoonBadge } from '../components/layout/UserMenu'
@@ -238,7 +238,7 @@ export default function CreateRoom() {
       setStep(1)
       return
     }
-    if (DATA_SOURCE !== 'api') {
+    if (!roomsAdapter.persistsWrites) {
       notify('Đã tạo phòng (giả lập)', `${name.trim()} · ${teamSize} · ${series}. Chức năng tạo phòng thật sẽ có khi nối backend.`)
       return
     }

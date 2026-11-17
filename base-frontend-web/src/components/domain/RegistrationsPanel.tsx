@@ -1,6 +1,6 @@
 import { useId, useState, type FormEvent } from 'react'
 import { Check, ClipboardList, X } from 'lucide-react'
-import { ApiError, endpoints, useRegistrations, type Registration } from '../../api'
+import { ApiError, registrationActions, useRegistrations, type Registration } from '../../api'
 import { useToast } from '../../context/AppContext'
 import { Button } from '../ui/Button'
 import { ListStatus, SkeletonRows } from '../ui/ListStatus'
@@ -87,12 +87,12 @@ export function RegistrationsPanel({
                 canApprove={!full}
                 rejecting={rejectingId === r.id}
                 onApprove={() =>
-                  run(r, () => endpoints.approveRegistration(slug, r.id), 'Đã duyệt đội')
+                  run(r, () => registrationActions.approve(slug, r.id), 'Đã duyệt đội')
                 }
                 onStartReject={() => setRejectingId(r.id)}
                 onCancelReject={() => setRejectingId(null)}
                 onReject={(reason) =>
-                  run(r, () => endpoints.rejectRegistration(slug, r.id, reason ? { reason } : {}), 'Đã từ chối đội')
+                  run(r, () => registrationActions.reject(slug, r.id, reason ? { reason } : {}), 'Đã từ chối đội')
                 }
               />
             ))}

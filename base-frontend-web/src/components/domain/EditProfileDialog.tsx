@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { UpdateMeBodySchema, type UpdateMeBody } from '@customaov/contracts'
-import { DATA_SOURCE, updateProfile, type UserProfile } from '../../api'
+import { profileAdapter, updateProfile, type UserProfile } from '../../api'
 import { useToast } from '../../context/AppContext'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
@@ -70,8 +70,8 @@ export function EditProfileDialog({
     setSaving(true)
     try {
       await updateProfile(parsed.data)
-      notify(DATA_SOURCE === 'mock' ? 'Đã lưu (giả lập)' : 'Đã cập nhật hồ sơ')
-      if (DATA_SOURCE === 'api') onSaved()
+      notify(profileAdapter.persistsWrites ? 'Đã cập nhật hồ sơ' : 'Đã lưu (giả lập)')
+      if (profileAdapter.persistsWrites) onSaved()
       onClose()
     } catch (error) {
       setServerError(error instanceof Error ? error.message : 'Không thể lưu hồ sơ. Vui lòng thử lại.')

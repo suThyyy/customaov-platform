@@ -25,4 +25,11 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/api/**', 'src/**/*.test.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: ['**/api/source', '**/api/endpoints'] }],
+    },
+  },
 )

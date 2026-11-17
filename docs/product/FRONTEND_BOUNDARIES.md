@@ -1,6 +1,6 @@
 # Ranh giới frontend và backend Platform
 
-Tài liệu này là kiểm kê tại HUY-13. Nó mô tả trạng thái hiện tại và ranh giới đề xuất cho HUY-14; **không** phải là quyết định xoá backend hiện tại hay yêu cầu refactor `DATA_SOURCE` trong HUY-13.
+Tài liệu này bắt đầu từ kiểm kê HUY-13 và được cập nhật sau HUY-13b. Nó mô tả ranh giới adapter chuẩn bị cho HUY-14; **không** phải là quyết định xoá backend hiện tại.
 
 ## 1. Kết luận nhanh
 
@@ -98,6 +98,34 @@ Theo `src/api/realtime.ts` và `packages/contracts/src/rooms.ts`:
 - Reconnect của Supabase vẫn cần một lần refetch snapshot; không giả định event stream không mất gói.
 
 ## 5. Công tắc `DATA_SOURCE`
+
+### Trạng thái sau HUY-13b
+
+`DATA_SOURCE` và `endpoints` nay là chi tiết nội bộ của `src/api/`. `src/api/sources.ts` khai báo `Feature`, `Source`, `FEATURE_SOURCES` và `sourceOf(feature)`; hiện cả tám feature vẫn kế thừa công tắc toàn cục để giữ nguyên hành vi. Hooks dùng nguồn của đúng feature trong cache key. Component chỉ đọc capability (`readyImmediately`, `supportsRealtime`, `persistsWrites`, `isSampleData`) hoặc gọi facade action, không hỏi transport.
+
+ESLint `no-restricted-imports` chặn import `**/api/source` và `**/api/endpoints` từ production code ngoài `src/api/`; test được miễn để stub transport. Kiểm tra biên production chỉ còn khai báo type `VITE_DATA_SOURCE` trong `vite-env.d.ts`.
+
+| Feature | Adapter được chọn trong `api/adapters.ts` | Phạm vi |
+| --- | --- | --- |
+| `auth` | `authAdapter` | restore session, login/register/logout, localStorage mock |
+| `profile` | `profileAdapter` | profile initial/load/update |
+| `rooms` | `roomsAdapter` | danh sách, chi tiết, create/join và capability realtime |
+| `chat` | `chatAdapter` | initial/messages và capability realtime |
+| `tournaments` | `tournamentsAdapter` | danh sách, chi tiết, tạo giải |
+| `registrations` | `registrationsAdapter` | danh sách đơn; mutation qua facade `registrationActions` |
+| `activities` | `activitiesAdapter` | feed phân trang |
+| `search` | `searchAdapter` | initial/search, debounce dựa trên capability |
+
+Các điểm còn chọn hai UI theo capability (cố ý giữ tới HUY-15): `LoginModal` dùng `authAdapter.persistsWrites`; `RoomDetail` dùng `roomsAdapter.supportsRealtime`. `TournamentDetail`, `CreateRoom`, `CreateTournament`, `HomeUser`, `Profile`, `EditProfileDialog` và `UserMenu` dùng capability để giữ đúng dữ liệu, toast và luồng hiện tại.
+
+### Thêm nguồn `supabase` ở HUY-14
+
+1. Thêm `'supabase'` vào `Source` và type env nếu vẫn cần cấu hình qua Vite; đặt nguồn riêng cho từng feature trong `FEATURE_SOURCES`.
+2. Tạo Supabase implementation theo các interface nhóm ở `api/adapter.ts`, gồm đầy đủ capability và `initial(...)`; không import Supabase client ra ngoài `src/api/`.
+3. Mở rộng factory `adapterFor` trong `api/adapters.ts` để chọn implementation theo `sourceOf(feature)`; bổ sung facade mutation trong `api/actions.ts` khi cần.
+4. Thêm contract/unit test cho từng feature và chạy regression mock/API trước khi bật từng feature sang Supabase. Không thêm nhánh transport trong component.
+
+Phần kiểm kê dưới đây là số liệu lịch sử trước refactor HUY-13b, được giữ để truy vết phạm vi.
 
 ### Cách đếm
 

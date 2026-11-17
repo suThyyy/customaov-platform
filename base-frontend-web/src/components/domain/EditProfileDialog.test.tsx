@@ -9,7 +9,7 @@ import { EditProfileDialog } from './EditProfileDialog'
 
 vi.mock('../../api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../api')>()
-  return { ...actual, DATA_SOURCE: 'api', updateProfile: vi.fn() }
+  return { ...actual, profileAdapter: { ...actual.profileAdapter, persistsWrites: true }, updateProfile: vi.fn() }
 })
 
 function Harness({ onSaved = vi.fn() }: { onSaved?: () => void }) {

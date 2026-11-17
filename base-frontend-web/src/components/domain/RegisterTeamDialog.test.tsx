@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { ApiError, endpoints, type Registration } from '../../api'
+import { ApiError, type Registration } from '../../api'
+import { endpoints } from '../../api/endpoints'
 import { RegisterTeamDialog } from './RegisterTeamDialog'
 
 const user = (n: number, username: string) => ({

@@ -21,7 +21,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { CreateTournamentBodySchema, type CreateTournamentBody, type Series, type TeamCount } from '@customaov/contracts'
-import { ApiError, DATA_SOURCE, createTournament } from '../api'
+import { ApiError, createTournament, tournamentsAdapter } from '../api'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Button, IconButton } from '../components/ui/Button'
 import { useToast } from '../context/AppContext'
@@ -281,7 +281,7 @@ export default function CreateTournament() {
     setSubmitError('')
     try {
       const created = await createTournament(payload)
-      if (DATA_SOURCE === 'api') {
+      if (tournamentsAdapter.persistsWrites) {
         navigate(`/tournaments/${created.slug}`)
       } else {
         notify('Đã tạo giải (giả lập)', `${payload.name} · ${payload.teamCount} đội · ${payload.series}.`)
@@ -300,7 +300,7 @@ export default function CreateTournament() {
         })
       } else {
         setSubmitError(error instanceof ApiError ? error.message : 'Không thể tạo giải đấu. Vui lòng thử lại.')
-        if (DATA_SOURCE !== 'api') notify('Không thể tạo giải đấu', 'Vui lòng kiểm tra lại thông tin và thử lại.')
+        if (!tournamentsAdapter.persistsWrites) notify('Không thể tạo giải đấu', 'Vui lòng kiểm tra lại thông tin và thử lại.')
       }
     } finally {
       setSubmitting(false)

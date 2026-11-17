@@ -4,7 +4,7 @@ import { LoginBodySchema, RegisterBodySchema } from '@customaov/contracts'
 import { LogIn, UserPlus } from 'lucide-react'
 import { cn } from '../lib/cn'
 import { useAuth, useToast } from '../context/AppContext'
-import { ApiError, currentUser, DATA_SOURCE, endpoints } from '../api'
+import { ApiError, authAdapter, currentUser } from '../api'
 import { Button } from './ui/Button'
 import { Modal } from './ui/Modal'
 import { Tabs } from './ui/Tabs'
@@ -62,7 +62,7 @@ export function LoginModal({
   onClose: () => void
   redirectTo?: string
 }) {
-  if (DATA_SOURCE === 'api') {
+  if (authAdapter.persistsWrites) {
     return <ApiLoginModal intent={intent} onClose={onClose} redirectTo={redirectTo} />
   }
   return <MockLoginModal intent={intent} onClose={onClose} redirectTo={redirectTo} />
@@ -182,8 +182,8 @@ function ApiLoginModal({
     try {
       const res =
         tab === 'register'
-          ? await endpoints.register(RegisterBodySchema.parse(parsed.data))
-          : await endpoints.login(LoginBodySchema.parse(parsed.data))
+          ? await authAdapter.register(RegisterBodySchema.parse(parsed.data))
+          : await authAdapter.login(LoginBodySchema.parse(parsed.data))
       notify(tab === 'register' ? 'Đăng ký thành công' : 'Đã đăng nhập', `Xin chào ${res.user.displayName}!`)
       navigate(redirectTo, { replace: true })
       startTransition(() => login(res.user))

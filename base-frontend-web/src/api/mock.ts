@@ -92,32 +92,78 @@ export const readMockSearch = (q: string): SearchResult => {
   }
 }
 
+const SESSION_STORAGE_KEY = 'customaov.mockLoggedIn'
+const readSession = (): boolean => {
+  try { return localStorage.getItem(SESSION_STORAGE_KEY) === '1' } catch { return false }
+}
+const rememberSession = (loggedIn: boolean): void => {
+  try {
+    if (loggedIn) localStorage.setItem(SESSION_STORAGE_KEY, '1')
+    else localStorage.removeItem(SESSION_STORAGE_KEY)
+  } catch { /* session remains in the current tab */ }
+}
+const capabilities = { readyImmediately: true, supportsRealtime: false, persistsWrites: false, isSampleData: true } as const
+
 export const mockAdapter: DataAdapter = {
-  rooms(params: RoomsParams, signal?: AbortSignal) {
-    return resolved(readMockRooms(params), signal)
+  auth: {
+    ...capabilities,
+    initial: () => ({ loggedIn: readSession(), user: null }),
+    restore: (_signal) => resolved(null, _signal),
+    subscribe(onChange) {
+      const listener = (event: StorageEvent) => {
+        if (event.key === SESSION_STORAGE_KEY || event.key === null) onChange(readSession())
+      }
+      window.addEventListener('storage', listener)
+      return () => window.removeEventListener('storage', listener)
+    },
+    remember: rememberSession,
+    login: () => Promise.reject(new Error('Mock auth uses the sample-account flow')),
+    register: () => Promise.reject(new Error('Mock auth uses the sample-account flow')),
+    logout: () => resolved(undefined),
   },
-  roomsPage(params, signal) {
-    return resolved(readMockRoomsPage(params), signal)
+  profile: {
+    ...capabilities,
+    initial: readMockProfile,
+    load: (username, signal) => resolved(readMockProfile(username), signal),
+    update: (_body, signal) => resolved(undefined, signal),
   },
-  room(code, signal) {
-    return resolved(readMockRoom(code), signal)
+  rooms: {
+    ...capabilities,
+    initial: readMockRooms,
+    initialPage: readMockRoomsPage,
+    initialRoom: readMockRoom,
+    list: (params: RoomsParams, signal?: AbortSignal) => resolved(readMockRooms(params), signal),
+    page: (params, signal) => resolved(readMockRoomsPage(params), signal),
+    room: (code, signal) => resolved(readMockRoom(code), signal),
+    create: (_body, signal) => resolved({ code: '' }, signal),
+    join: (code, signal) => resolved({ code }, signal),
   },
-  roomMessages(code, signal) {
-    return resolved(readMockMessages(code), signal)
+  chat: {
+    ...capabilities,
+    initial: readMockMessages,
+    messages: (code, signal) => resolved(readMockMessages(code), signal),
   },
-  tournaments(params: TournamentsParams, signal?: AbortSignal) {
-    return resolved(readMockTournaments(params), signal)
+  tournaments: {
+    ...capabilities,
+    initial: readMockTournaments,
+    initialTournament: readMockTournament,
+    list: (params: TournamentsParams, signal?: AbortSignal) => resolved(readMockTournaments(params), signal),
+    tournament: (slug, signal) => resolved(readMockTournament(slug), signal),
+    create: createMockTournament,
   },
-  tournament(slug, signal) {
-    return resolved(readMockTournament(slug), signal)
+  registrations: {
+    ...capabilities,
+    initial: () => [],
+    list: (_slug, signal) => resolved([], signal),
   },
-  profile(username, signal) {
-    return resolved(readMockProfile(username), signal)
+  activities: {
+    ...capabilities,
+    initial: readMockActivities,
+    list: (params, signal) => resolved(readMockActivities(params), signal),
   },
-  activities(params, signal) {
-    return resolved(readMockActivities(params), signal)
-  },
-  search(q, signal) {
-    return resolved(readMockSearch(q), signal)
+  search: {
+    ...capabilities,
+    initial: readMockSearch,
+    search: (q, signal) => resolved(readMockSearch(q), signal),
   },
 }

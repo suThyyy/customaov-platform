@@ -1,5 +1,6 @@
 import type { RoomMode } from '@customaov/contracts'
-import type { Activity, ChatMessage, Player, Room, Tournament, TournamentDetail, UserProfile } from './types'
+import type { LoginBody, Me, RegisterBody, UpdateMeBody, CreateRoomBody, CreateTournamentBody } from '@customaov/contracts'
+import type { Activity, ChatMessage, Player, Registration, Room, Tournament, TournamentDetail, UserProfile } from './types'
 
 export interface RoomsParams {
   q?: string
@@ -50,14 +51,75 @@ export interface ActivityPage {
   pageSize: number
 }
 
-export interface DataAdapter {
-  rooms(params: RoomsParams, signal?: AbortSignal): Promise<Room[]>
-  roomsPage(params: RoomsPageParams, signal?: AbortSignal): Promise<RoomsPage>
+export interface AdapterCapabilities {
+  readyImmediately: boolean
+  supportsRealtime: boolean
+  persistsWrites: boolean
+  isSampleData: boolean
+}
+
+export interface AuthAdapter extends AdapterCapabilities {
+  initial(): { loggedIn: boolean; user: Me | null }
+  restore(signal?: AbortSignal): Promise<Me | null>
+  subscribe(onChange: (loggedIn: boolean) => void): () => void
+  remember(loggedIn: boolean): void
+  login(body: LoginBody, signal?: AbortSignal): Promise<{ user: Me }>
+  register(body: RegisterBody, signal?: AbortSignal): Promise<{ user: Me }>
+  logout(signal?: AbortSignal): Promise<void>
+}
+
+export interface ProfileAdapter extends AdapterCapabilities {
+  initial(username?: string): UserProfile | undefined
+  load(username?: string, signal?: AbortSignal): Promise<UserProfile | undefined>
+  update(body: UpdateMeBody, signal?: AbortSignal): Promise<void>
+}
+
+export interface RoomsAdapter extends AdapterCapabilities {
+  initial(params: RoomsParams): Room[]
+  initialPage(params: RoomsPageParams): RoomsPage
+  initialRoom(code?: string): Room | undefined
+  list(params: RoomsParams, signal?: AbortSignal): Promise<Room[]>
+  page(params: RoomsPageParams, signal?: AbortSignal): Promise<RoomsPage>
   room(code: string, signal?: AbortSignal): Promise<Room | undefined>
-  roomMessages(code: string, signal?: AbortSignal): Promise<ChatMessage[]>
-  tournaments(params: TournamentsParams, signal?: AbortSignal): Promise<Tournament[]>
+  create(body: CreateRoomBody, signal?: AbortSignal): Promise<{ code: string }>
+  join(code: string, signal?: AbortSignal): Promise<{ code: string }>
+}
+
+export interface ChatAdapter extends AdapterCapabilities {
+  initial(code?: string): ChatMessage[]
+  messages(code: string, signal?: AbortSignal): Promise<ChatMessage[]>
+}
+
+export interface TournamentsAdapter extends AdapterCapabilities {
+  initial(params: TournamentsParams): Tournament[]
+  initialTournament(slug?: string): TournamentDetail | undefined
+  list(params: TournamentsParams, signal?: AbortSignal): Promise<Tournament[]>
   tournament(slug: string, signal?: AbortSignal): Promise<TournamentDetail | undefined>
-  profile(username?: string, signal?: AbortSignal): Promise<UserProfile | undefined>
-  activities(params: ActivitiesParams, signal?: AbortSignal): Promise<ActivityPage>
+  create(body: CreateTournamentBody, signal?: AbortSignal): Promise<{ slug: string }>
+}
+
+export interface RegistrationsAdapter extends AdapterCapabilities {
+  initial(): Registration[]
+  list(slug: string, signal?: AbortSignal): Promise<Registration[]>
+}
+
+export interface ActivitiesAdapter extends AdapterCapabilities {
+  initial(params: ActivitiesParams): ActivityPage
+  list(params: ActivitiesParams, signal?: AbortSignal): Promise<ActivityPage>
+}
+
+export interface SearchAdapter extends AdapterCapabilities {
+  initial(q: string): SearchResult
   search(q: string, signal?: AbortSignal): Promise<SearchResult>
+}
+
+export interface DataAdapter {
+  auth: AuthAdapter
+  profile: ProfileAdapter
+  rooms: RoomsAdapter
+  chat: ChatAdapter
+  tournaments: TournamentsAdapter
+  registrations: RegistrationsAdapter
+  activities: ActivitiesAdapter
+  search: SearchAdapter
 }

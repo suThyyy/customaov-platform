@@ -3,7 +3,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { Registration, TournamentDetail as ApiTournamentDetail } from '@customaov/contracts'
 import { AppProviders } from '../context/AppContext'
-import { clearDataCache, endpoints } from '../api'
+import { clearDataCache } from '../api'
+import { endpoints } from '../api/endpoints'
 import TournamentDetail from './TournamentDetail'
 
 // Chế độ api cho toàn bộ module (hooks, AppContext, trang).
