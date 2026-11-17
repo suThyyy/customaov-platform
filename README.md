@@ -29,6 +29,16 @@ npm ci && npm run dev:all
 - Backend API: `http://127.0.0.1:6174` (Vite proxy `/api` tới `API_TARGET`)
 - Bấm `Ctrl+C` để tắt cả hai tiến trình.
 
+### Chỉ chạy frontend
+
+Frontend có thể cài đặt và chạy độc lập, không cần khởi động Fastify hay PGlite:
+
+```sh
+npm ci && npm run dev:web
+```
+
+Lệnh này mặc định dùng dữ liệu mock. Các script `e2e-*-api.mjs` là kiểm thử backend thật và cần chạy `npm run dev:all`.
+
 ### Tài khoản demo
 
 Dữ liệu mẫu sau khi seed bao gồm tài khoản demo:
@@ -44,11 +54,12 @@ Chạy từ thư mục gốc:
 | --- | --- |
 | `npm run dev:all` | Khởi chạy đồng thời backend API (PGlite, tự seed nếu DB trống) và frontend web ở chế độ API. |
 | `npm run dev:api` | Khởi chạy riêng dev server của backend API (Fastify với `tsx watch`). |
-| `npm run dev:web` | Khởi chạy riêng dev server của frontend (Vite). |
+| `npm run dev:web` | Khởi chạy riêng dev server của frontend (Vite, mặc định dữ liệu mock). |
 | `npm run build` | Build tất cả package theo thứ tự: `@customaov/team-core` → `@customaov/contracts` → `@customaov/api` → `base-frontend-web`. |
 | `npm run lint` | Chạy ESLint cho frontend và typecheck (`tsc --noEmit`) cho `team-core`, `contracts`, `api`. |
 | `npm test` | Chạy unit test của cả 4 package (`team-core`, `contracts`, frontend, `api`). |
 | `npm run test:e2e` | Chạy bộ kiểm thử E2E xác thực (mock mode) cho frontend. |
+| `npm run test:e2e:mock --workspace base-frontend-web` | Alias tường minh của `test:e2e`; chỉ cần dev server frontend mock. |
 
 ## Chạy test và E2E
 
