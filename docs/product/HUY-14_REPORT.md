@@ -46,3 +46,38 @@ Ngày kiểm tra: 17/11/2026. Toàn bộ unit test dùng fake Supabase client. K
 | Unit test Supabase | PASS: Auth 5, Profile 3, Room 3, Realtime 3, View 1. |
 
 Lead vẫn cần tự kiểm chứng read-only trên Supabase Production theo hàng rào của issue; báo cáo này không tuyên bố integration test Supabase.
+
+## Bổ sung của Lead (18/11/2026)
+
+### E2E chế độ `api` (Platform) – không hồi quy
+Chạy qua `npm run dev:all` (web 5198, API 6198, PGlite thư mục tạm, khởi động lại trước mỗi script):
+`e2e-auth-api` 5/5 · `e2e-rooms-api` 7/7 · `e2e-tournament-api` 14/14 – đều PASS.
+
+Trong lúc chạy phát hiện **lỗi có từ HUY-13**: `predev` của web build lại (và xoá) `contracts/dist` khi API (`tsx watch`) đang chạy, khiến `dev:all` crash `ERR_MODULE_NOT_FOUND`. Đã sửa ở commit `2872a30` (`dev:all` build shared một lần, web chạy `--ignore-scripts`).
+
+### Kiểm chứng thật trên Supabase – CHỈ ĐỌC (theo hàng rào Owner)
+- Môi trường: project `mbgiwrocfacxianindfp` (**Production**, Owner chỉ cho phép đọc). Không có staging.
+- Revision migration tham chiếu: ProjectCustom commit `595a24e`, migration mới nhất `20261104_huy11_*` (PO xác nhận đã APPLIED ở HUY-11). Không chạy hay sửa migration.
+- Tài khoản: `test-1`, `test-2` (tài khoản test có sẵn do PO cung cấp; không ghi email/mật khẩu vào repo).
+- Công cụ: Playwright, web chế độ `VITE_DATA_SOURCE=supabase` ở cổng 5198, ghi lại mọi request ra ngoài.
+
+| Kiểm tra | test-1 | test-2 |
+| --- | --- | --- |
+| Đăng nhập email + mật khẩu từ React | PASS | PASS |
+| Phiên lưu bởi supabase-js, tải lại trang vẫn đăng nhập | PASS | PASS |
+| Hồ sơ đọc từ `profiles` + `game_profiles`, không lỗi | PASS | PASS |
+| Mở phòng không có quyền/không tồn tại: thông báo lỗi, không lộ hàng chờ | PASS | PASS |
+| Đăng xuất: token Supabase bị xoá, header về khách | PASS | PASS |
+| Sau đăng xuất mở lại phòng: bị chặn về `/?login=login&next=…` (không giữ state cũ) | PASS | PASS |
+| Không gọi Platform Fastify/REST/WS | PASS (0 request) | PASS (0 request) |
+| Không có request ghi ngoài `auth/v1/token`, `auth/v1/logout` | PASS | PASS |
+
+Request tới Supabase quan sát được: `POST auth/v1/token`, `GET rest/v1/profiles`, `GET rest/v1/game_profiles`, `POST rest/v1/rpc/read_open_room_state` (hàm `stable security invoker`, chỉ đọc), `POST auth/v1/logout`. Không tạo tài khoản Platform nào.
+
+### Tiêu chí CHƯA kiểm chứng được (không đánh dấu đạt)
+- **Snapshot phòng, Waiting/Selected, thứ tự FIFO khớp dữ liệu thật**: hai tài khoản test không là thành viên phòng nào, RLS chỉ cho thành viên đọc. Chỉ có unit test với client giả.
+- **Realtime thấy trên ≥ 2 client**: websocket Realtime mở được, nhưng không có phòng/thay đổi để quan sát; không được tự ghi trên Production.
+- **Reconnect/stale-state với dữ liệu thật**: chỉ có unit test.
+- **Đăng ký + OTP**: chỉ có code + unit test (Owner cấm đăng ký trên Production).
+
+Cần một trong hai để đóng: staging Supabase có áp migrations + cho phép test ghi, hoặc PO duyệt ghi tối thiểu trên Production (tài khoản test tạo 1 phòng test, vào hàng chờ, quan sát 2 client, đóng phòng).
