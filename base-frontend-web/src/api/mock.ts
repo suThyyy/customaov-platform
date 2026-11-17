@@ -107,6 +107,7 @@ const capabilities = { readyImmediately: true, supportsRealtime: false, persists
 export const mockAdapter: DataAdapter = {
   auth: {
     ...capabilities,
+    authFlow: 'sample',
     initial: () => ({ loggedIn: readSession(), user: null }),
     restore: (_signal) => resolved(null, _signal),
     subscribe(onChange) {

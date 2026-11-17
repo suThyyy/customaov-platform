@@ -8,6 +8,7 @@ const capabilities = { readyImmediately: false, supportsRealtime: true, persists
 export const httpAdapter: DataAdapter = {
   auth: {
     ...capabilities,
+    authFlow: 'platform',
     initial: () => ({ loggedIn: false, user: null }),
     async restore(signal) { return (await endpoints.me(signal)).user },
     subscribe: () => () => undefined,

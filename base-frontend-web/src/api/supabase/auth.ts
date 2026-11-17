@@ -59,11 +59,17 @@ export const supabaseAuthAdapter: AuthAdapter = {
     return meFromUser(data.session?.user)
   },
   subscribe(onChange) {
+    let currentUserId: string | null = null
     const { data } = getSupabaseClient().auth.onAuthStateChange((_event, session) => {
-      void meFromUser(session?.user).then(
-        (user) => onChange(Boolean(user), user),
-        () => onChange(false, null),
-      )
+      const nextUserId = isAnonymousSupabaseUser(session?.user) ? null : session?.user?.id ?? null
+      void (async () => {
+        if (currentUserId !== null && currentUserId !== nextUserId) {
+          await clearSupabaseRuntime()
+          clearDataCache()
+        }
+        currentUserId = nextUserId
+        return meFromUser(session?.user)
+      })().then((user) => onChange(Boolean(user), user), () => onChange(false, null))
     })
     return () => data.subscription.unsubscribe()
   },

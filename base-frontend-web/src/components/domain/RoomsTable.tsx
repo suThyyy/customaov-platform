@@ -3,13 +3,14 @@ import type { RoomMode } from '@customaov/contracts'
 import { Eye, Gamepad2, LogIn, MoreHorizontal, Search, SearchX, UserRound, X } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { isRoomMember, roomAction, roomMode, type RoomAction } from '../../lib/room'
-import { roomFullTitle, useRoomsPage, type LoadStatus, type Room } from '../../api'
+import { roomFullTitle, roomsAdapter, useRoomsPage, type LoadStatus, type Room } from '../../api'
 import { Button, IconButton } from '../ui/Button'
 import { Avatar, Badge, Card, Chip, CrownMark, SectionTitle, SeeAllLink } from '../ui/primitives'
 import { FilterChips } from '../ui/FilterChips'
 import { ListStatus, SkeletonRows } from '../ui/ListStatus'
 import { Pagination } from '../ui/Pagination'
 import { EmptyState } from './EmptyState'
+import { SampleDataBadge } from '../ui/SampleDataBadge'
 
 /**
  * Thành viên phòng: chế độ api dùng `isMember` của server (danh sách không kèm đội);
@@ -248,7 +249,7 @@ export function ActiveRoomsCard({
         size="lg"
         icon={<Gamepad2 size={24} className="fill-gold/15" />}
         title="Phòng custom đang hoạt động"
-        action={<SeeAllLink onClick={onSeeAll}>Xem tất cả</SeeAllLink>}
+        action={<span className="flex items-center gap-2"><SampleDataBadge show={roomsAdapter.showsSampleBadge} /><SeeAllLink onClick={onSeeAll}>Xem tất cả</SeeAllLink></span>}
       />
       {server && (
         <div role="search" aria-label="Tìm phòng" className="mt-3">

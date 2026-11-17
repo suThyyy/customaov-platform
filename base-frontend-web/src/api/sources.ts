@@ -3,7 +3,7 @@ import { DATA_SOURCE } from './source'
 export type Source = 'mock' | 'api' | 'supabase'
 export type Feature = 'auth' | 'profile' | 'rooms' | 'chat' | 'tournaments' | 'registrations' | 'activities' | 'search'
 
-const supabaseSources: Record<Feature, Source> = {
+export const SUPABASE_FEATURE_SOURCES: Record<Feature, Source> = {
   auth: 'supabase',
   profile: 'supabase',
   rooms: 'supabase',
@@ -15,7 +15,7 @@ const supabaseSources: Record<Feature, Source> = {
 }
 
 export const FEATURE_SOURCES: Record<Feature, Source> = DATA_SOURCE === 'supabase'
-  ? supabaseSources
+  ? SUPABASE_FEATURE_SOURCES
   : {
       auth: DATA_SOURCE,
       profile: DATA_SOURCE,

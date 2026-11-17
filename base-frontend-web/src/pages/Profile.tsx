@@ -85,7 +85,9 @@ export default function Profile() {
     )
   }
   // Giữ nguyên màn hồ sơ công khai giả lập; nguồn API có đầy đủ số liệu hồ sơ người khác.
-  if (profileAdapter.isSampleData && userId && userId !== currentUser.id) return <OtherProfile userId={userId} profile={load.data} />
+  if ((profileAdapter.publicProfileIsLimited || profileAdapter.isSampleData) && userId && userId !== currentUser.id) {
+    return <OtherProfile userId={userId} profile={load.data} />
+  }
   if (!load.data) return <ProfileNotFound userId={userId} />
   return <MyProfile profile={load.data} load={load} isOwn={!userId || userId === currentUser.id} />
 }

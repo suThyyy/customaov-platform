@@ -66,12 +66,6 @@ export interface EmailAuthCapability {
   verifyOtp(email: string, token: string): Promise<{ user: Me }>
 }
 
-export interface EmailAuthCapability {
-  login(email: string, password: string): Promise<{ user: Me }>
-  signUp(email: string, password: string, displayName: string): Promise<{ needsOtp: boolean; user: Me | null }>
-  verifyOtp(email: string, token: string): Promise<{ user: Me }>
-}
-
 export interface AuthAdapter extends AdapterCapabilities {
   authFlow?: 'sample' | 'platform' | 'supabase'
   emailAuth?: EmailAuthCapability
@@ -85,6 +79,7 @@ export interface AuthAdapter extends AdapterCapabilities {
 }
 
 export interface ProfileAdapter extends AdapterCapabilities {
+  publicProfileIsLimited?: boolean
   initial(username?: string): UserProfile | undefined
   load(username?: string, signal?: AbortSignal): Promise<UserProfile | undefined>
   update(body: UpdateMeBody, signal?: AbortSignal): Promise<void>
@@ -92,6 +87,7 @@ export interface ProfileAdapter extends AdapterCapabilities {
 }
 
 export interface RoomsAdapter extends AdapterCapabilities {
+  roomView?: 'open-room'
   initial(params: RoomsParams): Room[]
   initialPage(params: RoomsPageParams): RoomsPage
   initialRoom(code?: string): Room | undefined

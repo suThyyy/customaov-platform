@@ -1,7 +1,12 @@
 export class SupabaseAdapterError extends Error {
-  constructor(message: string, readonly code?: string, readonly status?: number) {
+  readonly code?: string
+  readonly status?: number
+
+  constructor(message: string, code?: string, status?: number) {
     super(message)
     this.name = 'SupabaseAdapterError'
+    this.code = code
+    this.status = status
   }
 }
 

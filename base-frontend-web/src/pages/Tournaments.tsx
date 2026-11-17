@@ -23,7 +23,7 @@ import { cn } from '../lib/cn'
 import { normalizeVi } from '../lib/text'
 import { ListStatus, SkeletonCards } from '../components/ui/ListStatus'
 import { useAuth } from '../context/AppContext'
-import { useTournaments, type StageStatus, type Tournament, type TournamentStatus } from '../api'
+import { tournamentsAdapter, useTournaments, type StageStatus, type Tournament, type TournamentStatus } from '../api'
 import { Button, ButtonLink } from '../components/ui/Button'
 import { Badge } from '../components/ui/primitives'
 import { FilterChips } from '../components/ui/FilterChips'
@@ -32,6 +32,7 @@ import { PageHeader } from '../components/layout/PageHeader'
 import { loginHref } from '../components/layout/nav'
 import { EmptyState } from '../components/domain/EmptyState'
 import { RegistrationProgress } from '../components/domain/RegistrationProgress'
+import { SampleDataBadge } from '../components/ui/SampleDataBadge'
 
 type Filter = 'all' | TournamentStatus
 type Sort = 'newest' | 'oldest'
@@ -110,12 +111,12 @@ export default function Tournaments() {
         title="Giải đấu cộng đồng"
         description="Tham gia các giải đấu custom do cộng đồng tổ chức, tranh tài cùng những đội tuyển trên khắp Liên Quân."
         actions={
-          <ButtonLink
-            to={loggedIn ? '/tournaments/new' : loginHref('login', '/tournaments/new')}
-            leftIcon={<Plus size={18} aria-hidden />}
-          >
-            Tạo giải đấu
-          </ButtonLink>
+          <span className="flex flex-wrap items-center gap-3">
+            <SampleDataBadge show={tournamentsAdapter.showsSampleBadge} />
+            <ButtonLink to={loggedIn ? '/tournaments/new' : loginHref('login', '/tournaments/new')} leftIcon={<Plus size={18} aria-hidden />}>
+              Tạo giải đấu
+            </ButtonLink>
+          </span>
         }
       />
 

@@ -15,7 +15,7 @@ import {
 import { asset } from '../lib/asset'
 import { cn } from '../lib/cn'
 import { useAuth } from '../context/AppContext'
-import { communityStats, useRooms, useTournaments, type RoomMember } from '../api'
+import { communityStats, roomsAdapter, tournamentsAdapter, useRooms, useTournaments, type RoomMember } from '../api'
 import { SkipLink } from '../components/layout/AppShell'
 import { BottomNav } from '../components/layout/BottomNav'
 import { Container } from '../components/layout/Container'
@@ -31,6 +31,7 @@ import { EmptyState } from '../components/domain/EmptyState'
 import { ListStatus, SkeletonRows } from '../components/ui/ListStatus'
 import { TournamentPromoCard } from '../components/domain/TournamentPromoCard'
 import { LoginModal, type LoginIntent } from '../components/LoginModal'
+import { SampleDataBadge } from '../components/ui/SampleDataBadge'
 
 const INTENTS: LoginIntent[] = ['login', 'register', 'start']
 
@@ -231,6 +232,7 @@ export default function HomeGuest() {
             eyebrow="Xem trước"
             title="Chia đội công bằng, nhìn là hiểu"
             description="Hai đội được cân bằng theo trình độ, mỗi người một lane. Không ưng thì chia lại hoặc đổi chỗ thủ công."
+            action={<SampleDataBadge show={roomsAdapter.showsSampleBadge} />}
           >
             {rooms[0] && <TeamSplitPreview blue={rooms[0].teams.blue} red={rooms[0].teams.red} />}
           </Section>
@@ -241,7 +243,7 @@ export default function HomeGuest() {
             eyebrow="Đang hoạt động"
             title="Phòng đang mở"
             description="Một vài phòng custom đang chờ người chơi. Đăng nhập để vào phòng."
-            action={<SeeAllLink to={loginHref('login', '/dashboard#rooms')}>Xem tất cả phòng</SeeAllLink>}
+            action={<span className="flex flex-wrap items-center gap-3"><SampleDataBadge show={roomsAdapter.showsSampleBadge} /><SeeAllLink to={loginHref('login', '/dashboard#rooms')}>Xem tất cả phòng</SeeAllLink></span>}
           >
             <ListStatus
               status={roomLoad.status}
@@ -266,7 +268,7 @@ export default function HomeGuest() {
           </Section>
 
           {/* Cộng đồng: con số + giải nổi bật */}
-          <Section id="community" eyebrow="Cộng đồng" title="Cộng đồng Custom Liên Quân">
+          <Section id="community" eyebrow="Cộng đồng" title="Cộng đồng Custom Liên Quân" action={<SampleDataBadge show={tournamentsAdapter.showsSampleBadge} />}>
             <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
               <div className="flex min-w-0 flex-col gap-6">
                 <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
