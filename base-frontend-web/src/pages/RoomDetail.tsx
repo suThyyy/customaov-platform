@@ -59,8 +59,8 @@ import { ListStatus, SkeletonRows } from '../components/ui/ListStatus'
 import {
   ApiError,
   currentUser,
-  DATA_SOURCE,
-  endpoints,
+  roomActions,
+  roomsAdapter,
   isRoomDetail,
   useApiRoom,
   useApiRoomMessages,
@@ -129,7 +129,7 @@ const nowHHMM = () => {
  * Chế độ `api` tải phòng từ server, mọi thao tác gọi API và nhận cập nhật qua WebSocket.
  */
 export default function RoomDetail() {
-  return DATA_SOURCE === 'api' ? <ApiRoomDetail /> : <MockRoomDetail />
+  return roomsAdapter.supportsRealtime ? <ApiRoomDetail /> : <MockRoomDetail />
 }
 
 function MockRoomDetail() {
@@ -330,8 +330,8 @@ function ApiRoomLoader({ code, joinKey }: { code?: string; joinKey?: string }) {
     // Khán giả muốn vào đội: server yêu cầu rời vai khán giả trước (join khi đã là thành viên → 409).
     const switching = as === 'player' && myRole === 'spectator'
     const room = await run(as === 'player' ? 'Không thể vào phòng' : 'Không thể vào xem', async () => {
-      if (switching) await endpoints.leaveRoom(code)
-      return endpoints.joinRoom(code, joinKey ? { as, key: joinKey } : { as })
+      if (switching) await roomActions.leave(code)
+      return roomActions.join(code, joinKey ? { as, key: joinKey } : { as })
     })
     if (!room) {
       if (switching) reload()
@@ -407,7 +407,7 @@ function ApiRoomView({
 
   const split = async (request: TeamSplitRequest) => {
     const next = await run('Không thể chia đội', () =>
-      endpoints.splitRoom(code, request.mode === 'random' ? { mode: 'random' } : { mode: 'tier' }),
+      roomActions.split(code, request.mode === 'random' ? { mode: 'random' } : { mode: 'tier' }),
     )
     if (!next) return
     if (next.lastSplit?.warning) notify('Chưa đạt mức cân bằng mong muốn', 'Đã chọn phương án chia gần 50/50 nhất có thể.')
@@ -426,7 +426,7 @@ function ApiRoomView({
     const targetUserId = targetId ? userIdOf(targetId) : undefined
     if (!userId) return
     const next = await run('Không thể đổi đội', () =>
-      endpoints.moveRoomMember(code, targetUserId ? { userId, to, targetUserId } : { userId, to }),
+      roomActions.moveMember(code, targetUserId ? { userId, to, targetUserId } : { userId, to }),
     )
     if (next) notify(check.swapped ? `Đã đổi chỗ ${nameOf(playerId)} và ${check.swapped}` : `Đã chuyển ${nameOf(playerId)} sang ${TEAM_NAME[to]}`)
   }
@@ -434,14 +434,14 @@ function ApiRoomView({
   const kick = async (member: RoomMember) => {
     const userId = userIdOf(member.player.id)
     if (!userId) return
-    const next = await run('Không thể mời ra khỏi phòng', () => endpoints.kickRoomMember(code, { userId }))
+    const next = await run('Không thể mời ra khỏi phòng', () => roomActions.kickMember(code, { userId }))
     if (next) notify(`Đã mời ${member.player.name} ra khỏi phòng`, 'Chỗ trống có thể mời người khác vào.')
   }
 
   const exportResult = async () => {
     let text: string
     try {
-      text = await endpoints.exportRoom(code)
+      text = await roomActions.export(code)
     } catch (error) {
       notify('Không thể xuất kết quả', errorText(error))
       return
@@ -454,7 +454,7 @@ function ApiRoomView({
   }
 
   const randomLanes = async () => {
-    const next = await run('Không thể random lane', () => endpoints.randomLanes(code))
+    const next = await run('Không thể random lane', () => roomActions.randomLanes(code))
     if (next) notify('Đã random lane', 'Mỗi đội có đủ 5 vị trí, không trùng nhau.')
   }
 
@@ -467,25 +467,25 @@ function ApiRoomView({
     busy,
     join,
     leave: async () => {
-      const next = await run('Không thể rời phòng', () => endpoints.leaveRoom(code))
+      const next = await run('Không thể rời phòng', () => roomActions.leave(code))
       if (!next) return
       notify(`Đã rời phòng #${code}`)
       onLeft()
     },
-    setLane: (lane) => void run('Không thể chọn lane', () => endpoints.updateRoomMe(code, { lane })),
+    setLane: (lane) => void run('Không thể chọn lane', () => roomActions.updateMe(code, { lane })),
     toggleReady: async () => {
-      const next = await run('Không thể cập nhật sẵn sàng', () => endpoints.updateRoomMe(code, { ready: !me?.ready }))
+      const next = await run('Không thể cập nhật sẵn sàng', () => roomActions.updateMe(code, { ready: !me?.ready }))
       if (next) notify(me?.ready ? 'Đã huỷ sẵn sàng' : 'Đã sẵn sàng', me?.ready ? undefined : 'Chờ chủ phòng chia đội và bắt đầu.')
     },
     submitResult: async (winner) => {
-      const next = await run('Không thể ghi kết quả', () => endpoints.roomResult(code, { winner }))
+      const next = await run('Không thể ghi kết quả', () => roomActions.result(code, { winner }))
       if (next) notify('Đã ghi kết quả trận', `${TEAM_NAME[winner]} thắng. Phòng đã kết thúc.`)
     },
   }
 
   const send = async (text: string): Promise<boolean> => {
     try {
-      onMessage(await endpoints.createMessage(code, { text }))
+      onMessage(await roomActions.createMessage(code, { text }))
       return true
     } catch (error) {
       notify('Không gửi được tin nhắn', errorText(error))

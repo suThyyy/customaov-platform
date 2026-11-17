@@ -2,7 +2,7 @@ import { Fragment, useEffect, useId, useState, type FormEvent } from 'react'
 import { CreateRegistrationBodySchema } from '@customaov/contracts'
 import { UserPlus } from 'lucide-react'
 import { cn } from '../../lib/cn'
-import { ApiError, endpoints, type Registration } from '../../api'
+import { ApiError, registrationActions, type Registration } from '../../api'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 
@@ -106,7 +106,7 @@ export function RegisterTeamDialog({
     setErrors({})
     setSubmitting(true)
     try {
-      const registration = await endpoints.createRegistration(slug, parsed.data)
+      const registration = await registrationActions.create(slug, parsed.data)
       await onRegistered(registration)
     } catch (err: unknown) {
       setFormError(formatRegistrationError(err))

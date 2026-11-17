@@ -22,7 +22,7 @@ interface HitGroup {
 /**
  * Hộp tìm kiếm toàn cục (mở bằng Ctrl/⌘ K hoặc nút tìm kiếm ở TopNav, đóng bằng Esc).
  * - mock: lọc trên mock data, ô trống hiện gợi ý.
- * - api (`VITE_DATA_SOURCE=api`): `GET /api/search?q=` (debounce 250ms, huỷ request cũ), cần ≥ 2 ký tự.
+ * - nguồn api: `GET /api/search?q=` (debounce 250ms, huỷ request cũ), cần ≥ 2 ký tự.
  * Bàn phím: ↑/↓ chọn kết quả, Enter mở kết quả đang chọn (focus luôn ở ô nhập – mẫu combobox).
  */
 export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => void }) {

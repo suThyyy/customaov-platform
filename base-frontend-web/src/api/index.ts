@@ -5,14 +5,12 @@ import {
   type CreateTournamentBody,
   type UpdateMeBody,
 } from '@customaov/contracts'
-import { endpoints } from './endpoints'
+import { profileAdapter, roomsAdapter, tournamentsAdapter } from './adapters'
 import { clearDataCache } from './hooks'
-import { createMockTournament } from './mock'
-import { DATA_SOURCE } from './source'
 
-export { endpoints } from './endpoints'
 export { ApiError, apiRequest } from './client'
-export { DATA_SOURCE } from './source'
+export { authAdapter, profileAdapter, roomsAdapter, chatAdapter, tournamentsAdapter, registrationsAdapter, activitiesAdapter, searchAdapter } from './adapters'
+export { registrationActions, roomActions } from './actions'
 export { timeAgo } from './time'
 export type { ActivitiesParams, ActivityPage } from './adapter'
 export { WINS_NEEDED, organizerActions, organizerErrorMessage, seriesOf, vietnamIso } from './organizer'
@@ -25,13 +23,12 @@ export * from './realtime'
 
 export async function createTournament(body: CreateTournamentBody, signal?: AbortSignal): Promise<{ slug: string }> {
   const parsed = CreateTournamentBodySchema.parse(body)
-  if (DATA_SOURCE === 'api') return endpoints.createTournament(parsed, signal)
-  return createMockTournament(parsed, signal)
+  return tournamentsAdapter.create(parsed, signal)
 }
 
 export async function updateProfile(body: UpdateMeBody, signal?: AbortSignal): Promise<void> {
   const parsed = UpdateMeBodySchema.parse(body)
-  if (DATA_SOURCE === 'api') await endpoints.updateMe(parsed, signal)
+  await profileAdapter.update(parsed, signal)
 }
 
 /**
@@ -40,15 +37,14 @@ export async function updateProfile(body: UpdateMeBody, signal?: AbortSignal): P
  * Lỗi (409 phòng đầy / đang ở phòng khác, 403, 429…) ném `ApiError` cho nơi gọi hiện toast.
  */
 export async function joinRoom(code: string, signal?: AbortSignal): Promise<{ code: string }> {
-  if (DATA_SOURCE !== 'api') return { code }
-  const room = await endpoints.joinRoom(code, { as: 'player' }, signal)
+  const room = await roomsAdapter.join(code, signal)
   clearDataCache() // danh sách phòng, "phòng của bạn", chi tiết phòng đều đổi
   return { code: room.code }
 }
 
 /** Tạo phòng (`POST /api/rooms`, chỉ chế độ api). Trả về mã phòng server sinh. */
 export async function createRoom(body: CreateRoomBody, signal?: AbortSignal): Promise<{ code: string }> {
-  const room = await endpoints.createRoom(body, signal)
+  const room = await roomsAdapter.create(body, signal)
   clearDataCache()
   return { code: room.code }
 }

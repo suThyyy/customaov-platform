@@ -2,17 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { AppProviders } from '../context/AppContext'
-import { ApiError, endpoints } from '../api'
+import { ApiError } from '../api'
+import { endpoints } from '../api/endpoints'
 import { LoginModal } from './LoginModal'
 import { RequireAuth } from './layout/RequireAuth'
 
-vi.mock('../api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../api')>()
-  return {
-    ...actual,
-    DATA_SOURCE: 'api',
-  }
-})
+vi.mock('../api/source', () => ({ DATA_SOURCE: 'api' }))
 
 const sampleMe = {
   id: '00000000-0000-4000-8000-000000000001',

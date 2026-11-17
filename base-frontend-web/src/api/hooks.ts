@@ -9,24 +9,10 @@ import type {
   SearchResult,
   TournamentsParams,
 } from './adapter'
-import { endpoints } from './endpoints'
-import { httpAdapter } from './http'
-import {
-  mockAdapter,
-  readMockActivities,
-  readMockMessages,
-  readMockProfile,
-  readMockRoom,
-  readMockRooms,
-  readMockRoomsPage,
-  readMockSearch,
-  readMockTournament,
-  readMockTournaments,
-} from './mock'
-import { DATA_SOURCE } from './source'
+import { activitiesAdapter, chatAdapter, profileAdapter, registrationsAdapter, roomsAdapter, searchAdapter, tournamentsAdapter } from './adapters'
+import { sourceOf, type Feature } from './sources'
 import type { ChatMessage, Registration, Room, Tournament, TournamentDetail, UserProfile } from './types'
 
-const adapter = DATA_SOURCE === 'api' ? httpAdapter : mockAdapter
 const cache = new Map<string, unknown>()
 
 export const clearDataCache = (): void => cache.clear()
@@ -50,6 +36,7 @@ export function useResource<T>(
   fallback: T,
   load: (signal: AbortSignal) => Promise<T>,
   readyImmediately = false,
+  isSampleData = false,
 ): HookResult<T> {
   const mockStatus = useMockStatus()
   const loadRef = useRef(load)
@@ -62,7 +49,7 @@ export function useResource<T>(
   )
 
   useEffect(() => {
-    if (DATA_SOURCE === 'mock' && mockStatus.status !== 'ready') {
+    if (isSampleData && mockStatus.status !== 'ready') {
       setState((current) => ({ ...current, status: mockStatus.status, error: mockStatus.status === 'error' ? new Error('Mock error') : undefined }))
       return
     }
@@ -84,13 +71,13 @@ export function useResource<T>(
       },
     )
     return () => controller.abort()
-  }, [key, attempt, mockStatus.status, readyImmediately])
+  }, [key, attempt, mockStatus.status, readyImmediately, isSampleData])
 
   const retry = useCallback(() => {
-    if (DATA_SOURCE === 'mock' && mockStatus.status === 'error') mockStatus.retry()
+    if (isSampleData && mockStatus.status === 'error') mockStatus.retry()
     cache.delete(key)
     setAttempt((value) => value + 1)
-  }, [key, mockStatus])
+  }, [key, mockStatus, isSampleData])
 
   const refresh = useCallback(async () => {
     const data = await loadRef.current(new AbortController().signal)
@@ -101,74 +88,72 @@ export function useResource<T>(
   return { ...state, retry, refresh, reload: refresh }
 }
 
-const stableKey = (name: string, params?: object) => `${DATA_SOURCE}:${name}:${params ? JSON.stringify(params) : ''}`
+const stableKey = (feature: Feature, name: string, params?: object) => `${sourceOf(feature)}:${name}:${params ? JSON.stringify(params) : ''}`
 
 export const useRooms = (params: RoomsParams = {}): HookResult<Room[]> => {
-  const key = stableKey('rooms', params)
-  return useResource(key, DATA_SOURCE === 'mock' ? readMockRooms(params) : [], (signal) => adapter.rooms(params, signal), DATA_SOURCE === 'mock')
+  const key = stableKey('rooms', 'rooms', params)
+  return useResource(key, roomsAdapter.initial(params), (signal) => roomsAdapter.list(params, signal), roomsAdapter.readyImmediately, roomsAdapter.isSampleData)
 }
 
 /** Danh sách phòng có lọc/tìm/phân trang ở server (`GET /api/rooms`). Mỗi bộ tham số là một khoá cache. */
 export const useRoomsPage = (params: RoomsPageParams): HookResult<RoomsPage> => {
-  const key = stableKey('rooms-page', params)
+  const key = stableKey('rooms', 'rooms-page', params)
   return useResource(
     key,
-    DATA_SOURCE === 'mock' ? readMockRoomsPage(params) : { items: [], total: 0, page: params.page, pageSize: params.pageSize },
-    (signal) => adapter.roomsPage(params, signal),
-    DATA_SOURCE === 'mock',
+    roomsAdapter.initialPage(params),
+    (signal) => roomsAdapter.page(params, signal),
+    roomsAdapter.readyImmediately,
+    roomsAdapter.isSampleData,
   )
 }
 
 export const useRoom = (code: string | undefined): HookResult<Room | undefined> =>
   useResource(
-    stableKey('room', { code }),
-    DATA_SOURCE === 'mock' ? readMockRoom(code) : undefined,
-    (signal) => code ? adapter.room(code, signal) : Promise.resolve(undefined),
-    DATA_SOURCE === 'mock',
+    stableKey('rooms', 'room', { code }),
+    roomsAdapter.initialRoom(code),
+    (signal) => code ? roomsAdapter.room(code, signal) : Promise.resolve(undefined),
+    roomsAdapter.readyImmediately,
+    roomsAdapter.isSampleData,
   )
 
 export const useRoomMessages = (code: string | undefined): HookResult<ChatMessage[]> =>
   useResource(
-    stableKey('messages', { code }),
-    DATA_SOURCE === 'mock' ? readMockMessages(code) : [],
-    (signal) => code ? adapter.roomMessages(code, signal) : Promise.resolve([]),
-    DATA_SOURCE === 'mock',
+    stableKey('chat', 'messages', { code }),
+    chatAdapter.initial(code),
+    (signal) => code ? chatAdapter.messages(code, signal) : Promise.resolve([]),
+    chatAdapter.readyImmediately,
+    chatAdapter.isSampleData,
   )
 
 export const useTournaments = (params: TournamentsParams = {}): HookResult<Tournament[]> => {
-  const key = stableKey('tournaments', params)
-  return useResource(key, DATA_SOURCE === 'mock' ? readMockTournaments(params) : [], (signal) => adapter.tournaments(params, signal), DATA_SOURCE === 'mock')
+  const key = stableKey('tournaments', 'tournaments', params)
+  return useResource(key, tournamentsAdapter.initial(params), (signal) => tournamentsAdapter.list(params, signal), tournamentsAdapter.readyImmediately, tournamentsAdapter.isSampleData)
 }
 
 export const useTournament = (slug: string | undefined): HookResult<TournamentDetail | undefined> =>
   useResource(
-    stableKey('tournament', { slug }),
-    DATA_SOURCE === 'mock' ? readMockTournament(slug) : undefined,
-    (signal) => slug ? adapter.tournament(slug, signal) : Promise.resolve(undefined),
-    DATA_SOURCE === 'mock',
+    stableKey('tournaments', 'tournament', { slug }),
+    tournamentsAdapter.initialTournament(slug),
+    (signal) => slug ? tournamentsAdapter.tournament(slug, signal) : Promise.resolve(undefined),
+    tournamentsAdapter.readyImmediately,
+    tournamentsAdapter.isSampleData,
   )
 
 /** Đơn đăng ký của giải (chỉ BTC, chỉ chế độ api). */
 export const useRegistrations = (slug: string): HookResult<Registration[]> =>
-  useResource(stableKey('registrations', { slug }), [], (signal) => endpoints.registrations(slug, signal))
+  useResource(stableKey('registrations', 'registrations', { slug }), registrationsAdapter.initial(), (signal) => registrationsAdapter.list(slug, signal), registrationsAdapter.readyImmediately, registrationsAdapter.isSampleData)
 
 export const useProfile = (username?: string): HookResult<UserProfile | undefined> =>
-  useResource(stableKey('profile', { username }), DATA_SOURCE === 'mock' ? readMockProfile(username) : undefined, (signal) => adapter.profile(username, signal), DATA_SOURCE === 'mock')
-
-const EMPTY_ACTIVITY_PAGE = (params: ActivitiesParams): ActivityPage => ({
-  items: [],
-  total: 0,
-  page: params.page ?? 1,
-  pageSize: params.pageSize ?? 10,
-})
+  useResource(stableKey('profile', 'profile', { username }), profileAdapter.initial(username), (signal) => profileAdapter.load(username, signal), profileAdapter.readyImmediately, profileAdapter.isSampleData)
 
 /** Feed hoạt động của tôi, phân trang (`{items, total, page, pageSize}`). */
 export const useActivities = (params: ActivitiesParams = {}): HookResult<ActivityPage> =>
   useResource(
-    stableKey('activities', params),
-    DATA_SOURCE === 'mock' ? readMockActivities(params) : EMPTY_ACTIVITY_PAGE(params),
-    (signal) => adapter.activities(params, signal),
-    DATA_SOURCE === 'mock',
+    stableKey('activities', 'activities', params),
+    activitiesAdapter.initial(params),
+    (signal) => activitiesAdapter.list(params, signal),
+    activitiesAdapter.readyImmediately,
+    activitiesAdapter.isSampleData,
   )
 
 /** Chế độ api: chờ người dùng ngừng gõ 250ms mới gọi `GET /api/search`. */
@@ -202,15 +187,16 @@ export interface SearchHookResult extends HookResult<SearchResult> {
  * - api: debounce 250ms; mỗi lần từ khoá đổi, `useResource` huỷ request cũ bằng `AbortController`.
  */
 export function useSearch(q: string): SearchHookResult {
-  const isApi = DATA_SOURCE === 'api'
+  const isApi = !searchAdapter.readyImmediately
   const typed = isApi ? q.trim() : q
   const debounced = useDebouncedValue(typed, isApi ? SEARCH_DEBOUNCE_MS : 0)
   const tooShort = isApi && debounced.length < SEARCH_MIN_LENGTH
   const result = useResource(
-    stableKey('search', { q: debounced }),
-    isApi ? EMPTY_SEARCH : readMockSearch(debounced),
-    (signal) => (tooShort ? Promise.resolve(EMPTY_SEARCH) : adapter.search(debounced, signal)),
-    !isApi,
+    stableKey('search', 'search', { q: debounced }),
+    searchAdapter.initial(debounced),
+    (signal) => (tooShort ? Promise.resolve(EMPTY_SEARCH) : searchAdapter.search(debounced, signal)),
+    searchAdapter.readyImmediately,
+    searchAdapter.isSampleData,
   )
   // `tooShort` phản ánh ô nhập hiện tại (không phải giá trị đã debounce), để gợi ý "nhập thêm" hiện ngay.
   if (isApi && typed.length < SEARCH_MIN_LENGTH) {

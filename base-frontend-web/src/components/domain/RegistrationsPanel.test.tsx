@@ -2,8 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { AppProviders } from '../../context/AppContext'
-import { ApiError, endpoints, type Registration } from '../../api'
+import { ApiError, type Registration } from '../../api'
+import { endpoints } from '../../api/endpoints'
 import { RegistrationsPanel } from './RegistrationsPanel'
+
+vi.mock('../../api/source', () => ({ DATA_SOURCE: 'api' }))
 
 const user = (n: number) => ({
   id: `00000000-0000-4000-8000-0000000000${String(n).padStart(2, '0')}`,

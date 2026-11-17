@@ -19,7 +19,7 @@ import { ListStatus, SkeletonRows } from '../components/ui/ListStatus'
 import { useAuth, useToast } from '../context/AppContext'
 import {
   ApiError,
-  DATA_SOURCE,
+  roomsAdapter,
   currentUser,
   joinRoom,
   roomFullTitle,
@@ -64,7 +64,7 @@ export default function HomeUser() {
   const navigate = useNavigate()
   const { comingSoon, notify } = useToast()
   const { user } = useAuth()
-  const isApi = DATA_SOURCE === 'api'
+  const isApi = roomsAdapter.persistsWrites
   const userId = isApi ? user?.username : currentUser.id
   const displayName = isApi ? (user?.displayName ?? '') : currentUser.name
   // Chế độ api: bảng phòng tự gọi `GET /api/rooms` (phân trang ở server); ở đây chỉ cần "phòng của bạn" (`mine=1`)

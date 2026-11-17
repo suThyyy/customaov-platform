@@ -30,7 +30,7 @@ import { asset } from '../lib/asset'
 import { cn } from '../lib/cn'
 import { useToast } from '../context/AppContext'
 import { ListStatus, SkeletonRows } from '../components/ui/ListStatus'
-import { DATA_SOURCE, currentUser, useProfile, type Achievement, type HookResult, type MatchHistoryItem, type ProfileRecordHistoryItem, type RoleStat, type UserProfile } from '../api'
+import { currentUser, profileAdapter, useProfile, type Achievement, type HookResult, type MatchHistoryItem, type ProfileRecordHistoryItem, type RoleStat, type UserProfile } from '../api'
 import { Button, ButtonLink, IconButton } from '../components/ui/Button'
 import { Avatar, Badge, Card, LevelPill, SectionTitle, SeeAllLink } from '../components/ui/primitives'
 import { Tabs } from '../components/ui/Tabs'
@@ -85,7 +85,7 @@ export default function Profile() {
     )
   }
   // Giữ nguyên màn hồ sơ công khai giả lập; nguồn API có đầy đủ số liệu hồ sơ người khác.
-  if (DATA_SOURCE === 'mock' && userId && userId !== currentUser.id) return <OtherProfile userId={userId} profile={load.data} />
+  if (profileAdapter.isSampleData && userId && userId !== currentUser.id) return <OtherProfile userId={userId} profile={load.data} />
   if (!load.data) return <ProfileNotFound userId={userId} />
   return <MyProfile profile={load.data} load={load} isOwn={!userId || userId === currentUser.id} />
 }

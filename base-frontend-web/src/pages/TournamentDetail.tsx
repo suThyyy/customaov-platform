@@ -40,10 +40,10 @@ import { useAuth, useToast } from '../context/AppContext'
 import { ListStatus, SkeletonCards, SkeletonRows } from '../components/ui/ListStatus'
 import {
   ApiError,
-  DATA_SOURCE,
+  registrationActions,
   TOURNAMENT_STATUS_LABEL,
   clearDataCache,
-  endpoints,
+  tournamentsAdapter,
   useTournament,
   type HookResult,
   type BracketMatch,
@@ -129,7 +129,7 @@ function TournamentView({ d, load }: { d: Detail; load: HookResult<Detail | unde
   const location = useLocation()
 
   // Đăng ký đội: chỉ chế độ api. Mock giữ nút "Sắp có" như trước.
-  const apiMode = DATA_SOURCE === 'api'
+  const apiMode = tournamentsAdapter.persistsWrites
   const myReg = apiMode ? (d.myRegistration ?? null) : null
   const hasActiveReg = myReg !== null && (myReg.status === 'pending' || myReg.status === 'approved')
   const isOrganizer = apiMode && d.myRole === 'organizer'
@@ -420,7 +420,7 @@ function WithdrawDialog({
     setBusy(true)
     setError(null)
     try {
-      await endpoints.deleteRegistration(slug, registration.id)
+      await registrationActions.remove(slug, registration.id)
       await onWithdrawn()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Không thể kết nối máy chủ, vui lòng thử lại.')
@@ -872,7 +872,7 @@ function MatchBox({ match, final, onPlay }: { match: BracketMatch; final?: boole
 /* ---------------- Tab Lịch thi đấu / Kết quả ---------------- */
 
 function ScheduleTab({ d }: { d: Detail }) {
-  const groups = groupByDate(DATA_SOURCE === 'api' ? d.upcoming : scheduleOf(d))
+  const groups = groupByDate(tournamentsAdapter.isSampleData ? scheduleOf(d) : d.upcoming)
   if (groups.length === 0) {
     return (
       <EmptyState
@@ -900,15 +900,15 @@ function ScheduleTab({ d }: { d: Detail }) {
 }
 
 function ResultsTab({ d }: { d: Detail }) {
-  const results = DATA_SOURCE === 'api'
+  const results = !tournamentsAdapter.isSampleData
     ? d.results
     : scheduleOf(d)
         .filter((m) => m.score)
         .reverse()
-  const mockTop = DATA_SOURCE === 'mock' ? podium(d) : undefined
-  const champion = DATA_SOURCE === 'api' ? d.champion : mockTop?.champion
+  const mockTop = tournamentsAdapter.isSampleData ? podium(d) : undefined
+  const champion = tournamentsAdapter.isSampleData ? mockTop?.champion : d.champion
   const championshipResult = champion ? results.find((match) => winnerOf(match)?.id === champion.id) : undefined
-  const runnerUp = DATA_SOURCE === 'api'
+  const runnerUp = !tournamentsAdapter.isSampleData
     ? championshipResult && champion
       ? championshipResult.home.id === champion.id
         ? championshipResult.away
