@@ -56,12 +56,28 @@ export interface AdapterCapabilities {
   supportsRealtime: boolean
   persistsWrites: boolean
   isSampleData: boolean
+  /** Hiện nhãn khi mock đang là fallback của chế độ Supabase; mock thuần không hiện. */
+  showsSampleBadge?: boolean
+}
+
+export interface EmailAuthCapability {
+  login(email: string, password: string): Promise<{ user: Me }>
+  signUp(email: string, password: string, displayName: string): Promise<{ needsOtp: boolean; user: Me | null }>
+  verifyOtp(email: string, token: string): Promise<{ user: Me }>
+}
+
+export interface EmailAuthCapability {
+  login(email: string, password: string): Promise<{ user: Me }>
+  signUp(email: string, password: string, displayName: string): Promise<{ needsOtp: boolean; user: Me | null }>
+  verifyOtp(email: string, token: string): Promise<{ user: Me }>
 }
 
 export interface AuthAdapter extends AdapterCapabilities {
+  authFlow?: 'sample' | 'platform' | 'supabase'
+  emailAuth?: EmailAuthCapability
   initial(): { loggedIn: boolean; user: Me | null }
   restore(signal?: AbortSignal): Promise<Me | null>
-  subscribe(onChange: (loggedIn: boolean) => void): () => void
+  subscribe(onChange: (loggedIn: boolean, user?: Me | null) => void): () => void
   remember(loggedIn: boolean): void
   login(body: LoginBody, signal?: AbortSignal): Promise<{ user: Me }>
   register(body: RegisterBody, signal?: AbortSignal): Promise<{ user: Me }>
@@ -72,6 +88,7 @@ export interface ProfileAdapter extends AdapterCapabilities {
   initial(username?: string): UserProfile | undefined
   load(username?: string, signal?: AbortSignal): Promise<UserProfile | undefined>
   update(body: UpdateMeBody, signal?: AbortSignal): Promise<void>
+  requestGameUidChange?(gameUid: string): Promise<void>
 }
 
 export interface RoomsAdapter extends AdapterCapabilities {
