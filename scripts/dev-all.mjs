@@ -59,6 +59,20 @@ import { seedDatabase } from "./src/db/seed.js";
 });
 `;
 
+// Build shared packages once, before the API starts watching them. The web workspace's
+// `predev` would otherwise rebuild (and clean) `contracts/dist` while `tsx watch` is
+// running, crashing the API with ERR_MODULE_NOT_FOUND. The web child below therefore
+// runs with `--ignore-scripts` to skip `predev`.
+console.log("[dev:all] Building shared packages (team-core, contracts)...");
+const sharedBuild = spawnSync(
+  process.platform === "win32" ? "npm.cmd" : "npm",
+  ["run", "build:shared", "--workspace", "base-frontend-web"],
+  { cwd: rootDir, stdio: "inherit", shell: process.platform === "win32" },
+);
+if (sharedBuild.status !== 0) {
+  process.exit(sharedBuild.status ?? 1);
+}
+
 console.log("[dev:all] Checking database & migrations...");
 const seedResult = spawnSync(
   process.execPath,
@@ -85,7 +99,7 @@ const apiChild = spawn(npmCmd, ["run", "dev", "--workspace", "@customaov/api"], 
   shell: useShell,
 });
 
-const webArgs = ["run", "dev", "--workspace", "base-frontend-web"];
+const webArgs = ["run", "dev", "--ignore-scripts", "--workspace", "base-frontend-web"];
 if (process.env.WEB_PORT) {
   webArgs.push("--", "--port", webPort);
 }
