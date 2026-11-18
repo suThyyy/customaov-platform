@@ -92,3 +92,4 @@
   - Lần chạy cuối `50d39ac4…` đạt mọi kiểm tra; 10 phòng thử đều đã đóng.
   - Bug tìm ra và đã sửa: Start khi chưa đủ 5v5; replace xoá đội của cả 10 người (SQL `team=null` toàn phòng), nay UI lưu lại đội cũ sau replace.
   - Báo cáo: `docs/product/HUY-15_REPORT.md` (nhánh `feat/huy-15-room-mutations`, chưa push).
+- 18/11 · Owner · Duyệt push `feat/huy-15-room-mutations` + PR (base `feat/huy-14-supabase-adapters`). Đã push; gh chưa đăng nhập nên Owner tự tạo PR. Lỗi SQL replace báo Huy Hoàng sau.
