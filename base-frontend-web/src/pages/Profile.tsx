@@ -129,9 +129,8 @@ function ProfileHeader({
           <div className="shrink-0">{avatar}</div>
           <div className="min-w-0 flex-1">
             <h1 className="flex min-w-0 items-center gap-2 font-display text-2xl font-bold text-fg">
-              <span className="truncate" title={name}>
-                {name}
-              </span>
+              {/* Tiêu đề không được cắt "…" (AGENTS.md): tên dài xuống dòng, kể cả chuỗi không dấu cách */}
+              <span className="min-w-0 [overflow-wrap:anywhere]">{name}</span>
               {crowned && <Crown size={20} aria-label="Chủ phòng" className="shrink-0 fill-gold text-gold" />}
             </h1>
             {identity}

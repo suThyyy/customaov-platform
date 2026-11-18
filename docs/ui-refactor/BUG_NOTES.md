@@ -162,3 +162,9 @@
    - **UI-003 (`1280px`):** `on` (`sectionHeight=209`, `footerTop=1010`, `descGapToFooter=104`) vs `off` (`sectionHeight=209`, `footerTop=1010`, `descGapToFooter=104`) → `heightDiff = 0`, `footerTopDiff = 0`.
    - **UI-003 (`375px`):** `on` (`sectionHeight=229`) vs `off` (`sectionHeight=229`) → `heightDiff = 0` (lưu ý: `page.click` cuộn tới toggle trên màn `375px` nên toạ độ viewport của thanh `sticky` đổi theo `scrollY`, chiều cao khối vẫn giữ nguyên `229px`).
    - **UI-002 (`/profile`):** `h1FontSize = 24px` ở cả `375/768/1280px`; `editBtnTop = 280px` ngang hàng `h1Top = 276px` ở `768/1280px`; thử chuỗi `@username` và `UID` > 50 ký tự ở `375px` và `1280px` đều `overflow: false` (`scrollWidth === innerWidth`).
+
+## Ghi chú review (Lead, 18/11)
+**Nhìn thấy gì:** tên trên header hồ sơ dùng `truncate`, tên dài bị cắt thành `…`.
+**Vì sao là lỗi:** `AGENTS.md` mục Thiết kế quy định *tiêu đề và nhãn tab không được bị cắt `…`*; chỉ mô tả dài mới được cắt (kèm tooltip). Tên người dùng là `<h1>` của trang nên phải hiện đủ.
+**Sửa:** bỏ `truncate`, dùng `min-w-0 [overflow-wrap:anywhere]`: tên dài tự xuống dòng, kể cả chuỗi liền không có dấu cách (vd. `oqnvuz0704oqnvuz0704…`) vẫn không làm tràn khung. Dòng `@username · UID` vẫn được cắt + `title` vì đó là metadata, không phải tiêu đề.
+**Bài học:** trước khi chọn `truncate`, hỏi "đây là tiêu đề hay mô tả?". Tiêu đề → cho xuống dòng; mô tả/ID phụ → được cắt nhưng phải có tooltip.
