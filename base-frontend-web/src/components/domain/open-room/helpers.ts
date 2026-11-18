@@ -8,13 +8,21 @@ export const OPEN_ROOM_PHASE_LABEL: Record<OpenRoomRow['current_round_state'], s
 }
 
 export function buildLineupFromSelected(selected: readonly OpenRoomParticipant[]): OpenRoomLineupPlayer[] {
-  return selected.map((player, index) => ({
-    member_id: player.memberId,
-    team: player.team ?? (index < 5 ? 'a' : 'b'),
-    skill_mode: player.skillMode ?? 'random',
-    skill_value: player.skillValue ?? null,
-    skill_score: player.skillScore ?? null,
-  }))
+  const teamA = selected.filter((player) => player.team === 'a').length
+  const teamB = selected.filter((player) => player.team === 'b').length
+  if (selected.length !== 10 || teamA !== 5 || teamB !== 5) {
+    throw new Error('Đội hình phải đủ 5v5 trước khi lưu.')
+  }
+  return selected.map((player) => {
+    if (player.team !== 'a' && player.team !== 'b') throw new Error('Đội hình phải đủ 5v5 trước khi lưu.')
+    return {
+      member_id: player.memberId,
+      team: player.team,
+      skill_mode: player.skillMode ?? 'random',
+      skill_value: player.skillValue ?? null,
+      skill_score: player.skillScore ?? null,
+    }
+  })
 }
 
 export function buildRandomLineup(selected: readonly OpenRoomParticipant[]): OpenRoomLineupPlayer[] {

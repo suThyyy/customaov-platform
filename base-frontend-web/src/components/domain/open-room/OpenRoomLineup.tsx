@@ -46,9 +46,13 @@ export function OpenRoomLineup({
   const teamA = snapshot.selected.filter((player) => player.team === 'a')
   const teamB = snapshot.selected.filter((player) => player.team === 'b')
   const unassigned = snapshot.selected.filter((player) => player.team !== 'a' && player.team !== 'b')
+  const completeLineup = snapshot.selected.length === 10 && teamA.length === 5 && teamB.length === 5
+  const canAssignTeam = (team: 'a' | 'b') => unassigned.length === 1
+    && (team === 'a' ? teamA.length === 4 && teamB.length === 5 : teamB.length === 4 && teamA.length === 5)
+  const canAssignManually = canAssignTeam('a') || canAssignTeam('b')
 
   const handleSwap = async () => {
-    if (!selectedA || !selectedB || pending.saveLineup) return
+    if (!completeLineup || !selectedA || !selectedB || pending.saveLineup) return
     try {
       const lineup = buildLineupFromSelected(snapshot.selected)
       const swapped = swapLineupPlayers(lineup, selectedA, selectedB)
@@ -68,11 +72,15 @@ export function OpenRoomLineup({
   }
 
   const handleAssignTeam = async (memberId: string, team: 'a' | 'b') => {
-    if (pending.saveLineup || (team === 'a' ? teamA.length : teamB.length) >= 5) return
-    const lineup = buildLineupFromSelected(snapshot.selected).map((player) => (
-      player.member_id === memberId ? { ...player, team } : player
-    ))
-    await onSaveLineup(lineup)
+    if (pending.saveLineup || !canAssignTeam(team)) return
+    try {
+      const assigned = snapshot.selected.map((player) => (
+        player.memberId === memberId ? { ...player, team } : player
+      ))
+      await onSaveLineup(buildLineupFromSelected(assigned))
+    } catch (reason) {
+      onNotify(reason instanceof Error ? reason.message : 'Không thể xếp đội cho người chơi.')
+    }
   }
 
   const renderTeamColumn = (
@@ -99,7 +107,7 @@ export function OpenRoomLineup({
                   picked ? 'border-gold bg-gold-tint/40' : 'border-line bg-surface',
                 )}
               >
-                {permissions.saveLineup ? (
+                {permissions.saveLineup && completeLineup ? (
                   <button
                     type="button"
                     aria-pressed={picked}
@@ -137,7 +145,7 @@ export function OpenRoomLineup({
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-lg font-semibold">Đội hình 5v5</h2>
-          {permissions.saveLineup && (
+          {permissions.saveLineup && completeLineup && (
             <p className="text-xs text-fg-muted">Chọn 1 người ở Team A và 1 người ở Team B để đổi chỗ.</p>
           )}
         </div>
@@ -147,7 +155,7 @@ export function OpenRoomLineup({
               variant="outline"
               size="sm"
               leftIcon={<ArrowLeftRight size={14} aria-hidden />}
-              disabled={!selectedA || !selectedB || pending.saveLineup}
+              disabled={!completeLineup || !selectedA || !selectedB || pending.saveLineup}
               onClick={handleSwap}
             >
               {pending.saveLineup ? 'Đang lưu…' : 'Đổi chỗ'}
@@ -183,7 +191,7 @@ export function OpenRoomLineup({
                       variant="outline"
                       size="sm"
                       aria-label={`Vào Team A cho ${player.displayName}`}
-                      disabled={teamA.length >= 5 || pending.saveLineup}
+                      disabled={!canAssignTeam('a') || pending.saveLineup}
                       onClick={() => void handleAssignTeam(player.memberId, 'a')}
                     >
                       Vào Team A
@@ -192,7 +200,7 @@ export function OpenRoomLineup({
                       variant="outline"
                       size="sm"
                       aria-label={`Vào Team B cho ${player.displayName}`}
-                      disabled={teamB.length >= 5 || pending.saveLineup}
+                      disabled={!canAssignTeam('b') || pending.saveLineup}
                       onClick={() => void handleAssignTeam(player.memberId, 'b')}
                     >
                       Vào Team B
@@ -202,6 +210,9 @@ export function OpenRoomLineup({
               </li>
             ))}
           </ul>
+          {!canAssignManually && (
+            <p className="mt-2 text-xs text-fg-muted">Bấm Chia ngẫu nhiên để xếp lại đội hình</p>
+          )}
         </div>
       )}
     </Card>

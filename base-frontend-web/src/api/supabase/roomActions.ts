@@ -63,6 +63,42 @@ export function useOpenRoomActions(roomId: string, snapshot: OpenRoomSnapshot | 
   }, [roomId])
 
   const version = snapshot?.version ?? 0
+  const replace = (memberId: string) => {
+    const selectedBeforeReplace = snapshot?.selected ?? []
+    const teamBeforeReplace = new Map(selectedBeforeReplace.map((player) => [player.memberId, player.team]))
+    const replacedTeam = teamBeforeReplace.get(memberId)
+    const completeLineupBeforeReplace = selectedBeforeReplace.length === 10
+      && selectedBeforeReplace.filter((player) => player.team === 'a').length === 5
+      && selectedBeforeReplace.filter((player) => player.team === 'b').length === 5
+
+    return run('replace', async () => {
+      const replaced = await replaceOpenRoomPlayer(roomId, version, memberId)
+      if (!replaced.ok || !completeLineupBeforeReplace || (replacedTeam !== 'a' && replacedTeam !== 'b')) return replaced
+
+      const refreshed = await requestOpenRoomRefetch(roomId)
+      if (!refreshed || refreshed.selected.length !== 10) return replaced
+      const newcomers = refreshed.selected.filter((player) => !teamBeforeReplace.has(player.memberId))
+      if (newcomers.length !== 1) return replaced
+
+      const lineup: OpenRoomLineupPlayer[] = []
+      for (const player of refreshed.selected) {
+        const priorTeam = teamBeforeReplace.get(player.memberId)
+        const team = priorTeam === 'a' || priorTeam === 'b'
+          ? priorTeam
+          : player.memberId === newcomers[0].memberId ? replacedTeam : null
+        if (!team) return replaced
+        lineup.push({
+          member_id: player.memberId,
+          team,
+          skill_mode: player.skillMode ?? 'random',
+          skill_value: player.skillValue ?? null,
+          skill_score: player.skillScore ?? null,
+        })
+      }
+      return saveOpenRoomLineup(roomId, refreshed.version, lineup)
+    })
+  }
+
   return {
     pending,
     close: () => run('close', () => closeOpenRoom(roomId)),
@@ -74,7 +110,7 @@ export function useOpenRoomActions(roomId: string, snapshot: OpenRoomSnapshot | 
     prepare: () => run('prepare', () => prepareNextOpenRoomRound(roomId)),
     saveLineup: (players: readonly OpenRoomLineupPlayer[]) =>
       run('saveLineup', () => saveOpenRoomLineup(roomId, version, players)),
-    replace: (memberId: string) => run('replace', () => replaceOpenRoomPlayer(roomId, version, memberId)),
+    replace,
     start: () => run('start', () => startOpenRoomRound(roomId)),
     end: () => run('end', () => endOpenRoomRound(roomId)),
   }

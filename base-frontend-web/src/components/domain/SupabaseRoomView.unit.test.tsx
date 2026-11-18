@@ -5,6 +5,7 @@ import type { OpenRoomPending } from '../../api/supabase/roomActions'
 import { RoomMutationError, type RoomMutationResult } from '../../api/supabase/roomMutations'
 import type { OpenRoomSnapshotPayload } from '../../api/supabase/types'
 import { SupabaseRoomSnapshot, type OpenRoomActions } from './SupabaseRoomView'
+import { buildLineupFromSelected } from './open-room/helpers'
 
 const BASE_PENDING: OpenRoomPending = {
   close: false,
@@ -262,6 +263,22 @@ describe('SupabaseRoomView (unit)', () => {
       skill_value: 'Tinh Anh',
       skill_score: 42,
     })
+  })
+
+  it('không gán đội ngầm khi nhiều người chưa xếp và hướng host dùng chia ngẫu nhiên', () => {
+    const actions = makeActions()
+    const payload = makeTenPlayerPreparingPayload()
+    payload.currentPlayers = payload.currentPlayers.map((player) => ({ ...player, team: null }))
+    const snapshot = mapOpenRoomSnapshot(payload, 'u1')
+    render(<SupabaseRoomSnapshot snapshot={snapshot} connection="live" userId="u1" actions={actions} />)
+
+    expect(screen.getByRole('heading', { name: 'Chưa xếp đội (10)' })).toBeTruthy()
+    expect(screen.getByText('Bấm Chia ngẫu nhiên để xếp lại đội hình')).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Vào Team A cho Player 1' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Vào Team B cho Player 1' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Đổi chỗ' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(() => buildLineupFromSelected(snapshot.selected)).toThrow('Đội hình phải đủ 5v5 trước khi lưu.')
+    expect(actions.saveLineup).not.toHaveBeenCalled()
   })
 
   it('chỉ cho requeue người chơi host thêm đang ở ngoài queue và gọi đúng memberId', async () => {

@@ -82,6 +82,82 @@ describe('useOpenRoomActions', () => {
     unregister()
   })
 
+  it('replace phục hồi 5v5 bằng snapshot/version mới và đưa người thay vào đúng đội cũ', async () => {
+    const before = completePreparingSnapshot()
+    before.selected = before.selected.map((player) => player.memberId === 'lineup-6'
+      ? { ...player, skillMode: 'tier', skillValue: 'Tinh Anh', skillScore: 42 }
+      : player)
+    const replacementMember = {
+      id: 'replacement', room_id: 'room-1', user_id: 'replacement-user', member_kind: 'account' as const,
+      display_name: 'Replacement', status: 'active' as const, joined_at: '', left_at: null,
+    }
+    const refreshed: OpenRoomSnapshot = {
+      ...before,
+      room: { ...before.room, version: 8 },
+      version: 8,
+      members: [...before.members.filter((member) => member.id !== 'lineup-3'), replacementMember],
+      selected: before.selected.map((player) => player.memberId === 'lineup-3'
+        ? {
+            ...player,
+            memberId: replacementMember.id,
+            displayName: replacementMember.display_name,
+            team: null,
+            skillMode: 'rank' as const,
+            skillValue: 'Cao Thủ',
+            skillScore: 88,
+          }
+        : { ...player, team: null }),
+    }
+    const rpc = setFakeRpc({ data: null, error: null })
+    rpc
+      .mockResolvedValueOnce({ data: { ...before.room, version: 8 }, error: null })
+      .mockResolvedValueOnce({ data: { ...before.room, version: 9 }, error: null })
+    const refetch = vi.fn().mockResolvedValue(refreshed)
+    const unregister = registerOpenRoomRefetch('room-1', refetch)
+    const { result } = renderHook(() => useOpenRoomActions('room-1', before))
+
+    await act(async () => {
+      await expect(result.current.replace('lineup-3')).resolves.toEqual({
+        ok: true,
+        data: { ...before.room, version: 9 },
+      })
+    })
+
+    expect(rpc).toHaveBeenNthCalledWith(1, 'replace_open_room_player', {
+      p_room_id: 'room-1', p_version: 7, p_member_id: 'lineup-3',
+    })
+    expect(rpc).toHaveBeenNthCalledWith(2, 'save_open_room_lineup', expect.objectContaining({
+      p_room_id: 'room-1',
+      p_version: 8,
+    }))
+    const saved = rpc.mock.calls[1][1].p_players as Array<Record<string, unknown>>
+    expect(saved).toHaveLength(10)
+    expect(saved.filter((player) => player.team === 'a')).toHaveLength(5)
+    expect(saved.filter((player) => player.team === 'b')).toHaveLength(5)
+    expect(saved).toEqual(expect.arrayContaining([
+      expect.objectContaining({ member_id: 'lineup-1', team: 'a' }),
+      expect.objectContaining({ member_id: 'lineup-6', team: 'b', skill_mode: 'tier', skill_value: 'Tinh Anh', skill_score: 42 }),
+      expect.objectContaining({ member_id: 'replacement', team: 'a', skill_mode: 'rank', skill_value: 'Cao Thủ', skill_score: 88 }),
+    ]))
+    expect(refetch).toHaveBeenCalledTimes(2)
+    unregister()
+  })
+
+  it('replace không tự lưu lại khi đội hình cũ chưa đủ 5v5', async () => {
+    const rpc = setFakeRpc({ data: baseSnapshot.room, error: null })
+    const refetch = vi.fn().mockResolvedValue(baseSnapshot)
+    const unregister = registerOpenRoomRefetch('room-1', refetch)
+    const { result } = renderHook(() => useOpenRoomActions('room-1', baseSnapshot))
+
+    await act(async () => {
+      await expect(result.current.replace('member-1')).resolves.toEqual({ ok: true, data: baseSnapshot.room })
+    })
+
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(refetch).toHaveBeenCalledTimes(1)
+    unregister()
+  })
+
   it('refetch sau version conflict và vẫn trả lỗi cho UI', async () => {
     setFakeRpc({ data: null, error: { message: 'Room changed; refresh and retry' } })
     const refetch = vi.fn().mockResolvedValue(undefined)
