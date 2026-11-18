@@ -74,3 +74,11 @@
 - 17/11 · Lead · HUY-14: tài khoản test chỉ nằm trong `.env.local` (gitignore `.env*`), không commit, không đưa vào spec hay log. Worker Codex **không** được gọi mạng tới Supabase; chỉ Lead chạy kiểm chứng thật (chỉ đọc). Worker được đọc (không ghi) các file Supabase trong `D:\ProjectCustom` ở commit `595a24e`, theo quyền đọc Owner đã cấp.
 - 18/11 · Lead · HUY-14 review PASS có điều kiện, đã push `feat/huy-14-supabase-adapters`. Lead sửa thêm 2 lỗi: (1) `dev:all` crash do `predev` của web (có từ HUY-13) xoá `contracts/dist` khi API đang watch; (2) `.env.local` của dev làm Vitest chạy chế độ supabase (17 test đỏ) → ghim `VITE_DATA_SOURCE=mock` trong `test.env`. Kiểm chứng thật chỉ đọc trên Production với 2 tài khoản test: login/logout, khôi phục phiên, hồ sơ, chặn phòng không có quyền, không gọi Platform, không request ghi. **Chưa kiểm chứng**: snapshot/FIFO dữ liệu thật, realtime 2 client, reconnect thật, đăng ký OTP (thiếu phòng + bị cấm ghi). HUY-14 để In Review, chưa Done.
 - 18/11 · Owner · Duyệt và cho push + mở PR 3 nhánh: `feat/huy-14-supabase-adapters`, `fix/topnav-overlap`, `fix/ui-002-003-profile-room-settings`. Đã push cả 3; `gh` chưa đăng nhập nên Owner mở PR qua link compare.
+- 18/11 · Lead · **HUY-15 tách 3 phần.** Huy Hoàng xác định HUY-14 = scan, HUY-15 = đưa vào React.
+  - 15a (Codex): adapter ghi cho 13 RPC + phân loại lỗi + quyền + hook action; chỉ test client giả.
+  - 15b (agy, sau 15a): UI join/host/lineup/vòng đấu; Codex review.
+  - 15c (Lead): kiểm chứng ghi thật 2 client. Bị chặn tới khi Owner duyệt môi trường ghi, vì quyền hiện tại cấm ghi Production.
+  - Nhánh `feat/huy-15-room-mutations` xếp chồng trên `feat/huy-14-supabase-adapters`.
+- 18/11 · Lead · **Graphify chỉ dùng AST, chạy offline.** Lệnh: `graphify update . --no-cluster` + `cluster-only --no-label --no-viz`. Không gọi LLM/API ngoài.
+  - `graphify-out/` bị bỏ qua qua `.git/info/exclude` (dùng chung mọi worktree), không commit.
+  - Mỗi worktree tự dựng graph (~20 giây). Worker phải `graphify query` trước khi đọc code rộng.
