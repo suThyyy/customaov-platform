@@ -25,7 +25,6 @@ export function OpenRoomQueue({
   onReplace: (memberId: string) => void
 }) {
   const [playerName, setPlayerName] = useState('')
-  const hostUserId = snapshot.room.host_user_id
 
   const activeQueueIds = new Set([
     ...snapshot.waiting.map((item) => item.memberId),
@@ -73,21 +72,18 @@ export function OpenRoomQueue({
         {snapshot.waiting.length ? (
           <ol className="flex min-w-0 flex-col gap-2">
             {snapshot.waiting.map((player, index) => {
-              const member = snapshot.members.find((item) => item.id === player.memberId)
-              const isHostMember = Boolean(member?.user_id && member.user_id === hostUserId)
               return (
                 <li key={player.memberId} className="flex min-w-0 items-center gap-3 rounded-btn border border-line bg-surface-2 p-3">
                   <span className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-4 text-sm tabular">
                     {index + 1}
                   </span>
-                  <span className="min-w-0 flex-1 truncate font-medium">{player.displayName}</span>
+                  <span className="min-w-0 flex-1 break-words font-medium">{player.displayName}</span>
                   <span className="shrink-0 text-xs text-fg-muted tabular">FIFO #{player.queueSeq}</span>
                   <ParticipantMenu
                     memberId={player.memberId}
                     displayName={player.displayName}
-                    isHostMember={isHostMember}
-                    canKick={permissions.kick}
-                    canRequeue={permissions.requeue}
+                    canKick={permissions.canKickMember(player.memberId)}
+                    canRequeue={permissions.canRequeueMember(player.memberId)}
                     canReplace={false}
                     pending={pending}
                     onKick={onKick}
@@ -107,16 +103,14 @@ export function OpenRoomQueue({
             <p className="text-xs font-semibold text-fg-muted uppercase">Ngoài hàng chờ ({offQueueMembers.length})</p>
             <ul className="mt-2 flex min-w-0 flex-col gap-2">
               {offQueueMembers.map((member) => {
-                const isHostMember = Boolean(member.user_id && member.user_id === hostUserId)
                 return (
                   <li key={member.id} className="flex min-w-0 items-center justify-between gap-2 rounded-btn border border-line bg-surface-2 px-3 py-2">
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{member.display_name}</span>
+                    <span className="min-w-0 flex-1 break-words text-sm font-medium">{member.display_name}</span>
                     <ParticipantMenu
                       memberId={member.id}
                       displayName={member.display_name}
-                      isHostMember={isHostMember}
-                      canKick={permissions.kick}
-                      canRequeue={permissions.requeue}
+                      canKick={permissions.canKickMember(member.id)}
+                      canRequeue={permissions.canRequeueMember(member.id)}
                       canReplace={false}
                       pending={pending}
                       onKick={onKick}
@@ -149,12 +143,10 @@ export function OpenRoomQueue({
               </thead>
               <tbody>
                 {snapshot.selected.map((player) => {
-                  const member = snapshot.members.find((item) => item.id === player.memberId)
-                  const isHostMember = Boolean(member?.user_id && member.user_id === hostUserId)
                   return (
                     <tr key={player.memberId} className="border-t border-line">
                       <td className="p-2 tabular">{player.slot}</td>
-                      <td className="max-w-[160px] truncate p-2 font-medium">{player.displayName}</td>
+                      <td className="max-w-[160px] break-words p-2 font-medium">{player.displayName}</td>
                       <td className="p-2">{player.team ? player.team.toUpperCase() : '—'}</td>
                       <td className="p-2">{player.readyState === 'ready' ? 'Sẵn sàng' : 'Đang chờ'}</td>
                       {(permissions.kick || permissions.requeue || permissions.replace) && (
@@ -163,10 +155,9 @@ export function OpenRoomQueue({
                             <ParticipantMenu
                               memberId={player.memberId}
                               displayName={player.displayName}
-                              isHostMember={isHostMember}
-                              canKick={permissions.kick}
-                              canRequeue={permissions.requeue}
-                              canReplace={permissions.replace}
+                              canKick={permissions.canKickMember(player.memberId)}
+                              canRequeue={permissions.canRequeueMember(player.memberId)}
+                              canReplace={permissions.canReplaceMember(player.memberId)}
                               pending={pending}
                               onKick={onKick}
                               onRequeue={onRequeue}

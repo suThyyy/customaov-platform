@@ -66,6 +66,23 @@ describe('useOpenRoomActions', () => {
     expect(refetch).toHaveBeenCalledTimes(1)
     unregister()
   })
+
+  it('gộp hai lần gọi cùng action khi mutation đầu vẫn đang chạy', async () => {
+    const rpc = setFakeRpc({ data: baseSnapshot.room, error: null })
+    const { result } = renderHook(() => useOpenRoomActions('room-1', baseSnapshot))
+
+    await act(async () => {
+      const first = result.current.replace('member-1')
+      const second = result.current.replace('member-2')
+      expect(second).toBe(first)
+      await Promise.all([first, second])
+    })
+
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(rpc).toHaveBeenCalledWith('replace_open_room_player', {
+      p_room_id: 'room-1', p_version: 7, p_member_id: 'member-1',
+    })
+  })
 })
 
 describe('openRoomPermissions', () => {
@@ -100,5 +117,32 @@ describe('openRoomPermissions', () => {
       waiting: [{ memberId: 'member-1', displayName: 'Member', queueSeq: 2, queueStatus: 'waiting' as const }],
     }
     expect(openRoomPermissions(snapshot, 'user-1').continueQueue).toBe(false)
+  })
+
+  it('tính quyền theo đúng memberId cho kick, requeue và replace', () => {
+    const snapshot: OpenRoomSnapshot = {
+      ...baseSnapshot,
+      members: [
+        ...baseSnapshot.members,
+        { id: 'guest-off-queue', room_id: 'room-1', user_id: null, member_kind: 'guest', display_name: 'Guest off queue', status: 'active', joined_at: '', left_at: null },
+        { id: 'guest-waiting', room_id: 'room-1', user_id: null, member_kind: 'guest', display_name: 'Guest waiting', status: 'active', joined_at: '', left_at: null },
+      ],
+      waiting: [
+        ...baseSnapshot.waiting,
+        { memberId: 'guest-waiting', displayName: 'Guest waiting', queueSeq: 2, queueStatus: 'waiting' },
+      ],
+      selected: [
+        { memberId: 'member-1', displayName: 'Member', queueSeq: 3, queueStatus: 'selected', slot: 1, team: 'a' },
+      ],
+    }
+    const permissions = openRoomPermissions(snapshot, 'host-1')
+
+    expect(permissions.canKickMember('host-member')).toBe(false)
+    expect(permissions.canKickMember('member-1')).toBe(true)
+    expect(permissions.canRequeueMember('guest-off-queue')).toBe(true)
+    expect(permissions.canRequeueMember('guest-waiting')).toBe(false)
+    expect(permissions.canRequeueMember('member-1')).toBe(false)
+    expect(permissions.canReplaceMember('member-1')).toBe(true)
+    expect(permissions.canReplaceMember('guest-off-queue')).toBe(false)
   })
 })

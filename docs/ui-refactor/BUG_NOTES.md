@@ -18,7 +18,7 @@ Phần này ghi lại cách tổ chức giao diện thao tác Open Room ở ch�
     - `OpenRoomControls.tsx`: hiển thị pha hiện tại + số vòng, nút hành động chính theo pha (`Chuẩn bị vòng` / `Vòng tiếp theo` / `Bắt đầu` / `Kết thúc`), ghi chú `Lưu kết quả trận: sắp có`, link mời + nút `Sao chép link mời` (chỉ chủ phòng), nút `Vào hàng chờ` (`continueQueue`), `Rời phòng` (`leave`), `Đóng phòng` (`close`).
     - `OpenRoomLineup.tsx`: hiển thị đội hình 5v5 Team A / Team B khi pha là `preparing`, cho phép chủ phòng chọn 1 người mỗi đội để `Đổi chỗ` (`swapLineupPlayers` → `saveLineup`) hoặc `Chia ngẫu nhiên` (`skill_mode: 'random'` → `saveLineup`).
     - `OpenRoomQueue.tsx`: hàng chờ FIFO (`Đang chờ`), ô `Thêm người chơi` của chủ phòng (`addPlayer`), danh sách `Ngoài hàng chờ` (nếu có thành viên active chưa nằm trong hàng chờ/đội hình để chủ phòng có thể `requeue`/`kick`), và bảng `Được chọn`.
-    - `ParticipantMenu.tsx`: menu `⋯` trên từng người chơi (`Thay người` khi `preparing`, `Đưa về cuối hàng chờ`, `Mời ra khỏi phòng`).
+    - `ParticipantMenu.tsx`: menu `⋯` trên từng người chơi (`Thay người` khi `preparing`, `Đưa về cuối hàng chờ` chỉ cho guest do host thêm đang ở ngoài queue, `Mời ra khỏi phòng` trừ chính host).
     - `ConfirmActionModal.tsx`: hộp thoại xác nhận chung cho `kick`, `requeue`, `leave`, `close`.
     - `helpers.ts`: hàm thuần `buildLineupFromSelected`, `buildRandomLineup` và hằng `OPEN_ROOM_PHASE_LABEL` (tách riêng để tránh cảnh báo `react-refresh/only-export-components`).
 
@@ -30,6 +30,7 @@ Phần này ghi lại cách tổ chức giao diện thao tác Open Room ở ch�
   - Thành viên (`member`): thấy `Vào hàng chờ` (`continueQueue`, disable nếu đang trong hàng chờ/đội hình) và `Rời phòng` (`leave`).
   - Khán giả (`spectator`): chỉ xem, không thấy các nút thao tác của chủ phòng hay thành viên.
 - Khi `actions.pending[action]` là `true`, nút bị disable và đổi nhãn sang trạng thái đang xử lý (ví dụ `Đang bắt đầu…`, `Đang lưu…`).
+- Các hàm `canKickMember`, `canRequeueMember`, `canReplaceMember` trong `openRoomPermissions` tập trung quyền theo đúng `memberId`; component không tự suy lại điều kiện mục tiêu. `useOpenRoomActions` gộp các lần gọi trùng cùng action khi request đầu còn chạy.
 - Quy tắc nút vàng: mỗi khung nhìn chỉ có tối đa 1 nút `variant="primary"` là nút hành động chính của pha (`Chuẩn bị vòng` / `Vòng tiếp theo` / `Bắt đầu` / `Kết thúc`); mọi nút khác dùng `outline` hoặc `ghost`.
 
 ### 3. Vì sao không tự sửa state cục bộ mà chờ refetch/realtime
@@ -41,8 +42,8 @@ Phần này ghi lại cách tổ chức giao diện thao tác Open Room ở ch�
 ### 4. Cách kiểm
 
 - Unit test (`Vitest` + `Testing Library`, không gọi Supabase thật):
-  - `src/components/domain/SupabaseRoomView.unit.test.tsx`: kiểm tra render FIFO/slot/realtime, phân quyền nút theo vai trò × pha, xác nhận kick đúng `memberId`, swap gọi `saveLineup` với đội đã đổi, và lỗi hiện toast.
-  - `src/pages/OpenRoomRoutes.unit.test.tsx`: kiểm tra `/join/:inviteCode` gọi `joinOpenRoom` + điều hướng + hiện lỗi, và `/rooms/new` ở chế độ `open-room` gọi `createOpenRoom` + điều hướng.
+  - `src/components/domain/SupabaseRoomView.unit.test.tsx`: kiểm tra render FIFO/slot/realtime, phân quyền nút theo vai trò × pha, xác nhận kick/requeue đúng `memberId`, swap/random gửi đủ lineup 5v5, và lỗi hiện toast.
+  - `src/pages/OpenRoomRoutes.unit.test.tsx`: kiểm tra `/join/:inviteCode` gọi `joinOpenRoom` + điều hướng + hiện lỗi, `/rooms/new` ở chế độ `open-room` gọi `createOpenRoom` + điều hướng, và chế độ mock/api vẫn render wizard.
 - Kiểm tra hồi quy chế độ mock: `npm run build`, `npm run lint`, `npm test`, `e2e-auth.mjs` và `screenshot.mjs`.
 
 ### 5. Kết quả Verify (18/11/2026)

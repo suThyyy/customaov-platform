@@ -199,8 +199,61 @@ describe('SupabaseRoomView (unit)', () => {
       expect(actions.saveLineup).toHaveBeenCalledTimes(1)
     })
     const savedLineup = (actions.saveLineup as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(savedLineup).toHaveLength(10)
+    expect(savedLineup.filter((p: { team: string }) => p.team === 'a')).toHaveLength(5)
+    expect(savedLineup.filter((p: { team: string }) => p.team === 'b')).toHaveLength(5)
+    expect(savedLineup).toEqual(expect.arrayContaining([
+      expect.objectContaining({ member_id: expect.any(String), skill_mode: 'random', skill_value: null, skill_score: null }),
+    ]))
     expect(savedLineup.find((p: { member_id: string }) => p.member_id === 'm1').team).toBe('b')
     expect(savedLineup.find((p: { member_id: string }) => p.member_id === 'm6').team).toBe('a')
+  })
+
+  it('chia ngẫu nhiên gửi đủ 10 người, đúng 5v5 và đủ trường lineup', async () => {
+    const actions = makeActions()
+    const snapshot = mapOpenRoomSnapshot(makeTenPlayerPreparingPayload(), 'u1')
+    render(<SupabaseRoomSnapshot snapshot={snapshot} connection="live" userId="u1" actions={actions} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Chia ngẫu nhiên' }))
+
+    await waitFor(() => {
+      expect(actions.saveLineup).toHaveBeenCalledTimes(1)
+    })
+    const savedLineup = (actions.saveLineup as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(savedLineup).toHaveLength(10)
+    expect(new Set(savedLineup.map((player: { member_id: string }) => player.member_id)).size).toBe(10)
+    expect(savedLineup.filter((player: { team: string }) => player.team === 'a')).toHaveLength(5)
+    expect(savedLineup.filter((player: { team: string }) => player.team === 'b')).toHaveLength(5)
+    for (const player of savedLineup) {
+      expect(player).toEqual({
+        member_id: expect.any(String),
+        team: expect.stringMatching(/^[ab]$/),
+        skill_mode: 'random',
+        skill_value: null,
+        skill_score: null,
+      })
+    }
+  })
+
+  it('chỉ cho requeue người chơi host thêm đang ở ngoài queue và gọi đúng memberId', async () => {
+    const actions = makeActions()
+    const payload: OpenRoomSnapshotPayload = {
+      ...roomPayload,
+      members: [
+        ...roomPayload.members,
+        { id: 'm3', room_id: 'room-1', user_id: null, member_kind: 'guest', display_name: 'Guest ngoài queue', status: 'active', joined_at: '2026-01-01', left_at: null },
+      ],
+    }
+    const snapshot = mapOpenRoomSnapshot(payload, 'u1')
+    render(<SupabaseRoomSnapshot snapshot={snapshot} connection="live" userId="u1" actions={actions} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tuỳ chọn cho Guest ngoài queue' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Đưa về cuối hàng chờ' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Đưa về cuối hàng chờ' }))
+
+    await waitFor(() => {
+      expect(actions.requeue).toHaveBeenCalledWith('m3')
+    })
   })
 
   it('hiện toast khi thao tác trả về lỗi (kể cả version_conflict)', async () => {

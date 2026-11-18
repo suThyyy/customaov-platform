@@ -46,7 +46,6 @@ export function OpenRoomLineup({
   const teamA = snapshot.selected.filter((player) => player.team === 'a')
   const teamB = snapshot.selected.filter((player) => player.team === 'b')
   const unassigned = snapshot.selected.filter((player) => player.team !== 'a' && player.team !== 'b')
-  const hostUserId = snapshot.room.host_user_id
 
   const handleSwap = async () => {
     if (!selectedA || !selectedB || pending.saveLineup) return
@@ -83,8 +82,6 @@ export function OpenRoomLineup({
       {players.length ? (
         <ul className="flex min-w-0 flex-col gap-2">
           {players.map((player) => {
-            const member = snapshot.members.find((item) => item.id === player.memberId)
-            const isHostMember = Boolean(member?.user_id && member.user_id === hostUserId)
             const picked = activeId === player.memberId
             return (
               <li
@@ -99,20 +96,19 @@ export function OpenRoomLineup({
                     type="button"
                     aria-pressed={picked}
                     onClick={() => onSelect(picked ? '' : player.memberId)}
-                    className="min-w-0 flex-1 truncate text-left text-sm font-medium"
+                    className="min-w-0 flex-1 break-words text-left text-sm font-medium"
                   >
                     {player.displayName}
                   </button>
                 ) : (
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{player.displayName}</span>
+                  <span className="min-w-0 flex-1 break-words text-sm font-medium">{player.displayName}</span>
                 )}
                 <ParticipantMenu
                   memberId={player.memberId}
                   displayName={player.displayName}
-                  isHostMember={isHostMember}
-                  canKick={permissions.kick}
-                  canRequeue={permissions.requeue}
-                  canReplace={permissions.replace}
+                  canKick={permissions.canKickMember(player.memberId)}
+                  canRequeue={permissions.canRequeueMember(player.memberId)}
+                  canReplace={permissions.canReplaceMember(player.memberId)}
                   pending={pending}
                   onKick={onKick}
                   onRequeue={onRequeue}

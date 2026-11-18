@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { requestOpenRoomRefetch } from './realtime'
 import {
   closeOpenRoom,
@@ -39,18 +39,27 @@ const EMPTY_PENDING: OpenRoomPending = {
 
 export function useOpenRoomActions(roomId: string, snapshot: OpenRoomSnapshot | null) {
   const [pending, setPending] = useState<OpenRoomPending>(EMPTY_PENDING)
-  const run = useCallback(async <T,>(
+  const inFlight = useRef<Partial<Record<OpenRoomActionName, Promise<RoomMutationResult<unknown>>>>>({})
+  const run = useCallback(<T,>(
     action: OpenRoomActionName,
     mutation: () => Promise<RoomMutationResult<T>>,
   ): Promise<RoomMutationResult<T>> => {
+    const current = inFlight.current[action]
+    if (current) return current as Promise<RoomMutationResult<T>>
+
     setPending((current) => ({ ...current, [action]: true }))
-    try {
-      const result = await mutation()
-      if (result.ok || result.error.kind === 'version_conflict') await requestOpenRoomRefetch(roomId)
-      return result
-    } finally {
-      setPending((current) => ({ ...current, [action]: false }))
-    }
+    const promise = (async () => {
+      try {
+        const result = await mutation()
+        if (result.ok || result.error.kind === 'version_conflict') await requestOpenRoomRefetch(roomId)
+        return result
+      } finally {
+        delete inFlight.current[action]
+        setPending((current) => ({ ...current, [action]: false }))
+      }
+    })()
+    inFlight.current[action] = promise
+    return promise
   }, [roomId])
 
   const version = snapshot?.version ?? 0
@@ -87,6 +96,9 @@ export interface OpenRoomPermissions {
   replace: boolean
   start: boolean
   end: boolean
+  canKickMember: (memberId: string) => boolean
+  canRequeueMember: (memberId: string) => boolean
+  canReplaceMember: (memberId: string) => boolean
 }
 
 export function openRoomPermissions(snapshot: OpenRoomSnapshot, userId: string | null | undefined): OpenRoomPermissions {
@@ -98,6 +110,12 @@ export function openRoomPermissions(snapshot: OpenRoomSnapshot, userId: string |
   const phase = snapshot.room.current_round_state
   const activeQueueMemberIds = new Set([...snapshot.waiting, ...snapshot.selected].map((player) => player.memberId))
   const canContinue = Boolean(member && !activeQueueMemberIds.has(member.id))
+  const hostMemberId = snapshot.members.find((item) => item.user_id === snapshot.room.host_user_id && item.status === 'active')?.id
+  const activeMembers = new Map(snapshot.members.filter((item) => item.status === 'active').map((item) => [item.id, item]))
+  const selectedMemberIds = new Set(snapshot.selected.map((player) => player.memberId))
+  const kick = open && isHost
+  const requeue = open && isHost
+  const replace = open && isHost && phase === 'preparing'
 
   return {
     role,
@@ -105,13 +123,19 @@ export function openRoomPermissions(snapshot: OpenRoomSnapshot, userId: string |
     leave: isMember,
     close: open && isHost,
     addPlayer: open && isHost,
-    kick: open && isHost,
-    requeue: open && isHost,
+    kick,
+    requeue,
     continueQueue: open && isMember && canContinue,
     prepare: open && isHost && (phase === 'idle' || phase === 'ended'),
     saveLineup: open && isHost && phase === 'preparing',
-    replace: open && isHost && phase === 'preparing',
+    replace,
     start: open && isHost && phase === 'preparing',
     end: open && isHost && phase === 'active',
+    canKickMember: (memberId) => kick && activeMembers.has(memberId) && memberId !== hostMemberId,
+    canRequeueMember: (memberId) => {
+      const target = activeMembers.get(memberId)
+      return requeue && target?.member_kind === 'guest' && !activeQueueMemberIds.has(memberId)
+    },
+    canReplaceMember: (memberId) => replace && selectedMemberIds.has(memberId),
   }
 }

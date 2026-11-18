@@ -8,7 +8,6 @@ import { IconButton } from '../../ui/Button'
 export function ParticipantMenu({
   memberId,
   displayName,
-  isHostMember = false,
   canKick,
   canRequeue,
   canReplace,
@@ -19,7 +18,6 @@ export function ParticipantMenu({
 }: {
   memberId: string
   displayName: string
-  isHostMember?: boolean
   canKick: boolean
   canRequeue: boolean
   canReplace: boolean
@@ -90,8 +88,7 @@ export function ParticipantMenu({
             <button
               role="menuitem"
               type="button"
-              disabled={pending.kick || isHostMember}
-              title={isHostMember ? 'Không thể mời chủ phòng ra khỏi phòng' : undefined}
+              disabled={pending.kick}
               className={cn(itemClass, 'text-danger')}
               onClick={() => {
                 close()

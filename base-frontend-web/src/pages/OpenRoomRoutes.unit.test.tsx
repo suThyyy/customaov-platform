@@ -15,11 +15,12 @@ const { createOpenRoomMock, joinOpenRoomMock, notifyMock, mockRoomsAdapter } = v
 
 vi.mock('../api', async () => {
   const actual = await vi.importActual<typeof import('../api')>('../api')
+  Object.assign(mockRoomsAdapter, actual.roomsAdapter)
   return {
     ...actual,
     createOpenRoom: createOpenRoomMock,
     joinOpenRoom: joinOpenRoomMock,
-    roomsAdapter: { ...actual.roomsAdapter, ...mockRoomsAdapter },
+    roomsAdapter: mockRoomsAdapter,
   }
 })
 
@@ -146,5 +147,22 @@ describe('Open Room routes (unit)', () => {
       expect(createOpenRoomMock).toHaveBeenCalledTimes(1)
       expect(screen.getByText('Created Room Page')).toBeTruthy()
     })
+  })
+
+  it('/rooms/new ngoài chế độ supabase giữ nguyên wizard và không gọi createOpenRoom', () => {
+    mockRoomsAdapter.roomView = undefined
+
+    render(
+      <MemoryRouter initialEntries={['/rooms/new']}>
+        <Routes>
+          <Route path="/rooms/new" element={<CreateRoom />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('heading', { name: 'Tạo phòng custom' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Thông tin phòng' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Tạo phòng mở' })).toBeNull()
+    expect(createOpenRoomMock).not.toHaveBeenCalled()
   })
 })
