@@ -22,6 +22,34 @@ const baseSnapshot: OpenRoomSnapshot = {
   viewer: { isHost: true, isMember: true },
 }
 
+function completePreparingSnapshot(): OpenRoomSnapshot {
+  const members = Array.from({ length: 10 }, (_, index) => ({
+    id: `lineup-${index + 1}`,
+    room_id: 'room-1',
+    user_id: index === 0 ? 'host-1' : `lineup-user-${index + 1}`,
+    member_kind: 'account' as const,
+    display_name: `Lineup ${index + 1}`,
+    status: 'active' as const,
+    joined_at: '',
+    left_at: null,
+  }))
+  return {
+    ...baseSnapshot,
+    members,
+    selected: members.map((member, index) => ({
+      memberId: member.id,
+      displayName: member.display_name,
+      queueSeq: index + 1,
+      queueStatus: 'selected' as const,
+      slot: index + 1,
+      team: (index < 5 ? 'a' : 'b') as 'a' | 'b',
+      skillMode: 'random' as const,
+      skillValue: null,
+      skillScore: null,
+    })),
+  }
+}
+
 function setFakeRpc(result: { data: unknown; error: unknown }) {
   const rpc = vi.fn().mockResolvedValue(result)
   setSupabaseClientForUnitTests({
@@ -92,8 +120,40 @@ describe('openRoomPermissions', () => {
     ['active', { prepare: false, saveLineup: false, start: false, end: true }],
     ['ended', { prepare: true, saveLineup: false, start: false, end: false }],
   ] as const)('host ở pha %s có đúng quyền vòng', (phase, expected) => {
-    const permissions = openRoomPermissions({ ...baseSnapshot, room: { ...baseSnapshot.room, current_round_state: phase } }, 'host-1')
+    const source = phase === 'preparing' ? completePreparingSnapshot() : baseSnapshot
+    const permissions = openRoomPermissions({ ...source, room: { ...source.room, current_round_state: phase } }, 'host-1')
     expect(permissions).toMatchObject({ role: 'host', close: true, addPlayer: true, kick: true, replace: expected.saveLineup, ...expected })
+  })
+
+  it('chỉ cho bắt đầu khi đội hình khớp đủ điều kiện active 5v5 của SQL', () => {
+    const complete = completePreparingSnapshot()
+    expect(openRoomPermissions(complete, 'host-1').start).toBe(true)
+
+    const unassigned = {
+      ...complete,
+      selected: complete.selected.map((player, index) => index === 0 ? { ...player, team: null } : player),
+    }
+    expect(openRoomPermissions(unassigned, 'host-1').start).toBe(false)
+
+    const inactive = {
+      ...complete,
+      members: complete.members.map((member, index) => index === 0 ? { ...member, status: 'left' as const } : member),
+    }
+    expect(openRoomPermissions(inactive, 'host-1').start).toBe(false)
+
+    const invalidQueue = {
+      ...complete,
+      selected: complete.selected.map((player, index) => index === 0 ? { ...player, queueStatus: 'waiting' as const } : player),
+    }
+    expect(openRoomPermissions(invalidQueue, 'host-1').start).toBe(false)
+
+    const missingRatedSkill = {
+      ...complete,
+      selected: complete.selected.map((player, index) => index === 0
+        ? { ...player, skillMode: 'tier' as const, skillValue: 'Tinh Anh', skillScore: null }
+        : player),
+    }
+    expect(openRoomPermissions(missingRatedSkill, 'host-1').start).toBe(false)
   })
 
   it('member chỉ được leave và requeue chính mình khi không còn waiting/selected', () => {

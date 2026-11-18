@@ -135,7 +135,8 @@ describe('SupabaseRoomView (unit)', () => {
     // Chủ phòng ở pha preparing
     const hostPreparing = mapOpenRoomSnapshot({ ...idlePayload, room: { ...idlePayload.room, current_round_state: 'preparing' } }, 'u1')
     rerender(<SupabaseRoomSnapshot snapshot={hostPreparing} connection="live" userId="u1" actions={makeActions()} />)
-    expect(screen.getByRole('button', { name: 'Bắt đầu' })).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Bắt đầu' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByText('Xếp đủ 5v5 rồi mới bắt đầu')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Đổi chỗ' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Chia ngẫu nhiên' })).toBeTruthy()
 
@@ -235,6 +236,34 @@ describe('SupabaseRoomView (unit)', () => {
     }
   })
 
+  it('xếp người chưa có đội vào team còn thiếu và giữ nguyên thông tin kỹ năng', async () => {
+    const actions = makeActions()
+    const payload = makeTenPlayerPreparingPayload()
+    payload.currentPlayers = payload.currentPlayers.map((player) => player.member_id === 'm6'
+      ? { ...player, team: null, skill_mode: 'tier', skill_value: 'Tinh Anh', skill_score: 42 }
+      : player)
+    const snapshot = mapOpenRoomSnapshot(payload, 'u1')
+    render(<SupabaseRoomSnapshot snapshot={snapshot} connection="live" userId="u1" actions={actions} />)
+
+    expect(screen.getByRole('heading', { name: 'Chưa xếp đội (1)' })).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Vào Team A cho Player 6' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Vào Team B cho Player 6' }))
+
+    await waitFor(() => {
+      expect(actions.saveLineup).toHaveBeenCalledTimes(1)
+    })
+    const savedLineup = (actions.saveLineup as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(savedLineup.filter((player: { team: string }) => player.team === 'a')).toHaveLength(5)
+    expect(savedLineup.filter((player: { team: string }) => player.team === 'b')).toHaveLength(5)
+    expect(savedLineup.find((player: { member_id: string }) => player.member_id === 'm6')).toEqual({
+      member_id: 'm6',
+      team: 'b',
+      skill_mode: 'tier',
+      skill_value: 'Tinh Anh',
+      skill_score: 42,
+    })
+  })
+
   it('chỉ cho requeue người chơi host thêm đang ở ngoài queue và gọi đúng memberId', async () => {
     const actions = makeActions()
     const payload: OpenRoomSnapshotPayload = {
@@ -264,7 +293,7 @@ describe('SupabaseRoomView (unit)', () => {
         error: new RoomMutationError('version_conflict', 'Phòng vừa thay đổi, đã tải lại.'),
       })),
     })
-    const snapshot = mapOpenRoomSnapshot(roomPayload, 'u1')
+    const snapshot = mapOpenRoomSnapshot(makeTenPlayerPreparingPayload(), 'u1')
     render(<SupabaseRoomSnapshot snapshot={snapshot} connection="live" userId="u1" actions={actions} onNotify={onNotify} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Bắt đầu' }))

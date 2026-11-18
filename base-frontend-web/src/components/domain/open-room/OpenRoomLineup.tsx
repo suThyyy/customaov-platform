@@ -67,6 +67,14 @@ export function OpenRoomLineup({
     await onSaveLineup(buildRandomLineup(snapshot.selected))
   }
 
+  const handleAssignTeam = async (memberId: string, team: 'a' | 'b') => {
+    if (pending.saveLineup || (team === 'a' ? teamA.length : teamB.length) >= 5) return
+    const lineup = buildLineupFromSelected(snapshot.selected).map((player) => (
+      player.member_id === memberId ? { ...player, team } : player
+    ))
+    await onSaveLineup(lineup)
+  }
+
   const renderTeamColumn = (
     title: string,
     players: OpenRoomParticipant[],
@@ -163,9 +171,38 @@ export function OpenRoomLineup({
       </div>
 
       {unassigned.length > 0 && (
-        <p className="mt-3 text-xs text-fg-muted">
-          Chưa phân đội ({unassigned.length}): {unassigned.map((player) => player.displayName).join(', ')}
-        </p>
+        <div className="mt-4 rounded-btn border border-line bg-surface-2 p-3">
+          <h3 className="text-sm font-semibold">Chưa xếp đội ({unassigned.length})</h3>
+          <ul className="mt-2 flex min-w-0 flex-col gap-2">
+            {unassigned.map((player) => (
+              <li key={player.memberId} className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-btn border border-line bg-surface px-3 py-2">
+                <span className="min-w-0 flex-1 break-words text-sm font-medium">{player.displayName}</span>
+                {permissions.saveLineup && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      aria-label={`Vào Team A cho ${player.displayName}`}
+                      disabled={teamA.length >= 5 || pending.saveLineup}
+                      onClick={() => void handleAssignTeam(player.memberId, 'a')}
+                    >
+                      Vào Team A
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      aria-label={`Vào Team B cho ${player.displayName}`}
+                      disabled={teamB.length >= 5 || pending.saveLineup}
+                      onClick={() => void handleAssignTeam(player.memberId, 'b')}
+                    >
+                      Vào Team B
+                    </Button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </Card>
   )

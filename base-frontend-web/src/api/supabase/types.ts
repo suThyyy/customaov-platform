@@ -82,6 +82,9 @@ export interface OpenRoomParticipant {
   slot?: number
   team?: CurrentPlayerRow['team']
   readyState?: CurrentPlayerRow['ready_state']
+  skillMode?: CurrentPlayerRow['skill_mode']
+  skillValue?: CurrentPlayerRow['skill_value']
+  skillScore?: CurrentPlayerRow['skill_score']
 }
 
 export interface OpenRoomSnapshot {

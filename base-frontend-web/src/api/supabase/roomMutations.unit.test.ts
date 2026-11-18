@@ -91,6 +91,7 @@ describe('Open Room mutation RPC adapter', () => {
     ['Round is not preparing', 'invalid_state'],
     ['Queue full', 'queue_full'],
     ['Ten waiting players required to prepare a 5v5 Round', 'not_enough_players'],
+    ['Save a complete active 5v5 lineup before Start', 'incomplete_lineup'],
     ['Permanent account required', 'auth_required'],
     ['Invalid lineup values', 'invalid_input'],
     ['Failed to fetch', 'network'],
@@ -100,6 +101,14 @@ describe('Open Room mutation RPC adapter', () => {
     expect(mapped.kind).toBe(kind)
     expect(mapped.sourceMessage).toBe(message)
     expect(mapped.message).not.toBe(message)
+  })
+
+  it('hiển thị thông điệp riêng cho đội hình 5v5 chưa hoàn chỉnh', () => {
+    const mapped = mapRoomMutationError({ message: 'Save a complete active 5v5 lineup before Start' })
+    expect(mapped).toMatchObject({
+      kind: 'incomplete_lineup',
+      message: 'Hãy xếp đủ đội hình 5v5 trước khi bắt đầu.',
+    })
   })
 })
 

@@ -10,6 +10,7 @@ export type RoomMutationErrorKind =
   | 'invalid_state'
   | 'queue_full'
   | 'not_enough_players'
+  | 'incomplete_lineup'
   | 'auth_required'
   | 'invalid_input'
   | 'network'
@@ -50,6 +51,7 @@ const UI_MESSAGES: Record<RoomMutationErrorKind, string> = {
   invalid_state: 'Thao tác này không phù hợp với trạng thái hiện tại của phòng.',
   queue_full: 'Hàng chờ đã đầy.',
   not_enough_players: 'Chưa đủ người chơi để thực hiện thao tác này.',
+  incomplete_lineup: 'Hãy xếp đủ đội hình 5v5 trước khi bắt đầu.',
   auth_required: 'Bạn cần đăng nhập bằng tài khoản thường để thao tác trong phòng.',
   invalid_input: 'Thông tin gửi lên không hợp lệ.',
   network: 'Không thể kết nối tới máy chủ. Vui lòng thử lại.',
@@ -78,7 +80,9 @@ export function mapRoomMutationError(reason: unknown): RoomMutationError {
     'Room member not found', 'Selected player not found',
   ])) {
     kind = 'not_found'
-  } else if (messageMatches(sourceMessage, ['Ten waiting players required', 'No waiting player available', 'complete active 5v5 lineup'])) {
+  } else if (messageMatches(sourceMessage, ['Save a complete active 5v5 lineup before Start'])) {
+    kind = 'incomplete_lineup'
+  } else if (messageMatches(sourceMessage, ['Ten waiting players required', 'No waiting player available'])) {
     kind = 'not_enough_players'
   } else if (messageMatches(sourceMessage, ['queue full'])) {
     kind = 'queue_full'

@@ -63,16 +63,22 @@ export function OpenRoomControls({
                 : phase === 'ended' ? 'Vòng tiếp theo' : 'Chuẩn bị vòng'}
             </Button>
           )}
-          {permissions.start && (
-            <Button
-              variant="primary"
-              size="md"
-              leftIcon={<Play size={16} aria-hidden />}
-              disabled={pending.start}
-              onClick={onStart}
-            >
-              {pending.start ? 'Đang bắt đầu…' : 'Bắt đầu'}
-            </Button>
+          {permissions.role === 'host' && phase === 'preparing' && (
+            <div className="flex flex-col items-start gap-1">
+              <Button
+                variant="primary"
+                size="md"
+                leftIcon={<Play size={16} aria-hidden />}
+                disabled={!permissions.start || pending.start}
+                aria-describedby={!permissions.start ? 'open-room-start-hint' : undefined}
+                onClick={onStart}
+              >
+                {pending.start ? 'Đang bắt đầu…' : 'Bắt đầu'}
+              </Button>
+              {!permissions.start && (
+                <p id="open-room-start-hint" className="text-xs text-fg-muted">Xếp đủ 5v5 rồi mới bắt đầu</p>
+              )}
+            </div>
           )}
           {permissions.end && (
             <Button

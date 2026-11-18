@@ -11,9 +11,9 @@ export function buildLineupFromSelected(selected: readonly OpenRoomParticipant[]
   return selected.map((player, index) => ({
     member_id: player.memberId,
     team: player.team ?? (index < 5 ? 'a' : 'b'),
-    skill_mode: 'random',
-    skill_value: null,
-    skill_score: null,
+    skill_mode: player.skillMode ?? 'random',
+    skill_value: player.skillValue ?? null,
+    skill_score: player.skillScore ?? null,
   }))
 }
 
@@ -28,8 +28,8 @@ export function buildRandomLineup(selected: readonly OpenRoomParticipant[]): Ope
   return shuffled.map((player, index) => ({
     member_id: player.memberId,
     team: index < 5 ? 'a' : 'b',
-    skill_mode: 'random',
-    skill_value: null,
-    skill_score: null,
+    skill_mode: player.skillMode ?? 'random',
+    skill_value: player.skillValue ?? null,
+    skill_score: player.skillScore ?? null,
   }))
 }

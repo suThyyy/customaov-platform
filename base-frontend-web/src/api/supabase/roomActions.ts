@@ -113,6 +113,14 @@ export function openRoomPermissions(snapshot: OpenRoomSnapshot, userId: string |
   const hostMemberId = snapshot.members.find((item) => item.user_id === snapshot.room.host_user_id && item.status === 'active')?.id
   const activeMembers = new Map(snapshot.members.filter((item) => item.status === 'active').map((item) => [item.id, item]))
   const selectedMemberIds = new Set(snapshot.selected.map((player) => player.memberId))
+  const completeLineup = snapshot.selected.length === 10
+    && snapshot.selected.filter((player) => player.team === 'a').length === 5
+    && snapshot.selected.filter((player) => player.team === 'b').length === 5
+    && snapshot.selected.every((player) => {
+      const selectedMember = activeMembers.get(player.memberId)
+      const hasValidSkill = !((player.skillMode === 'tier' || player.skillMode === 'rank') && player.skillScore == null)
+      return Boolean(selectedMember && player.queueStatus === 'selected' && hasValidSkill)
+    })
   const kick = open && isHost
   const requeue = open && isHost
   const replace = open && isHost && phase === 'preparing'
@@ -129,7 +137,7 @@ export function openRoomPermissions(snapshot: OpenRoomSnapshot, userId: string |
     prepare: open && isHost && (phase === 'idle' || phase === 'ended'),
     saveLineup: open && isHost && phase === 'preparing',
     replace,
-    start: open && isHost && phase === 'preparing',
+    start: open && isHost && phase === 'preparing' && completeLineup,
     end: open && isHost && phase === 'active',
     canKickMember: (memberId) => kick && activeMembers.has(memberId) && memberId !== hostMemberId,
     canRequeueMember: (memberId) => {
