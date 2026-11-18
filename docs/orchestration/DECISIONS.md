@@ -82,3 +82,9 @@
 - 18/11 · Lead · **Graphify chỉ dùng AST, chạy offline.** Lệnh: `graphify update . --no-cluster` + `cluster-only --no-label --no-viz`. Không gọi LLM/API ngoài.
   - `graphify-out/` bị bỏ qua qua `.git/info/exclude` (dùng chung mọi worktree), không commit.
   - Mỗi worktree tự dựng graph (~20 giây). Worker phải `graphify query` trước khi đọc code rộng.
+- 18/11 · Owner · **Cho ghi tối thiểu trên Supabase Production cho HUY-15c** (chọn phương án 2, không dùng staging). Giới hạn Lead tự áp:
+  - chỉ dùng 2 tài khoản test, không đăng ký tài khoản mới;
+  - chỉ thao tác trên phòng do chính tài khoản test tạo, đóng phòng (`close_open_room`) sau khi thử;
+  - không migration, không xoá dữ liệu, không đụng phòng/người dùng thật;
+  - ghi lại từng thao tác ghi (thời gian, RPC, room id) vào HUY-15_REPORT.md;
+  - không dùng service_role.
