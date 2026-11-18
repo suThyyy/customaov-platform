@@ -17,9 +17,9 @@ const iconBtn =
 /**
  * Thanh điều hướng chính, sticky, cao 56px (mobile) / 64px (từ 768px), nền đặc.
  * - < 768px: logo + tìm kiếm + avatar (hoặc Đăng nhập); điều hướng chuyển xuống BottomNav
- * - 768–1535px: mục chính + menu "Thêm" (gom mục Sắp có); < 1024px nút Tạo phòng chỉ còn icon
+ * - ≥ 768px: mục chính + menu "Thêm" (gom mục Sắp có ở mọi khổ: header tối đa 1440px nên
+ *   không đủ chỗ hiện inline khi đã đăng nhập); < 1024px nút Tạo phòng chỉ còn icon
  * - ≥ 1280px: ô tìm kiếm dạng nút rộng có Ctrl K, hiện tên người dùng
- * - ≥ 1536px: hiện đủ mục (kể cả mục Sắp có) ngay trên thanh
  */
 export function TopNav() {
   const { loggedIn } = useAuth()
@@ -56,13 +56,8 @@ export function TopNav() {
                 <TopNavLink item={item} active={item.isActive?.(pathname, hash) ?? false} />
               </li>
             ))}
-            {secondary.map((item) => (
-              <li key={item.label} className="hidden h-full 2xl:block">
-                <SoonItem item={item} />
-              </li>
-            ))}
             {secondary.length > 0 && (
-              <li className="h-full 2xl:hidden">
+              <li className="h-full">
                 <MoreMenu items={secondary} />
               </li>
             )}
@@ -153,14 +148,6 @@ function TopNavLink({ item, active }: { item: NavItem; active: boolean }) {
   )
 }
 
-function SoonItem({ item }: { item: NavItem }) {
-  return (
-    <span aria-disabled="true" className={cn(linkCls, 'cursor-default text-fg-muted')}>
-      {item.label}
-      <SoonBadge />
-    </span>
-  )
-}
 
 function MoreMenu({ items }: { items: NavItem[] }) {
   const ref = useRef<HTMLDivElement>(null)
