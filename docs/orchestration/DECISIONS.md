@@ -88,3 +88,7 @@
   - không migration, không xoá dữ liệu, không đụng phòng/người dùng thật;
   - ghi lại từng thao tác ghi (thời gian, RPC, room id) vào HUY-15_REPORT.md;
   - không dùng service_role.
+- 18/11 · Lead · **HUY-15c đạt trên Production.**
+  - Lần chạy cuối `50d39ac4…` đạt mọi kiểm tra; 10 phòng thử đều đã đóng.
+  - Bug tìm ra và đã sửa: Start khi chưa đủ 5v5; replace xoá đội của cả 10 người (SQL `team=null` toàn phòng), nay UI lưu lại đội cũ sau replace.
+  - Báo cáo: `docs/product/HUY-15_REPORT.md` (nhánh `feat/huy-15-room-mutations`, chưa push).
