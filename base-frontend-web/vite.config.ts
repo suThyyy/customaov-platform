@@ -19,5 +19,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['src/**/*.test.{ts,tsx}'],
+    // Không để `.env.local` của dev (vd. VITE_DATA_SOURCE=supabase) đổi chế độ khi chạy test.
+    // Test cần chế độ khác tự ép bằng vi.mock/vi.stubEnv.
+    env: { VITE_DATA_SOURCE: 'mock', VITE_SUPABASE_URL: '', VITE_SUPABASE_ANON_KEY: '' },
   },
 })

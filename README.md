@@ -39,6 +39,14 @@ npm ci && npm run dev:web
 
 Lệnh này mặc định dùng dữ liệu mock. Các script `e2e-*-api.mjs` là kiểm thử backend thật và cần chạy `npm run dev:all`.
 
+### Chạy với Supabase
+
+1. Chép `base-frontend-web/.env.example` thành `base-frontend-web/.env.local`.
+2. Đặt `VITE_DATA_SOURCE=supabase`, rồi điền project URL và anon key vào hai biến để trống.
+3. Chạy `npm run dev -- --port 5198 --strictPort` trong `base-frontend-web`.
+
+> **Cảnh báo:** project Supabase hiện là Production. Chỉ dùng tài khoản test và không thực hiện thao tác ghi khi chưa có staging. Không commit `.env.local`, URL hay key thật.
+
 ### Tài khoản demo
 
 Dữ liệu mẫu sau khi seed bao gồm tài khoản demo:

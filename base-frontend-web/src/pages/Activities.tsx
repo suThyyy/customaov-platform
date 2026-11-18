@@ -1,13 +1,14 @@
 import { useSearchParams } from 'react-router-dom'
 import { BarChart3, Clock3, Gamepad2, Trophy, UsersRound } from 'lucide-react'
 import { cn } from '../lib/cn'
-import { useActivities, type Activity, type ActivityKind } from '../api'
+import { activitiesAdapter, useActivities, type Activity, type ActivityKind } from '../api'
 import { ListStatus, SkeletonRows } from '../components/ui/ListStatus'
 import { Card } from '../components/ui/primitives'
 import { Pagination } from '../components/ui/Pagination'
 import { ButtonLink } from '../components/ui/Button'
 import { PageHeader } from '../components/layout/PageHeader'
 import { EmptyState } from '../components/domain/EmptyState'
+import { SampleDataBadge } from '../components/ui/SampleDataBadge'
 
 const ACTIVITY_ICON: Record<ActivityKind, typeof Gamepad2> = {
   join: Gamepad2,
@@ -70,6 +71,7 @@ export default function Activities() {
       <PageHeader
         title="Lịch sử hoạt động"
         description="Các phòng bạn tham gia, giải bạn đăng ký và kết quả trận đấu liên quan tới bạn."
+        actions={<SampleDataBadge show={activitiesAdapter.showsSampleBadge} />}
       />
 
       <ListStatus

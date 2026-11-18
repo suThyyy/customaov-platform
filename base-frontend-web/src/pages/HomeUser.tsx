@@ -19,7 +19,9 @@ import { ListStatus, SkeletonRows } from '../components/ui/ListStatus'
 import { useAuth, useToast } from '../context/AppContext'
 import {
   ApiError,
+  activitiesAdapter,
   roomsAdapter,
+  tournamentsAdapter,
   currentUser,
   joinRoom,
   roomFullTitle,
@@ -34,6 +36,7 @@ import { PageHeader } from '../components/layout/PageHeader'
 import { ActiveRoomsCard, RemoteActiveRoomsCard, RoomStatusBadge } from '../components/domain/RoomsTable'
 import { TournamentPromoCard } from '../components/domain/TournamentPromoCard'
 import { ActivityList } from './Activities'
+import { SampleDataBadge } from '../components/ui/SampleDataBadge'
 
 /** "Hoạt động gần đây": 5 mục mới nhất; xem đủ ở /activities */
 const RECENT_ACTIVITIES = { page: 1, pageSize: 5 }
@@ -201,13 +204,16 @@ export default function HomeUser() {
             </Card>
           ) : (
             featuredTournament && (
-              <TournamentPromoCard
-                tournament={featuredTournament}
-                onOpen={() => navigate(`/tournaments/${featuredTournament.slug}`)}
-                onRegister={() =>
-                  isApi ? navigate(`/tournaments/${featuredTournament.slug}`) : comingSoon(`Đăng ký giải ${featuredTournament.name}`)
-                }
-              />
+              <div className="flex flex-col gap-2">
+                <SampleDataBadge show={tournamentsAdapter.showsSampleBadge} className="self-start" />
+                <TournamentPromoCard
+                  tournament={featuredTournament}
+                  onOpen={() => navigate(`/tournaments/${featuredTournament.slug}`)}
+                  onRegister={() =>
+                    isApi ? navigate(`/tournaments/${featuredTournament.slug}`) : comingSoon(`Đăng ký giải ${featuredTournament.name}`)
+                  }
+                />
+              </div>
             )
           )}
 
@@ -245,7 +251,7 @@ export default function HomeUser() {
             size="sm"
             icon={<Clock3 size={20} />}
             title="Hoạt động gần đây"
-            action={<SeeAllLink to="/activities" />}
+            action={<span className="flex flex-wrap items-center gap-3"><SampleDataBadge show={activitiesAdapter.showsSampleBadge} /><SeeAllLink to="/activities" /></span>}
           />
           <ListStatus status={activityLoad.status} onRetry={activityLoad.retry} label="hoạt động gần đây" className="mt-2" skeleton={<SkeletonRows count={4} />}>
           {activities.length === 0 ? (

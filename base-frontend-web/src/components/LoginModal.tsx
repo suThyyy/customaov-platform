@@ -62,10 +62,129 @@ export function LoginModal({
   onClose: () => void
   redirectTo?: string
 }) {
-  if (authAdapter.persistsWrites) {
+  if (authAdapter.authFlow === 'supabase' && authAdapter.emailAuth) {
+    return <SupabaseLoginModal intent={intent} onClose={onClose} redirectTo={redirectTo} />
+  }
+  if (authAdapter.authFlow === 'platform' || authAdapter.persistsWrites) {
     return <ApiLoginModal intent={intent} onClose={onClose} redirectTo={redirectTo} />
   }
   return <MockLoginModal intent={intent} onClose={onClose} redirectTo={redirectTo} />
+}
+
+function SupabaseLoginModal({
+  intent,
+  onClose,
+  redirectTo,
+}: {
+  intent: LoginIntent | null
+  onClose: () => void
+  redirectTo: string
+}) {
+  const { login } = useAuth()
+  const { notify } = useToast()
+  const navigate = useNavigate()
+  const uid = useId()
+  const [tab, setTab] = useState<AuthTab>(intent === 'register' ? 'register' : 'login')
+  const [email, setEmail] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [password, setPassword] = useState('')
+  const [otp, setOtp] = useState('')
+  const [needsOtp, setNeedsOtp] = useState(false)
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!intent) return
+    setTab(intent === 'register' ? 'register' : 'login')
+    setNeedsOtp(false)
+    setOtp('')
+    setError('')
+  }, [intent])
+
+  const finish = (user: Awaited<ReturnType<NonNullable<typeof authAdapter.emailAuth>['login']>>['user']) => {
+    notify(needsOtp ? 'Xác minh thành công' : tab === 'register' ? 'Đăng ký thành công' : 'Đã đăng nhập', `Xin chào ${user.displayName}!`)
+    navigate(redirectTo, { replace: true })
+    startTransition(() => login(user))
+  }
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault()
+    if (submitting || !authAdapter.emailAuth) return
+    setError('')
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setError('Hãy nhập địa chỉ email hợp lệ.')
+    // Đăng nhập: tài khoản CustomAOV cũ có thể dùng mật khẩu 6–7 ký tự, để Supabase tự kiểm.
+    // Đăng ký: tối thiểu 6 ký tự, khớp app cũ (minlength="6") và mặc định của Supabase Auth.
+    if (!needsOtp && tab === 'login' && !password) return setError('Hãy nhập mật khẩu.')
+    if (!needsOtp && tab === 'register' && password.length < 6) return setError('Mật khẩu phải có ít nhất 6 ký tự.')
+    if (tab === 'register' && !needsOtp && !displayName.trim()) return setError('Tên hiển thị không được để trống.')
+    setSubmitting(true)
+    try {
+      if (needsOtp) {
+        if (!otp.trim()) throw new Error('Hãy nhập mã OTP đã gửi tới email.')
+        finish((await authAdapter.emailAuth.verifyOtp(email, otp)).user)
+      } else if (tab === 'login') {
+        finish((await authAdapter.emailAuth.login(email, password)).user)
+      } else {
+        const result = await authAdapter.emailAuth.signUp(email, password, displayName)
+        if (result.needsOtp) {
+          setNeedsOtp(true)
+          notify('Đã gửi mã OTP', 'Kiểm tra hộp thư và nhập mã xác minh.')
+        } else if (result.user) finish(result.user)
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Không thể xác thực lúc này. Vui lòng thử lại.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Modal open={intent !== null} onClose={onClose} title={needsOtp ? 'Xác minh email' : tab === 'register' ? TITLES.register : TITLES.login}>
+      {!needsOtp && (
+        <Tabs
+          items={[{ id: 'login', label: 'Đăng nhập' }, { id: 'register', label: 'Đăng ký' }]}
+          value={tab}
+          onChange={(next) => { setTab(next); setError('') }}
+          label="Chế độ tài khoản"
+          idPrefix={`${uid}-supabase-auth`}
+          itemClassName="h-10"
+          stretch
+        />
+      )}
+      <form onSubmit={submit} className="mt-4 flex flex-col gap-4" noValidate>
+        {error && <p role="alert" className="rounded-btn border border-danger/40 bg-danger-bg px-3 py-2 text-sm text-danger">{error}</p>}
+        <label className="text-sm font-medium">
+          Email
+          <span className={inputWrapCls(false)}>
+            <input data-autofocus type="email" autoComplete="email" value={email} disabled={needsOtp} onChange={(event) => setEmail(event.target.value)} className="h-full min-w-0 flex-1 bg-transparent text-base outline-none disabled:opacity-60" />
+          </span>
+        </label>
+        {tab === 'register' && !needsOtp && (
+          <label className="text-sm font-medium">
+            Tên hiển thị
+            <span className={inputWrapCls(false)}><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} className="h-full min-w-0 flex-1 bg-transparent text-base outline-none" /></span>
+          </label>
+        )}
+        {needsOtp ? (
+          <label className="text-sm font-medium">
+            Mã OTP
+            <span className={inputWrapCls(false)}><input inputMode="numeric" autoComplete="one-time-code" value={otp} onChange={(event) => setOtp(event.target.value)} className="h-full min-w-0 flex-1 bg-transparent text-base tracking-widest outline-none" /></span>
+          </label>
+        ) : (
+          <label className="text-sm font-medium">
+            Mật khẩu
+            <span className={inputWrapCls(false)}><input type="password" autoComplete={tab === 'register' ? 'new-password' : 'current-password'} value={password} onChange={(event) => setPassword(event.target.value)} className="h-full min-w-0 flex-1 bg-transparent text-base outline-none" /></span>
+          </label>
+        )}
+        <div className="mt-2 flex justify-end gap-3">
+          <Button variant="secondary" onClick={onClose} disabled={submitting}>Để sau</Button>
+          <Button type="submit" disabled={submitting} leftIcon={tab === 'register' ? <UserPlus size={17} aria-hidden /> : <LogIn size={17} aria-hidden />}>
+            {submitting ? 'Đang xử lý…' : needsOtp ? 'Xác minh' : tab === 'register' ? 'Đăng ký' : 'Đăng nhập'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
 }
 
 function MockLoginModal({

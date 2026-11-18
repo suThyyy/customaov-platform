@@ -20,6 +20,7 @@ export * from './types'
 export type { RoomsPage, RoomsPageParams } from './adapter'
 export * from './room'
 export * from './realtime'
+export * from './supabase'
 
 export async function createTournament(body: CreateTournamentBody, signal?: AbortSignal): Promise<{ slug: string }> {
   const parsed = CreateTournamentBodySchema.parse(body)

@@ -79,6 +79,7 @@ import { PageHeader } from '../components/layout/PageHeader'
 import { Tabs } from '../components/ui/Tabs'
 import { useDismiss } from '../components/layout/hooks'
 import { EmptyState } from '../components/domain/EmptyState'
+import { SupabaseRoomView } from '../components/domain/SupabaseRoomView'
 import { MODE_LABEL, splitRoomMembers, type TeamSplitRequest } from '../features/team-split/teamSplit'
 
 const LANE_ICON: Record<Lane, LucideIcon> = {
@@ -129,6 +130,8 @@ const nowHHMM = () => {
  * Chế độ `api` tải phòng từ server, mọi thao tác gọi API và nhận cập nhật qua WebSocket.
  */
 export default function RoomDetail() {
+  const { roomId } = useParams()
+  if (roomsAdapter.roomView === 'open-room') return <SupabaseRoomView roomId={roomId} />
   return roomsAdapter.supportsRealtime ? <ApiRoomDetail /> : <MockRoomDetail />
 }
 

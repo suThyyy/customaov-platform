@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useId, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Gamepad2, Search, Trophy, UserRound } from 'lucide-react'
-import { SEARCH_MIN_LENGTH, roomFullTitle, useSearch } from '../../api'
+import { SEARCH_MIN_LENGTH, roomFullTitle, searchAdapter, useSearch } from '../../api'
 import { cn } from '../../lib/cn'
 import { Modal } from '../ui/Modal'
 import { ListStatus, SkeletonRows } from '../ui/ListStatus'
+import { SampleDataBadge } from '../ui/SampleDataBadge'
 
 interface Hit {
   key: string
@@ -86,6 +87,7 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
 
   return (
     <Modal open={open} onClose={close} title="Tìm kiếm" placement="top" className="max-w-[560px]">
+      <SampleDataBadge show={searchAdapter.showsSampleBadge} className="mb-3" />
       <form role="search" onSubmit={(e) => e.preventDefault()}>
         <label htmlFor="global-search" className="sr-only">
           Tìm phòng, người chơi, giải đấu
