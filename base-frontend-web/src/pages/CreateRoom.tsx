@@ -31,8 +31,9 @@ import {
 import type { CreateRoomBody } from '@customaov/contracts'
 import { cn } from '../lib/cn'
 import { useToast } from '../context/AppContext'
-import { ApiError, createRoom, roomsAdapter } from '../api'
+import { ApiError, createOpenRoom, createRoom, roomsAdapter } from '../api'
 import { Button } from '../components/ui/Button'
+import { Card } from '../components/ui/primitives'
 import { PageHeader } from '../components/layout/PageHeader'
 import { SoonBadge } from '../components/layout/UserMenu'
 
@@ -135,6 +136,57 @@ const NAME_MAX = 50
 const DESC_MAX = 200
 
 export default function CreateRoom() {
+  if (roomsAdapter.roomView === 'open-room') return <CreateOpenRoom />
+  return <CreateRoomWizard />
+}
+
+function CreateOpenRoom() {
+  const navigate = useNavigate()
+  const { notify } = useToast()
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleCreate = async () => {
+    if (pending) return
+    setPending(true)
+    setError(null)
+    const result = await createOpenRoom()
+    setPending(false)
+    if (result.ok) {
+      navigate(`/rooms/${result.data.id}`)
+      return
+    }
+    setError(result.error.message)
+    notify(result.error.message)
+  }
+
+  return (
+    <div className="min-w-0">
+      <PageHeader
+        title="Tạo phòng mở"
+        description="Tạo phòng Custom 5v5 mới và chia sẻ link mời cho người chơi."
+      />
+      <Card className="mt-6 max-w-lg min-w-0 p-6">
+        <h2 className="text-lg font-semibold">Phòng mở 5v5</h2>
+        <p className="mt-2 text-sm text-fg-muted">
+          Hệ thống sẽ tạo mã mời riêng để người chơi tham gia hàng chờ và chia đội theo từng vòng.
+        </p>
+        {error && (
+          <p role="alert" className="mt-4 rounded-btn border border-danger/40 bg-danger-bg px-3 py-2 text-sm text-danger">
+            {error}
+          </p>
+        )}
+        <div className="mt-6">
+          <Button variant="primary" size="lg" disabled={pending} onClick={handleCreate}>
+            {pending ? 'Đang tạo phòng…' : 'Tạo phòng mở'}
+          </Button>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+function CreateRoomWizard() {
   const navigate = useNavigate()
   const { notify } = useToast()
   const uid = useId()
