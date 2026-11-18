@@ -466,7 +466,7 @@ export default function CreateRoom() {
                 </FieldRow>
               </div>
 
-              <div className="mt-6 border-t border-line-strong/70 pt-4">
+              <div className="mt-6 border-t border-line-strong/70 pt-6 pb-6">
                 <p className="flex items-center gap-3 text-base font-medium">
                   <SlidersHorizontal size={20} aria-hidden className="text-gold" />
                   Khán giả
@@ -478,27 +478,31 @@ export default function CreateRoom() {
                     title="Cho phép khán giả"
                     desc="Cho phép người khác vào phòng ở chế độ quan sát."
                   />
-                  {/* Chỉ hiện khi đang bật khán giả */}
-                  {spectators && (
-                    <label className="flex flex-col gap-2 md:pl-16">
-                      <span className="text-sm text-fg-muted">Số khán giả tối đa</span>
-                      <span className="relative flex h-10 w-full max-w-56 items-center rounded-btn border border-line-strong bg-black/25 transition-colors focus-within:border-gold/70">
-                        <Eye size={18} aria-hidden className="pointer-events-none absolute left-4 text-fg" />
-                        <select
-                          value={maxSpectators}
-                          onChange={(e) => setMaxSpectators(e.target.value)}
-                          className="h-full w-full appearance-none bg-transparent pr-8 pl-12 text-sm outline-none"
-                        >
-                          {['10', '20', '50'].map((n) => (
-                            <option key={n} value={n} className="bg-surface-2">
-                              Tối đa {n} người
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown size={16} aria-hidden className="pointer-events-none absolute right-3" />
-                      </span>
-                    </label>
-                  )}
+                  {/* Giữ ô chọn ở trạng thái vô hiệu khi tắt khán giả để hàng setting và footer không nhảy */}
+                  <label className={cn('flex flex-col gap-2 transition-opacity md:pl-16', !spectators && 'opacity-50')}>
+                    <span className="text-sm text-fg-muted">Số khán giả tối đa</span>
+                    <span
+                      className={cn(
+                        'relative flex h-10 w-full max-w-56 items-center rounded-btn border border-line-strong bg-black/25 transition-colors',
+                        spectators ? 'focus-within:border-gold/70' : 'cursor-not-allowed',
+                      )}
+                    >
+                      <Eye size={18} aria-hidden className="pointer-events-none absolute left-4 text-fg" />
+                      <select
+                        value={maxSpectators}
+                        disabled={!spectators}
+                        onChange={(e) => setMaxSpectators(e.target.value)}
+                        className="h-full w-full appearance-none bg-transparent pr-8 pl-12 text-sm outline-none disabled:cursor-not-allowed"
+                      >
+                        {['10', '20', '50'].map((n) => (
+                          <option key={n} value={n} className="bg-surface-2">
+                            Tối đa {n} người
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown size={16} aria-hidden className="pointer-events-none absolute right-3" />
+                    </span>
+                  </label>
                 </div>
               </div>
             </>
