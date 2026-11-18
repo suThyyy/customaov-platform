@@ -10,6 +10,21 @@ export type OpenRoomStatus = 'loading' | 'ready' | 'error'
 
 const TABLES = ['rooms', 'room_members', 'room_queue_entries', 'room_current_players'] as const
 const BACKOFF_MS = [1_000, 2_000, 5_000, 10_000] as const
+const refetchers = new Map<string, Set<() => void | Promise<void>>>()
+
+export function registerOpenRoomRefetch(roomId: string, refetch: () => void | Promise<void>): () => void {
+  const listeners = refetchers.get(roomId) ?? new Set()
+  listeners.add(refetch)
+  refetchers.set(roomId, listeners)
+  return () => {
+    listeners.delete(refetch)
+    if (!listeners.size) refetchers.delete(roomId)
+  }
+}
+
+export async function requestOpenRoomRefetch(roomId: string): Promise<void> {
+  await Promise.all([...refetchers.get(roomId) ?? []].map((refetch) => refetch()))
+}
 
 interface SubscriptionOptions {
   client: SupabaseClient
@@ -121,10 +136,12 @@ export function useOpenRoom(roomId: string | undefined): {
         setError(reason instanceof Error ? reason : new Error(String(reason)))
       }
     }
+    const unregisterRefetch = registerOpenRoomRefetch(roomId, refetch)
     const dispose = subscribeOpenRoom({ client: getSupabaseClient(), roomId, refetch, setConnection, reset })
     const unregister = registerSupabaseCleanup(dispose)
     void refetch()
     return () => {
+      unregisterRefetch()
       unregister()
       dispose()
       epoch.current += 1
