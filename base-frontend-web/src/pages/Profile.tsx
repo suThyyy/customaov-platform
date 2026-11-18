@@ -32,9 +32,8 @@ import { useToast } from '../context/AppContext'
 import { ListStatus, SkeletonRows } from '../components/ui/ListStatus'
 import { currentUser, profileAdapter, useProfile, type Achievement, type HookResult, type MatchHistoryItem, type ProfileRecordHistoryItem, type RoleStat, type UserProfile } from '../api'
 import { Button, ButtonLink, IconButton } from '../components/ui/Button'
-import { Avatar, Badge, Card, LevelPill, SectionTitle, SeeAllLink } from '../components/ui/primitives'
+import { Avatar, Badge, Card, SectionTitle, SeeAllLink } from '../components/ui/primitives'
 import { Tabs } from '../components/ui/Tabs'
-import { PageHeader } from '../components/layout/PageHeader'
 import { EmptyState } from '../components/domain/EmptyState'
 import { EditProfileDialog } from '../components/domain/EditProfileDialog'
 
@@ -103,6 +102,50 @@ function ProfileNotFound({ userId }: { userId?: string }) {
   )
 }
 
+/** Phần đầu hồ sơ dùng chung cho cả hồ sơ cá nhân và công khai */
+function ProfileHeader({
+  avatar,
+  name,
+  crowned,
+  identity,
+  badges,
+  actions,
+  bio,
+  tabs,
+}: {
+  avatar: ReactNode
+  name: string
+  crowned?: boolean
+  identity: ReactNode
+  badges?: ReactNode
+  actions?: ReactNode
+  bio?: ReactNode
+  tabs?: ReactNode
+}) {
+  return (
+    <header className="px-2 pt-3 md:px-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex min-w-0 items-start gap-4">
+          <div className="shrink-0">{avatar}</div>
+          <div className="min-w-0 flex-1">
+            <h1 className="flex min-w-0 items-center gap-2 font-display text-2xl font-bold text-fg">
+              <span className="truncate" title={name}>
+                {name}
+              </span>
+              {crowned && <Crown size={20} aria-label="Chủ phòng" className="shrink-0 fill-gold text-gold" />}
+            </h1>
+            {identity}
+            {badges && <div className="mt-3 flex flex-wrap items-center gap-2">{badges}</div>}
+          </div>
+        </div>
+        {actions && <div className="flex shrink-0 flex-wrap items-center gap-2 md:pt-1">{actions}</div>}
+      </div>
+      {bio && <div className="mt-4 md:mt-6">{bio}</div>}
+      {tabs && <div className="mt-6">{tabs}</div>}
+    </header>
+  )
+}
+
 function OtherProfile({ userId, profile }: { userId: string; profile: UserProfile | undefined }) {
   const player = profile?.player
   if (!player) {
@@ -124,10 +167,8 @@ function OtherProfile({ userId, profile }: { userId: string; profile: UserProfil
   return (
     <div className="flex flex-col">
       <Cover />
-      <PageHeader
-        flush
-        className="px-2 md:px-6"
-        leading={
+      <ProfileHeader
+        avatar={
           <Avatar
             src={player.avatar}
             name={player.name}
@@ -137,8 +178,12 @@ function OtherProfile({ userId, profile }: { userId: string; profile: UserProfil
             className="relative -mt-10 size-16! ring-4 ring-bg md:-mt-14 md:size-24!"
           />
         }
-        title={player.name}
-        meta={<p className="text-sm text-fg-muted">@{player.id}</p>}
+        name={player.name}
+        identity={
+          <p className="mt-1 truncate text-sm text-fg-muted" title={`@${player.id}`}>
+            @{player.id}
+          </p>
+        }
       />
       <EmptyState
         className="mt-6 min-h-60"
@@ -172,10 +217,8 @@ function MyProfile({ profile: p, load, isOwn }: { profile: UserProfile; load: Ho
   return (
     <div className="flex flex-col">
       <Cover />
-      <PageHeader
-        flush
-        className="px-2 md:px-6"
-        leading={
+      <ProfileHeader
+        avatar={
           // Avatar đè lên mép dưới ảnh bìa
           <Avatar
             src={p.player.avatar}
@@ -186,42 +229,38 @@ function MyProfile({ profile: p, load, isOwn }: { profile: UserProfile; load: Ho
             className="relative -mt-10 size-16! ring-4 ring-bg md:-mt-14 md:size-24!"
           />
         }
-        title={
-          <span className="flex items-center gap-3">
-            {p.player.name}
-            <Crown size={24} aria-label="Chủ phòng" className="fill-gold text-gold" />
-          </span>
-        }
-        meta={
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-fg/90">
-              <LevelPill level={p.player.level ?? 1} className="px-2 text-sm leading-6" />
-              <span aria-hidden className="h-4 w-px bg-line-strong" />
-              <span className="flex items-center gap-1">
+        name={p.player.name}
+        crowned
+        identity={
+          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-fg-muted">
+            <span className="inline-flex max-w-full min-w-0 items-center gap-1">
+              <span className="truncate" title={p.publicId}>
                 {p.publicId}
-                <IconButton label="Sao chép ID người dùng" variant="ghost" className="size-8" onClick={copyId}>
-                  <Copy size={14} aria-hidden />
-                </IconButton>
               </span>
-              <span aria-hidden className="h-4 w-px bg-line-strong" />
-              <span className="text-fg-muted">
-                UID <span className="tabular">{p.uid}</span>
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <Badge tone="gold-outline" className="py-1 text-sm font-semibold" icon={<Crown size={14} aria-hidden className="fill-current" />}>
-                {p.roleBadge}
-              </Badge>
-              <Badge tone="neutral" className="py-1 text-sm text-fg ring-1 ring-line-strong" icon={<Gamepad2 size={16} aria-hidden />}>
-                {p.playerBadge}
-              </Badge>
-            </div>
-            {/* Dòng trạng thái: xuống dòng tự nhiên, không cắt */}
-            <p className="max-w-[65ch] text-sm text-fg/90">
-              <Sparkles size={14} aria-hidden className="mr-2 inline text-gold" />
-              {p.bio} <span className="text-fg-muted">·</span> {p.bioExtra}
-            </p>
+              <IconButton label="Sao chép ID người dùng" variant="ghost" className="size-8 shrink-0" onClick={copyId}>
+                <Copy size={14} aria-hidden />
+              </IconButton>
+            </span>
+            <span aria-hidden className="text-fg-subtle">
+              ·
+            </span>
+            <span className="max-w-full min-w-0 truncate tabular" title={`UID ${p.uid}`}>
+              UID {p.uid}
+            </span>
           </div>
+        }
+        badges={
+          <>
+            <Badge tone="gold-outline" className="font-semibold">
+              Lv.{p.player.level ?? 1}
+            </Badge>
+            <Badge tone="gold-outline" icon={<Crown size={12} aria-hidden className="fill-current" />}>
+              {p.roleBadge}
+            </Badge>
+            <Badge tone="neutral" className="text-fg ring-1 ring-line-strong" icon={<Gamepad2 size={14} aria-hidden />}>
+              {p.playerBadge}
+            </Badge>
+          </>
         }
         actions={
           <>
@@ -234,6 +273,25 @@ function MyProfile({ profile: p, load, isOwn }: { profile: UserProfile; load: Ho
               <MoreHorizontal size={20} aria-hidden />
             </IconButton>
           </>
+        }
+        bio={
+          // Dòng giới thiệu: tách rõ với cụm thông tin phía trên
+          <p className="max-w-[65ch] text-sm text-fg/90">
+            <Sparkles size={14} aria-hidden className="mr-2 inline text-gold" />
+            {p.bio ? (
+              <>
+                {p.bio}
+                {p.bioExtra && (
+                  <>
+                    {' '}
+                    <span className="text-fg-muted">·</span> {p.bioExtra}
+                  </>
+                )}
+              </>
+            ) : (
+              <span className="text-fg-muted">Chưa có giới thiệu.</span>
+            )}
+          </p>
         }
         tabs={
           <Tabs<ProfileTab>
