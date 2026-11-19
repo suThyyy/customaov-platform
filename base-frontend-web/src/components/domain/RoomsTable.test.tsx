@@ -2,7 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Room } from '../../api'
 import { roomAction } from '../../lib/room'
-import { RoomActionButton, RoomStatusBadge } from './RoomsTable'
+import { RoomActionButton, RoomCard, RoomStatusBadge } from './RoomsTable'
 
 afterEach(cleanup)
 
@@ -11,7 +11,7 @@ const baseRoom: Room = {
   title: 'Kèo kết thúc',
   thumbnail: '/mock-assets/room-1.jpg',
   host: { id: 'suthy', name: 'suthy', avatar: '', level: 42 },
-  modeLabel: '5v5 · Custom',
+  modeLabel: 'Tryhard',
   visibility: 'public',
   playerCount: 10,
   capacity: 10,
@@ -38,5 +38,18 @@ describe('RoomsTable finished status', () => {
       />,
     )
     expect(screen.getByRole('button', { name: /Xem phòng/ }).textContent).toContain('Xem')
+  })
+
+  it('card phòng hiện nhãn phong cách ngắn thay cho mode của wizard cũ', () => {
+    render(
+      <RoomCard
+        room={baseRoom}
+        onJoin={vi.fn()}
+        onWatch={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Tryhard')).toBeTruthy()
+    expect(screen.queryByText(/5v5 · (Custom|Căng|Vui)/)).toBeNull()
   })
 })

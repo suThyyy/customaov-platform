@@ -36,7 +36,7 @@ export interface Room {
   highlight?: string
   thumbnail: string
   host: Player
-  modeLabel: string // "5v5 · Custom"
+  modeLabel: string // "Fun" | "Tryhard"
   visibility: RoomVisibility
   playerCount: number
   capacity: number

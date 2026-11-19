@@ -1,5 +1,5 @@
 import { asset } from '../lib/asset'
-import type { RoomConfig, RoomConfigEditable } from '../api/roomConfig'
+import { PLAY_STYLE_SHORT_LABEL, type RoomConfig, type RoomConfigEditable } from '../api/roomConfig'
 import { currentUser } from './players'
 import { roomFullTitle, rooms } from './rooms'
 
@@ -7,8 +7,8 @@ const inferredConfig = (room: (typeof rooms)[number]): RoomConfig => ({
   name: roomFullTitle(room),
   series: 'BO5',
   access: room.visibility,
-  playStyle: room.modeLabel.includes('Căng') ? 'tryhard' : 'fun',
-  splitTool: room.modeLabel.includes('Căng') ? 'tier' : 'random',
+  playStyle: room.modeLabel === PLAY_STYLE_SHORT_LABEL.tryhard ? 'tryhard' : 'fun',
+  splitTool: room.modeLabel === PLAY_STYLE_SHORT_LABEL.tryhard ? 'tier' : 'random',
 })
 
 const seedConfigs = (): Map<string, RoomConfig> => new Map(rooms.map((room) => [room.id, inferredConfig(room)]))
@@ -26,7 +26,7 @@ export function createMockRoomWithConfig(config: RoomConfig): string {
     title: stored.name,
     thumbnail: asset('room-1.jpg'),
     host: currentUser,
-    modeLabel: stored.playStyle === 'fun' ? '5v5 · Vui' : '5v5 · Căng',
+    modeLabel: PLAY_STYLE_SHORT_LABEL[stored.playStyle],
     visibility: stored.access,
     playerCount: 1,
     capacity: 10,
@@ -53,7 +53,7 @@ export function updateMockRoomConfig(roomId: string, editable: RoomConfigEditabl
   const next = { ...config, ...editable }
   configs.set(roomId, next)
   const room = rooms.find((item) => item.id === roomId)
-  if (room) room.modeLabel = next.playStyle === 'fun' ? '5v5 · Vui' : '5v5 · Căng'
+  if (room) room.modeLabel = PLAY_STYLE_SHORT_LABEL[next.playStyle]
   return { ...editable }
 }
 

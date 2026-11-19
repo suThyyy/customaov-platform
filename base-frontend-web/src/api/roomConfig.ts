@@ -66,6 +66,11 @@ export const PLAY_STYLE_LABEL: Record<RoomPlayStyle, string> = {
   tryhard: 'Tryhard — Competitive',
 }
 
+export const PLAY_STYLE_SHORT_LABEL: Record<RoomPlayStyle, string> = {
+  fun: 'Fun',
+  tryhard: 'Tryhard',
+}
+
 export const PLAY_STYLE_DESCRIPTION: Record<RoomPlayStyle, string> = {
   fun: 'Chơi cùng bạn bè, ưu tiên trải nghiệm thoải mái.',
   tryhard: 'Thi đấu nghiêm túc, đề cao tính cạnh tranh.',

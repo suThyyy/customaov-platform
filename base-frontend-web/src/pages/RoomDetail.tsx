@@ -595,7 +595,7 @@ function RestrictedRoom({ room, busy, onJoin }: { room: ApiRoomSummary; busy: bo
     <div className="flex flex-col">
       <PageHeader
         title={<RoomTitle room={ui} />}
-        meta={<RoomInfoList room={ui} playerCount={room.playerCount} />}
+        meta={<RoomInfoList room={ui} playerCount={room.playerCount} config={null} />}
         actions={
           <Button leftIcon={<LogIn size={18} aria-hidden />} disabled={busy} onClick={onJoin}>
             Vào phòng
@@ -627,17 +627,28 @@ function RoomTitle({ room }: { room: Room }) {
   )
 }
 
-function RoomInfoList({ room, playerCount }: { room: Room; playerCount: number }) {
-  const VisibilityIcon = room.visibility === 'private' ? Lock : Globe
+function RoomInfoList({
+  room,
+  playerCount,
+  config,
+}: {
+  room: Room
+  playerCount: number
+  config: RoomConfigData | null
+}) {
+  const access = config?.access ?? room.visibility
+  const VisibilityIcon = access === 'private' ? Lock : Globe
   return (
     <ul className="flex flex-wrap items-center gap-x-6 gap-y-2 text-base text-fg/90" aria-label="Thông tin phòng">
-      <li className="flex items-center gap-2">
-        <Gamepad2 size={20} aria-hidden className="text-fg-muted" />
-        {room.modeLabel}
-      </li>
+      {config && (
+        <li className="flex items-center gap-2">
+          <Gamepad2 size={20} aria-hidden className="text-fg-muted" />
+          {config.series}
+        </li>
+      )}
       <li className="flex items-center gap-2">
         <VisibilityIcon size={18} aria-hidden className="text-fg-muted" />
-        {room.visibility === 'private' ? 'Private' : 'Public'}
+        {access === 'private' ? 'Riêng tư' : 'Công khai'}
       </li>
       <li className="flex items-center gap-2">
         <UserRound size={18} aria-hidden className="text-fg-muted" />
@@ -711,7 +722,7 @@ function RoomView({
         title={<RoomTitle room={room} />}
         meta={
           <div className="flex flex-col gap-3">
-            <RoomInfoList room={room} playerCount={playerCount} />
+            <RoomInfoList room={room} playerCount={playerCount} config={config} />
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex h-10 w-fit items-center gap-3 rounded-btn border border-line-strong bg-surface-2/80 pr-1 pl-4 text-base">
                 <span className="text-fg-muted">Mã phòng</span>

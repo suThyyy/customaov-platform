@@ -24,6 +24,7 @@ describe('contract → UI maps', () => {
 
     expect(mapRoom(room)).toMatchObject({
       id: 'AOV-1234', title: 'Kèo tối', highlight: 'BO3', status: 'waiting',
+      modeLabel: 'Tryhard',
       host: { id: 'host_1', name: 'Chủ phòng' },
       teams: { blue: [{ player: { tier: 4 }, lane: 'MID', captain: true }], red: [] },
     })

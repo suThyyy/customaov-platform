@@ -106,12 +106,12 @@ describe('Dashboard #rooms – chế độ api', () => {
     renderDashboard()
     await within(await screen.findByRole('table')).findByText('Kèo tối nay')
 
-    await user.click(screen.getByRole('button', { name: 'Căng' }))
-    await waitFor(() => expect(listCalls(calls).at(-1)?.url.searchParams.get('mode')).toBe('tournament'))
+    await user.click(screen.getByRole('button', { name: 'Tryhard' }))
+    await waitFor(() => expect(listCalls(calls).at(-1)?.url.searchParams.get('mode')).toBe('normal'))
 
     await user.type(screen.getByRole('searchbox'), 'kèo')
     await waitFor(() => expect(listCalls(calls).at(-1)?.url.searchParams.get('q')).toBe('kèo'))
-    expect(listCalls(calls).at(-1)?.url.searchParams.get('mode')).toBe('tournament')
+    expect(listCalls(calls).at(-1)?.url.searchParams.get('mode')).toBe('normal')
     // debounce: không gửi từng ký tự
     expect(listCalls(calls).filter((c) => c.url.searchParams.has('q'))).toHaveLength(1)
 

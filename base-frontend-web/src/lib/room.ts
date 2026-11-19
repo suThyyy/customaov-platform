@@ -1,7 +1,6 @@
 import type { Room, RoomMember } from '../api'
 
-/** "5v5 · Căng" → "Căng" */
-export const roomMode = (r: Room): string => r.modeLabel.split(' · ')[1] ?? r.modeLabel
+export const roomMode = (r: Room): string => r.modeLabel
 
 export const isRoomMember = (r: Room, userId?: string): boolean =>
   !!userId && [...r.teams.blue, ...r.teams.red].some((m) => m.player.id === userId)

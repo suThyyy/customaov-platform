@@ -39,7 +39,7 @@ const STEPS = [
   {
     icon: SquarePlus,
     title: 'Tạo phòng & mời bạn',
-    description: 'Đặt tên phòng, chọn chế độ Căng / Vui / Custom và gửi mã phòng cho bạn bè.',
+    description: 'Đặt tên phòng, chọn phong cách Fun / Tryhard và gửi mã phòng cho bạn bè.',
   },
   {
     icon: Scale,

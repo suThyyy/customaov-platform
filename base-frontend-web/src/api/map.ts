@@ -9,16 +9,17 @@ import type {
   UserProfile as ApiUserProfile,
   UserSummary,
 } from '@customaov/contracts'
-import type {
-  Activity,
-  BracketSlot,
-  ChatMessage,
-  Player,
-  Room,
-  RoomMember,
-  Tournament,
-  TournamentDetail,
-  UserProfile,
+import {
+  ROOM_MODE_SHORT_LABEL,
+  type Activity,
+  type BracketSlot,
+  type ChatMessage,
+  type Player,
+  type Room,
+  type RoomMember,
+  type Tournament,
+  type TournamentDetail,
+  type UserProfile,
 } from './types'
 import { timeAgo } from './time'
 
@@ -62,7 +63,7 @@ export const mapRoom = (room: ApiRoomSummary | ApiRoomDetail): Room => ({
   highlight: room.highlight ?? undefined,
   thumbnail: room.thumbnail,
   host: mapPlayer(room.host),
-  modeLabel: room.modeLabel,
+  modeLabel: ROOM_MODE_SHORT_LABEL[room.mode],
   visibility: room.visibility,
   playerCount: room.playerCount,
   capacity: room.capacity,
