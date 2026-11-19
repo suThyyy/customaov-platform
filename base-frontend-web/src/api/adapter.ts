@@ -1,6 +1,13 @@
 import type { RoomMode } from '@customaov/contracts'
 import type { LoginBody, Me, RegisterBody, UpdateMeBody, CreateRoomBody, CreateTournamentBody } from '@customaov/contracts'
 import type { Activity, ChatMessage, Player, Registration, Room, Tournament, TournamentDetail, UserProfile } from './types'
+import type {
+  RoomConfig,
+  RoomConfigCreateResult,
+  RoomConfigEditable,
+  RoomConfigReadResult,
+  RoomConfigUpdateResult,
+} from './roomConfig'
 
 export interface RoomsParams {
   q?: string
@@ -88,6 +95,7 @@ export interface ProfileAdapter extends AdapterCapabilities {
 
 export interface RoomsAdapter extends AdapterCapabilities {
   roomView?: 'open-room'
+  configPersisted: boolean
   initial(params: RoomsParams): Room[]
   initialPage(params: RoomsPageParams): RoomsPage
   initialRoom(code?: string): Room | undefined
@@ -95,6 +103,9 @@ export interface RoomsAdapter extends AdapterCapabilities {
   page(params: RoomsPageParams, signal?: AbortSignal): Promise<RoomsPage>
   room(code: string, signal?: AbortSignal): Promise<Room | undefined>
   create(body: CreateRoomBody, signal?: AbortSignal): Promise<{ code: string }>
+  createRoomWithConfig(config: RoomConfig, signal?: AbortSignal): Promise<RoomConfigCreateResult>
+  getRoomConfig(roomId: string, signal?: AbortSignal): Promise<RoomConfigReadResult>
+  updateRoomConfig(roomId: string, editable: RoomConfigEditable, signal?: AbortSignal): Promise<RoomConfigUpdateResult>
   join(code: string, signal?: AbortSignal): Promise<{ code: string }>
 }
 

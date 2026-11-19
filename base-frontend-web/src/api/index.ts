@@ -7,6 +7,16 @@ import {
 } from '@customaov/contracts'
 import { profileAdapter, roomsAdapter, tournamentsAdapter } from './adapters'
 import { clearDataCache } from './hooks'
+import {
+  RoomConfigValidationError,
+  parseRoomConfig,
+  validateRoomConfigEditable,
+  type RoomConfig,
+  type RoomConfigCreateResult,
+  type RoomConfigEditable,
+  type RoomConfigReadResult,
+  type RoomConfigUpdateResult,
+} from './roomConfig'
 
 export { ApiError, apiRequest } from './client'
 export { authAdapter, profileAdapter, roomsAdapter, chatAdapter, tournamentsAdapter, registrationsAdapter, activitiesAdapter, searchAdapter } from './adapters'
@@ -19,6 +29,7 @@ export * from './hooks'
 export * from './types'
 export type { RoomsPage, RoomsPageParams } from './adapter'
 export * from './room'
+export * from './roomConfig'
 export * from './realtime'
 export * from './supabase'
 
@@ -48,4 +59,20 @@ export async function createRoom(body: CreateRoomBody, signal?: AbortSignal): Pr
   const room = await roomsAdapter.create(body, signal)
   clearDataCache()
   return { code: room.code }
+}
+
+export const createRoomWithConfig = (config: RoomConfig, signal?: AbortSignal): Promise<RoomConfigCreateResult> =>
+  roomsAdapter.createRoomWithConfig(parseRoomConfig(config), signal)
+
+export const getRoomConfig = (roomId: string, signal?: AbortSignal): Promise<RoomConfigReadResult> =>
+  roomsAdapter.getRoomConfig(roomId, signal)
+
+export function updateRoomConfig(
+  roomId: string,
+  editable: RoomConfigEditable,
+  signal?: AbortSignal,
+): Promise<RoomConfigUpdateResult> {
+  const errors = validateRoomConfigEditable(editable)
+  if (Object.keys(errors).length) throw new RoomConfigValidationError(errors)
+  return roomsAdapter.updateRoomConfig(roomId, editable, signal)
 }

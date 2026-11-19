@@ -2,6 +2,7 @@ import type { DataAdapter } from './adapter'
 import { endpoints } from './endpoints'
 import { ApiError } from './client'
 import { mapActivity, mapChatMessage, mapPlayer, mapProfile, mapRoom, mapTournament, mapTournamentDetail } from './map'
+import { fromApiRoomDetail, toApiCreateRoomBody } from './roomConfig'
 
 const capabilities = { readyImmediately: false, supportsRealtime: true, persistsWrites: true, isSampleData: false } as const
 
@@ -37,6 +38,7 @@ export const httpAdapter: DataAdapter = {
   },
   rooms: {
     ...capabilities,
+    configPersisted: true,
     initial: () => [],
     initialPage: (params) => ({ items: [], total: 0, page: params.page, pageSize: params.pageSize }),
     initialRoom: () => undefined,
@@ -62,6 +64,20 @@ export const httpAdapter: DataAdapter = {
     },
     async room(code, signal) { return mapRoom(await endpoints.room(code, {}, signal)) },
     async create(body, signal) { return { code: (await endpoints.createRoom(body, signal)).code } },
+    async createRoomWithConfig(config, signal) {
+      const room = await endpoints.createRoom(toApiCreateRoomBody(config), signal)
+      return { roomId: room.code, status: 'OPEN', config, configPersisted: true }
+    },
+    async getRoomConfig(roomId, signal) {
+      const room = await endpoints.room(roomId, {}, signal)
+      return {
+        config: 'config' in room ? fromApiRoomDetail(room) : null,
+        configPersisted: 'config' in room,
+      }
+    },
+    async updateRoomConfig() {
+      throw new Error('Platform API hiện chưa có contract cập nhật cấu hình phòng.')
+    },
     async join(code, signal) { return { code: (await endpoints.joinRoom(code, { as: 'player' }, signal)).code } },
   },
   chat: {
