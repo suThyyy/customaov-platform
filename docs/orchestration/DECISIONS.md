@@ -93,3 +93,7 @@
   - Bug tìm ra và đã sửa: Start khi chưa đủ 5v5; replace xoá đội của cả 10 người (SQL `team=null` toàn phòng), nay UI lưu lại đội cũ sau replace.
   - Báo cáo: `docs/product/HUY-15_REPORT.md` (nhánh `feat/huy-15-room-mutations`, chưa push).
 - 18/11 · Owner · Duyệt push `feat/huy-15-room-mutations` + PR (base `feat/huy-14-supabase-adapters`). Đã push; gh chưa đăng nhập nên Owner tự tạo PR. Lỗi SQL replace báo Huy Hoàng sau.
+- 19/11 · Owner · **Refactor luồng Tạo phòng theo 5 mockup** (`docs/ui-refactor/mockups/create-room/`). Nhóm 1 (tên, BO3/5/7, công khai/riêng tư) khoá sau khi tạo; nhóm 2 (Fun/Tryhard) và nhóm 3 (Random/Tier/Rank) host đổi được.
+  - Supabase chưa có cột cấu hình: làm UI trước. Supabase mode hiện "chưa lưu lên server"; đặc tả SQL gửi Huy Hoàng.
+  - ROOM-CFG-a (Codex): dữ liệu + adapter + BO7 contracts + đặc tả. ROOM-CFG-b (agy): wizard + panel trong phòng.
+  - Nhánh `feat/room-create-config` từ `main` `f79c3d3`.
