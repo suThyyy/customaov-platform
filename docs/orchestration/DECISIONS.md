@@ -97,3 +97,4 @@
   - Supabase chưa có cột cấu hình: làm UI trước. Supabase mode hiện "chưa lưu lên server"; đặc tả SQL gửi Huy Hoàng.
   - ROOM-CFG-a (Codex): dữ liệu + adapter + BO7 contracts + đặc tả. ROOM-CFG-b (agy): wizard + panel trong phòng.
   - Nhánh `feat/room-create-config` từ `main` `f79c3d3`.
+- 19/11 · Owner · Đăng nhập gh (suThyyy, keyring). Push `feat/room-create-config`, Lead tự mở PR #7.
