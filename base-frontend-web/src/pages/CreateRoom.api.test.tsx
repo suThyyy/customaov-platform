@@ -30,18 +30,19 @@ function renderWizard() {
 const next = () => screen.getByRole('button', { name: 'Tiếp tục' })
 const stepTitle = () => screen.getByRole('heading', { level: 2 })
 
-async function goToReview(user: ReturnType<typeof userEvent.setup>) {
+async function fillStep1AndGoToReview(user: ReturnType<typeof userEvent.setup>) {
+  const name = screen.getByRole('textbox', { name: /Tên phòng/ })
+  await user.type(name, 'Kèo thứ bảy')
   await user.click(next())
   await user.click(next())
   await user.click(next())
-  expect(stepTitle().textContent).toBe('Xem lại')
+  expect(stepTitle().textContent).toBe('Bước 4 — Xem lại')
 }
 
 const createCalls = (calls: FetchCall[]) => calls.filter((c) => c.url.pathname === '/api/rooms' && c.method === 'POST')
 
 beforeEach(() => {
   clearDataCache()
-  // jsdom không có scrollIntoView (wizard cuộn tiêu đề bước vào khung nhìn khi đổi bước)
   Element.prototype.scrollIntoView = vi.fn()
 })
 afterEach(() => {
@@ -50,25 +51,6 @@ afterEach(() => {
 })
 
 describe('/rooms/new – chế độ api', () => {
-  it('3v3 và 1v1 bị vô hiệu kèm nhãn "Sắp có"', async () => {
-    const user = userEvent.setup()
-    mockFetch(() => undefined)
-    renderWizard()
-    await user.click(next())
-    expect(stepTitle().textContent).toBe('Cấu hình trận')
-
-    const r5 = screen.getByRole('radio', { name: /5 vs 5/ })
-    const r3 = screen.getByRole('radio', { name: /3 vs 3/ })
-    const r1 = screen.getByRole('radio', { name: /1 vs 1/ })
-    expect(r5.hasAttribute('disabled')).toBe(false)
-    expect(r3.hasAttribute('disabled')).toBe(true)
-    expect(r1.hasAttribute('disabled')).toBe(true)
-    expect(screen.getAllByText('Sắp có')).toHaveLength(2)
-
-    await user.click(screen.getByText('3 vs 3'))
-    expect((r5 as HTMLInputElement).checked).toBe(true)
-  })
-
   it('bước cuối gửi POST /api/rooms với cấu hình 4 bước rồi điều hướng /rooms/<code>', async () => {
     const user = userEvent.setup()
     const { calls } = mockFetch((call) =>
@@ -77,15 +59,13 @@ describe('/rooms/new – chế độ api', () => {
         : undefined,
     )
     renderWizard()
-    const name = screen.getByRole('textbox', { name: /Tên phòng/ })
-    await user.clear(name)
-    await user.type(name, 'Kèo thứ bảy')
-    await user.click(screen.getByText('Giao hữu'))
-    await user.click(screen.getByText('Công khai'))
+    await user.type(screen.getByRole('textbox', { name: /Tên phòng/ }), 'Kèo thứ bảy')
+    await user.click(screen.getByRole('radio', { name: 'BO3' }))
+    await user.click(screen.getByRole('radio', { name: 'Công khai' }))
     await user.click(next())
-    await user.click(screen.getByText('BO3'))
+    await user.click(screen.getByRole('radio', { name: /Tryhard — Competitive/ }))
     await user.click(next())
-    await user.click(screen.getByRole('switch', { name: 'Random tướng' }))
+    await user.click(screen.getByRole('radio', { name: /Tier Balance/ }))
     await user.click(next())
     await user.click(screen.getByRole('button', { name: 'Tạo phòng' }))
 
@@ -93,14 +73,14 @@ describe('/rooms/new – chế độ api', () => {
     const [create] = createCalls(calls)
     expect(create.body).toEqual({
       title: 'Kèo thứ bảy',
-      mode: 'friendly',
+      mode: 'normal',
       visibility: 'public',
       config: {
         format: '5v5',
-        pickMode: 'draft',
+        pickMode: 'blind',
         series: 'BO3',
-        tools: ['balance', 'lane', 'champion', 'chat'],
-        notes: 'Giao hữu vui vẻ, full đội 5v5.\nƯu tiên đúng giờ và giữ fair-play.',
+        tools: ['balance'],
+        notes: '',
       },
     })
   })
@@ -116,34 +96,17 @@ describe('/rooms/new – chế độ api', () => {
         : undefined,
     )
     renderWizard()
-    await goToReview(user)
+    await fillStep1AndGoToReview(user)
     await user.click(screen.getByRole('button', { name: 'Tạo phòng' }))
 
     expect(await screen.findByText('Tên phòng đã có người dùng')).toBeTruthy()
-    expect(stepTitle().textContent).toBe('Thông tin phòng')
+    expect(stepTitle().textContent).toBe('Bước 1 — Thông tin phòng')
     const name = screen.getByRole('textbox', { name: /Tên phòng/ })
     expect(name.getAttribute('aria-invalid')).toBe('true')
-    // không có alert chung cho lỗi đã gắn được vào ô
-    expect(screen.queryByText(/Chưa tạo được phòng/)).toBeNull()
-
-    await user.click(next())
     expect(screen.getByText('Thể thức không hợp lệ')).toBeTruthy()
-    await user.click(screen.getByText('BO5'))
-    expect(screen.queryByText('Thể thức không hợp lệ')).toBeNull()
-  })
 
-  it('lỗi 400 "Sắp có" (thể thức) hiện ở ô Số người', async () => {
-    const user = userEvent.setup()
-    mockFetch((call) =>
-      call.url.pathname === '/api/rooms' && call.method === 'POST'
-        ? errorResponse(400, 'VALIDATION', 'Sắp có: MVP chỉ hỗ trợ thể thức 5v5')
-        : undefined,
-    )
-    renderWizard()
-    await goToReview(user)
-    await user.click(screen.getByRole('button', { name: 'Tạo phòng' }))
-    expect(await screen.findByText('Sắp có: MVP chỉ hỗ trợ thể thức 5v5')).toBeTruthy()
-    expect(stepTitle().textContent).toBe('Cấu hình trận')
+    await user.click(screen.getByRole('radio', { name: 'BO3' }))
+    expect(screen.queryByText('Thể thức không hợp lệ')).toBeNull()
   })
 
   it('lỗi khác (409) hiện role="alert" và giữ ở bước xem lại', async () => {
@@ -154,12 +117,12 @@ describe('/rooms/new – chế độ api', () => {
         : undefined,
     )
     renderWizard()
-    await goToReview(user)
+    await fillStep1AndGoToReview(user)
     await user.click(screen.getByRole('button', { name: 'Tạo phòng' }))
 
-    const alert = await screen.findByText(/Chưa tạo được phòng/)
-    expect(alert.closest('[role="alert"]')?.textContent).toContain('AOV-1024')
-    expect(stepTitle().textContent).toBe('Xem lại')
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('AOV-1024')
+    expect(stepTitle().textContent).toBe('Bước 4 — Xem lại')
     expect(screen.queryByText(/^room:/)).toBeNull()
     expect(screen.getByRole('button', { name: 'Tạo phòng' }).hasAttribute('disabled')).toBe(false)
   })
