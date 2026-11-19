@@ -7,6 +7,7 @@ import {
   type OpenRoomPending,
   type OpenRoomPermissions,
   type OpenRoomSnapshot,
+  type RoomSplitTool,
 } from '../../../api'
 import { cn } from '../../../lib/cn'
 import { Button } from '../../ui/Button'
@@ -18,6 +19,7 @@ export function OpenRoomLineup({
   snapshot,
   permissions,
   pending,
+  splitTool = 'random',
   onSaveLineup,
   onKick,
   onRequeue,
@@ -27,6 +29,7 @@ export function OpenRoomLineup({
   snapshot: OpenRoomSnapshot
   permissions: OpenRoomPermissions
   pending: OpenRoomPending
+  splitTool?: RoomSplitTool
   onSaveLineup: (players: readonly OpenRoomLineupPlayer[]) => Promise<boolean>
   onKick: (memberId: string, displayName: string) => void
   onRequeue: (memberId: string, displayName: string) => void
@@ -164,14 +167,23 @@ export function OpenRoomLineup({
               variant="outline"
               size="sm"
               leftIcon={<Shuffle size={14} aria-hidden />}
-              disabled={snapshot.selected.length !== 10 || pending.saveLineup}
+              disabled={splitTool !== 'random' || snapshot.selected.length !== 10 || pending.saveLineup}
               onClick={handleRandomSplit}
             >
-              {pending.saveLineup ? 'Đang chia…' : 'Chia ngẫu nhiên'}
+              {splitTool === 'tier'
+                ? 'Chia theo Tier Balance'
+                : splitTool === 'rank'
+                  ? 'Chia theo Rank Balance'
+                  : pending.saveLineup
+                    ? 'Đang chia…'
+                    : 'Chia ngẫu nhiên'}
             </Button>
           </div>
         )}
       </div>
+      {permissions.saveLineup && splitTool !== 'random' && (
+        <p className="mt-2 text-xs text-fg-muted">Cần điểm Tier/Rank của người chơi — sắp có</p>
+      )}
 
       <div className="mt-4 grid min-w-0 gap-4 md:grid-cols-2">
         {renderTeamColumn('Team A', teamA, 'a', selectedA, (id) => setSelectedA(id || null), 'text-team-blue-fg')}

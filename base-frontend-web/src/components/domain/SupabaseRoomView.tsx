@@ -1,11 +1,14 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Radio, UsersRound } from 'lucide-react'
 import {
+  getRoomConfig,
   openRoomPermissions,
   useOpenRoom,
   useOpenRoomActions,
   type OpenRoomPending,
   type OpenRoomSnapshot,
+  type RoomConfig,
   type RoomMutationResult,
 } from '../../api'
 import { useAuth, useToast } from '../../context/AppContext'
@@ -18,6 +21,7 @@ import { OPEN_ROOM_PHASE_LABEL } from './open-room/helpers'
 import { OpenRoomControls } from './open-room/OpenRoomControls'
 import { OpenRoomLineup } from './open-room/OpenRoomLineup'
 import { OpenRoomQueue } from './open-room/OpenRoomQueue'
+import { RoomConfigPanel } from './RoomConfigPanel'
 
 export type OpenRoomActions = ReturnType<typeof useOpenRoomActions>
 
@@ -57,6 +61,25 @@ export function SupabaseRoomView({ roomId }: { roomId: string | undefined }) {
   const actions = useOpenRoomActions(roomId ?? '', room.snapshot)
   const { user } = useAuth()
   const { notify } = useToast()
+  const location = useLocation()
+  const navState = location.state as { roomConfig?: RoomConfig; configPersisted?: boolean } | null
+  const [loadedConfig, setLoadedConfig] = useState<{ config: RoomConfig | null; configPersisted: boolean }>({
+    config: navState?.roomConfig ?? null,
+    configPersisted: navState?.configPersisted ?? false,
+  })
+
+  useEffect(() => {
+    if (navState?.roomConfig) {
+      setLoadedConfig({ config: navState.roomConfig, configPersisted: navState.configPersisted ?? false })
+      return
+    }
+    if (!roomId) return
+    let cancelled = false
+    void getRoomConfig(roomId).then((res) => {
+      if (!cancelled) setLoadedConfig(res)
+    })
+    return () => { cancelled = true }
+  }, [roomId, navState?.roomConfig, navState?.configPersisted])
 
   if (room.status !== 'ready') {
     return (
@@ -84,6 +107,8 @@ export function SupabaseRoomView({ roomId }: { roomId: string | undefined }) {
       userId={user?.id}
       actions={actions}
       onNotify={notify}
+      roomConfig={loadedConfig.config}
+      configPersisted={loadedConfig.configPersisted}
     />
   )
 }
@@ -94,12 +119,16 @@ export function SupabaseRoomSnapshot({
   userId,
   actions = IDLE_ACTIONS,
   onNotify = () => {},
+  roomConfig = null,
+  configPersisted = false,
 }: {
   snapshot: OpenRoomSnapshot
   connection: 'connecting' | 'live' | 'reconnecting' | 'offline'
   userId?: string | null
   actions?: OpenRoomActions
   onNotify?: (title: string, description?: string) => void
+  roomConfig?: RoomConfig | null
+  configPersisted?: boolean
 }) {
   const live = connection === 'live'
   const permissions = useMemo(() => openRoomPermissions(snapshot, userId), [snapshot, userId])
@@ -147,6 +176,15 @@ export function SupabaseRoomSnapshot({
         </div>
       </header>
 
+      <RoomConfigPanel
+        config={roomConfig}
+        configPersisted={configPersisted}
+        isHost={permissions.role === 'host'}
+        playerCount={snapshot.selected.length}
+        roomStatus={snapshot.room.status === 'open' ? 'OPEN' : 'CLOSED'}
+        headingAs="h2"
+      />
+
       <OpenRoomControls
         snapshot={snapshot}
         permissions={permissions}
@@ -164,6 +202,7 @@ export function SupabaseRoomSnapshot({
         snapshot={snapshot}
         permissions={permissions}
         pending={actions.pending}
+        splitTool={roomConfig?.splitTool ?? 'random'}
         onSaveLineup={(players) => runAction(() => actions.saveLineup(players))}
         onKick={(memberId, displayName) => setConfirm({ kind: 'kick', memberId, displayName })}
         onRequeue={(memberId, displayName) => setConfirm({ kind: 'requeue', memberId, displayName })}
