@@ -19,7 +19,7 @@ import {
 export interface RoomConfigJson {
   format: "5v5";
   pickMode: "draft" | "blind" | "random";
-  series: "BO1" | "BO3" | "BO5";
+  series: "BO1" | "BO3" | "BO5" | "BO7";
   tools: Array<"balance" | "lane" | "champion" | "mystery" | "chat">;
   notes: string;
 }
