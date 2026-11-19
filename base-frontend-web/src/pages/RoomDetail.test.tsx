@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { DEFAULT_BALANCE_LEVEL, DEFAULT_TIER_SCORES, splitTeams5v5 } from '@customaov/team-core'
 import { AppProviders } from '../context/AppContext'
 import { players } from '../mocks'
+import { createMockRoomWithConfig, resetMockRoomConfigStore } from '../mocks/roomConfig'
 import RoomDetail from './RoomDetail'
 
 vi.mock('@customaov/team-core', async (importOriginal) => {
@@ -44,11 +45,29 @@ function expectValidFiveVsFive() {
 }
 
 beforeEach(() => {
+  resetMockRoomConfigStore()
   vi.mocked(splitTeams5v5).mockClear()
 })
 afterEach(cleanup)
 
 describe('RoomDetail – chia đội', () => {
+  it('meta dưới h1 lấy BO và quyền truy cập từ cấu hình phòng mới', async () => {
+    const roomId = createMockRoomWithConfig({
+      name: 'Kèo review cấu hình',
+      series: 'BO5',
+      access: 'private',
+      playStyle: 'tryhard',
+      splitTool: 'tier',
+    })
+    renderRoom(roomId)
+
+    const meta = screen.getByRole('list', { name: 'Thông tin phòng' })
+    expect(await within(meta).findByText('BO5')).toBeTruthy()
+    expect(within(meta).getByText('Riêng tư')).toBeTruthy()
+    expect(within(meta).queryByText('Tryhard')).toBeNull()
+    expect(within(meta).queryByText(/5v5 · (Custom|Căng|Vui)/)).toBeNull()
+  })
+
   it('“Chia lại” gọi splitTeams5v5 (random, không score) và render 5v5', async () => {
     const user = userEvent.setup()
     renderRoom('AOV-1024')

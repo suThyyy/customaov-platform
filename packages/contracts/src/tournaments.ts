@@ -9,7 +9,7 @@ import {
   paginatedSchema,
 } from "./common.js";
 
-export const SeriesSchema = z.enum(["BO1", "BO3", "BO5"]);
+export const SeriesSchema = z.enum(["BO1", "BO3", "BO5", "BO7"]);
 export type Series = z.infer<typeof SeriesSchema>;
 export const TournamentStatusSchema = z.enum(["open", "live", "finished"]);
 export const TeamCountSchema = z.union([z.literal(4), z.literal(8), z.literal(16)]);
@@ -222,7 +222,7 @@ export function isValidSeriesScore(series: Series, scoreA: number, scoreB: numbe
   if (!Number.isInteger(scoreA) || !Number.isInteger(scoreB) || scoreA < 0 || scoreB < 0) {
     return false;
   }
-  const winsNeeded: Record<Series, number> = { BO1: 1, BO3: 2, BO5: 3 };
+  const winsNeeded: Record<Series, number> = { BO1: 1, BO3: 2, BO5: 3, BO7: 4 };
   const target = winsNeeded[series];
   return (
     (scoreA === target && scoreB < target) ||

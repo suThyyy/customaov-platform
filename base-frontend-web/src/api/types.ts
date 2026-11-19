@@ -19,6 +19,7 @@ export type {
 } from '../mocks/types'
 
 import type { Registration, RoomMode, Series, TournamentDetail as ApiTournamentDetail } from '@customaov/contracts'
+import { PLAY_STYLE_SHORT_LABEL } from './roomConfig'
 import type {
   BracketMatch as MockBracketMatch,
   BracketSlot as MockBracketSlot,
@@ -91,12 +92,12 @@ export type UserProfile = Omit<MockUserProfile, 'stats'> & {
  */
 export type Room = MockRoom & { isMember?: boolean }
 
-/** Nhãn ngắn của chế độ phòng, khớp `MODE_LABELS` của server ("5v5 · Căng" → "Căng") */
+/** Nhãn phong cách ngắn thay cho nhãn mode của wizard cũ. */
 export const ROOM_MODE_SHORT_LABEL: Record<RoomMode, string> = {
-  normal: 'Custom',
-  tournament: 'Căng',
-  friendly: 'Vui',
-  other: 'Khác',
+  normal: PLAY_STYLE_SHORT_LABEL.tryhard,
+  tournament: PLAY_STYLE_SHORT_LABEL.tryhard,
+  friendly: PLAY_STYLE_SHORT_LABEL.fun,
+  other: PLAY_STYLE_SHORT_LABEL.tryhard,
 }
 
 export const roomFullTitle = (room: Pick<Room, 'title' | 'highlight'>): string =>

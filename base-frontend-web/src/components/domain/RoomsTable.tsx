@@ -156,19 +156,17 @@ export function RoomCard({
   )
 }
 
-type ModeFilter = 'all' | 'Căng' | 'Vui' | 'Custom'
+type ModeFilter = 'all' | 'Fun' | 'Tryhard'
 const MODE_FILTERS: Array<{ id: ModeFilter; label: string }> = [
   { id: 'all', label: 'Tất cả' },
-  { id: 'Căng', label: 'Căng' },
-  { id: 'Vui', label: 'Vui' },
-  { id: 'Custom', label: 'Custom' },
+  { id: 'Fun', label: 'Fun' },
+  { id: 'Tryhard', label: 'Tryhard' },
 ]
 
-/** Chip lọc → `RoomMode` của API (khớp nhãn ngắn trong `modeLabel` của server) */
+/** Chip phong cách → `RoomMode` mà wizard mới gửi lên API. */
 const MODE_FILTER_API: Record<Exclude<ModeFilter, 'all'>, RoomMode> = {
-  Căng: 'tournament',
-  Vui: 'friendly',
-  Custom: 'normal',
+  Fun: 'friendly',
+  Tryhard: 'normal',
 }
 
 /** Số phòng mỗi trang của danh sách phân trang ở server */
@@ -204,7 +202,7 @@ type ActiveRoomsCardProps = RoomHandlers & {
  * - ≥ 768px: bảng 4 cột (Phòng · Người chơi · Trạng thái · Thao tác); chủ phòng + chế độ nằm ở dòng phụ
  *   dưới tên phòng nên bảng vừa với cột trái mà không cần cuộn ngang.
  * - < 768px: danh sách card.
- * - Bộ lọc chế độ (Căng / Vui / Custom) + empty state.
+ * - Bộ lọc phong cách (Fun / Tryhard) + empty state.
  * - Không có `server`: lọc chế độ tại chỗ trên `rooms` (chế độ mock).
  *   Có `server`: `rooms` là một trang đã lọc ở server; thêm ô tìm kiếm + phân trang (`RemoteActiveRoomsCard`).
  */
@@ -232,7 +230,7 @@ export function ActiveRoomsCard({
   const mode = server ? server.mode : localMode
   const setMode = server ? server.onModeChange : setLocalMode
   const counts = useMemo(() => {
-    const c: Record<ModeFilter, number> = { all: rooms.length, Căng: 0, Vui: 0, Custom: 0 }
+    const c: Record<ModeFilter, number> = { all: rooms.length, Fun: 0, Tryhard: 0 }
     for (const r of rooms) {
       const m = roomMode(r) as ModeFilter
       if (m in c) c[m]++

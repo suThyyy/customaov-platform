@@ -318,4 +318,49 @@ describe('SupabaseRoomView (unit)', () => {
       expect(onNotify).toHaveBeenCalledWith('Phòng vừa thay đổi, đã tải lại.')
     })
   })
+
+  it('OpenRoomLineup khi splitTool là tier hoặc rank sẽ disable nút chia và hiện ghi chú sắp có', () => {
+    const snapshot = mapOpenRoomSnapshot(makeTenPlayerPreparingPayload(), 'u1')
+    const { rerender } = render(
+      <SupabaseRoomSnapshot
+        snapshot={snapshot}
+        connection="live"
+        userId="u1"
+        actions={makeActions()}
+        roomConfig={{
+          name: 'Phòng Tier',
+          series: 'BO5',
+          access: 'private',
+          playStyle: 'tryhard',
+          splitTool: 'tier',
+        }}
+        configPersisted={false}
+      />,
+    )
+
+    expect(screen.getByText('Cấu hình chưa được lưu lên server (chờ backend)')).toBeTruthy()
+    const tierBtn = screen.getByRole('button', { name: 'Chia theo Tier Balance' }) as HTMLButtonElement
+    expect(tierBtn.disabled).toBe(true)
+    expect(screen.getByText('Cần điểm Tier/Rank của người chơi — sắp có')).toBeTruthy()
+
+    rerender(
+      <SupabaseRoomSnapshot
+        snapshot={snapshot}
+        connection="live"
+        userId="u1"
+        actions={makeActions()}
+        roomConfig={{
+          name: 'Phòng Rank',
+          series: 'BO5',
+          access: 'public',
+          playStyle: 'tryhard',
+          splitTool: 'rank',
+        }}
+        configPersisted={false}
+      />,
+    )
+    const rankBtn = screen.getByRole('button', { name: 'Chia theo Rank Balance' }) as HTMLButtonElement
+    expect(rankBtn.disabled).toBe(true)
+    expect(screen.getByText('Cần điểm Tier/Rank của người chơi — sắp có')).toBeTruthy()
+  })
 })

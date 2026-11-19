@@ -59,9 +59,12 @@ import { ListStatus, SkeletonRows } from '../components/ui/ListStatus'
 import {
   ApiError,
   currentUser,
+  fromApiRoomDetail,
+  getRoomConfig,
   roomActions,
   roomsAdapter,
   isRoomDetail,
+  updateRoomConfig,
   useApiRoom,
   useApiRoomMessages,
   useRoom,
@@ -70,6 +73,8 @@ import {
   type ChatMessage,
   type Lane,
   type Room,
+  type RoomConfig as RoomConfigData,
+  type RoomConfigEditable,
   type RoomMember,
 } from '../api'
 import { mapChatMessage, mapRoom } from '../api/map'
@@ -79,6 +84,7 @@ import { PageHeader } from '../components/layout/PageHeader'
 import { Tabs } from '../components/ui/Tabs'
 import { useDismiss } from '../components/layout/hooks'
 import { EmptyState } from '../components/domain/EmptyState'
+import { RoomConfigPanel } from '../components/domain/RoomConfigPanel'
 import { SupabaseRoomView } from '../components/domain/SupabaseRoomView'
 import { MODE_LABEL, splitRoomMembers, type TeamSplitRequest } from '../features/team-split/teamSplit'
 
@@ -250,11 +256,39 @@ function MockRoomView({ room }: { room: Room }) {
     notify(`Đã mời ${m.player.name} ra khỏi phòng`, 'Chỗ trống có thể mời người khác vào.')
   }
 
+  const [roomConfig, setRoomConfig] = useState<RoomConfigData | null>(null)
+  const [configPending, setConfigPending] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    void getRoomConfig(room.id).then((res) => {
+      if (!cancelled) setRoomConfig(res.config)
+    })
+    return () => { cancelled = true }
+  }, [room.id])
+
+  const handleUpdateConfig = async (editable: RoomConfigEditable) => {
+    if (configPending) return
+    setConfigPending(true)
+    try {
+      const res = await updateRoomConfig(room.id, editable)
+      setRoomConfig((prev) => (prev ? { ...prev, ...res.config } : prev))
+      notify('Đã cập nhật cấu hình')
+    } catch (err) {
+      notify('Không thể cập nhật cấu hình', err instanceof Error ? err.message : 'Vui lòng thử lại.')
+    } finally {
+      setConfigPending(false)
+    }
+  }
+
   return (
     <RoomView
       room={room}
       teams={teams}
       role={role}
+      config={roomConfig}
+      configPending={configPending}
+      onUpdateConfig={handleUpdateConfig}
       actions={{
         share: () => shareCopy(notify, window.location.href),
         split: runSplit,
@@ -496,6 +530,23 @@ function ApiRoomView({
     }
   }
 
+  const [roomConfig, setRoomConfig] = useState<RoomConfigData>(() => fromApiRoomDetail(detail))
+  const [configPending, setConfigPending] = useState(false)
+
+  const handleUpdateConfig = async (editable: RoomConfigEditable) => {
+    if (configPending) return
+    setConfigPending(true)
+    try {
+      const res = await updateRoomConfig(code, editable)
+      setRoomConfig((prev) => ({ ...prev, ...res.config }))
+      notify('Đã cập nhật cấu hình')
+    } catch (err) {
+      notify('Không thể cập nhật cấu hình', err instanceof Error ? err.message : 'Vui lòng thử lại.')
+    } finally {
+      setConfigPending(false)
+    }
+  }
+
   return (
     <RoomView
       key={room.id}
@@ -503,6 +554,9 @@ function ApiRoomView({
       teams={teams}
       role={role}
       live={live}
+      config={roomConfig}
+      configPending={configPending}
+      onUpdateConfig={handleUpdateConfig}
       actions={{
         share: () => shareCopy(notify, detail.shareUrl ? new URL(detail.shareUrl, window.location.origin).href : window.location.href),
         split,
@@ -541,7 +595,7 @@ function RestrictedRoom({ room, busy, onJoin }: { room: ApiRoomSummary; busy: bo
     <div className="flex flex-col">
       <PageHeader
         title={<RoomTitle room={ui} />}
-        meta={<RoomInfoList room={ui} playerCount={room.playerCount} />}
+        meta={<RoomInfoList room={ui} playerCount={room.playerCount} config={null} />}
         actions={
           <Button leftIcon={<LogIn size={18} aria-hidden />} disabled={busy} onClick={onJoin}>
             Vào phòng
@@ -573,17 +627,28 @@ function RoomTitle({ room }: { room: Room }) {
   )
 }
 
-function RoomInfoList({ room, playerCount }: { room: Room; playerCount: number }) {
-  const VisibilityIcon = room.visibility === 'private' ? Lock : Globe
+function RoomInfoList({
+  room,
+  playerCount,
+  config,
+}: {
+  room: Room
+  playerCount: number
+  config: RoomConfigData | null
+}) {
+  const access = config?.access ?? room.visibility
+  const VisibilityIcon = access === 'private' ? Lock : Globe
   return (
     <ul className="flex flex-wrap items-center gap-x-6 gap-y-2 text-base text-fg/90" aria-label="Thông tin phòng">
-      <li className="flex items-center gap-2">
-        <Gamepad2 size={20} aria-hidden className="text-fg-muted" />
-        {room.modeLabel}
-      </li>
+      {config && (
+        <li className="flex items-center gap-2">
+          <Gamepad2 size={20} aria-hidden className="text-fg-muted" />
+          {config.series}
+        </li>
+      )}
       <li className="flex items-center gap-2">
         <VisibilityIcon size={18} aria-hidden className="text-fg-muted" />
-        {room.visibility === 'private' ? 'Private' : 'Public'}
+        {access === 'private' ? 'Riêng tư' : 'Công khai'}
       </li>
       <li className="flex items-center gap-2">
         <UserRound size={18} aria-hidden className="text-fg-muted" />
@@ -618,6 +683,9 @@ function RoomView({
   actions,
   chat,
   live,
+  config = null,
+  configPending = false,
+  onUpdateConfig,
 }: {
   room: Room
   teams: Teams
@@ -625,6 +693,9 @@ function RoomView({
   actions: RoomActions
   chat: (className: string) => ReactNode
   live?: LiveRoom
+  config?: RoomConfigData | null
+  configPending?: boolean
+  onUpdateConfig?: (next: RoomConfigEditable) => void | Promise<void>
 }) {
   const { comingSoon, notify } = useToast()
   const perSide = room.capacity / 2
@@ -651,7 +722,7 @@ function RoomView({
         title={<RoomTitle room={room} />}
         meta={
           <div className="flex flex-col gap-3">
-            <RoomInfoList room={room} playerCount={playerCount} />
+            <RoomInfoList room={room} playerCount={playerCount} config={config} />
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex h-10 w-fit items-center gap-3 rounded-btn border border-line-strong bg-surface-2/80 pr-1 pl-4 text-base">
                 <span className="text-fg-muted">Mã phòng</span>
@@ -808,7 +879,14 @@ function RoomView({
                 </ul>
               </>
             ) : tab === 'config' ? (
-              <RoomConfig room={room} role={role} />
+              <RoomConfigSection
+                room={room}
+                role={role}
+                playerCount={playerCount}
+                config={config}
+                pending={configPending}
+                onUpdate={onUpdateConfig}
+              />
             ) : (
               <EmptyState
                 className="min-h-60"
@@ -1216,23 +1294,36 @@ function MemberMenu({
 
 /* ---------------- Cấu hình (tóm tắt + bảng quyền) ---------------- */
 
-function RoomConfig({ room, role }: { room: Room; role: RoomRole }) {
+function RoomConfigSection({
+  room,
+  role,
+  playerCount,
+  config,
+  pending,
+  onUpdate,
+}: {
+  room: Room
+  role: RoomRole
+  playerCount: number
+  config: RoomConfigData | null
+  pending: boolean
+  onUpdate?: (next: RoomConfigEditable) => void | Promise<void>
+}) {
   const roles: RoomRole[] = ['host', 'player', 'spectator']
   return (
     <div className="flex flex-col gap-4">
-      <dl className="grid grid-cols-2 gap-3 text-sm">
-        {[
-          ['Chế độ', room.modeLabel],
-          ['Hiển thị', room.visibility === 'private' ? 'Private (cần mã)' : 'Public'],
-          ['Sức chứa', `${room.capacity} người (${room.capacity / 2} vs ${room.capacity / 2})`],
-          ['Chủ phòng', room.host.name],
-        ].map(([k, v]) => (
-          <div key={k} className="rounded-btn bg-surface-2/80 px-3 py-2">
-            <dt className="text-xs text-fg-muted">{k}</dt>
-            <dd className="mt-1 font-medium">{v}</dd>
-          </div>
-        ))}
-      </dl>
+      <RoomConfigPanel
+        config={config}
+        configPersisted
+        isHost={role === 'host'}
+        playerCount={playerCount}
+        capacity={room.capacity}
+        roomStatus={room.status === 'finished' ? 'CLOSED' : 'OPEN'}
+        fallbackTitle={room.title}
+        headingAs="h2"
+        pending={pending}
+        onUpdate={onUpdate}
+      />
       <div>
         <h3 className="text-sm font-semibold">Quyền trong phòng</h3>
         <div className="relative mt-2 overflow-x-auto">

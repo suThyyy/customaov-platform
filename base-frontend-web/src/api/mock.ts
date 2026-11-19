@@ -3,10 +3,13 @@ import {
   communityStats,
   currentUser,
   getTournamentDetail,
+  createMockRoomWithConfig,
+  getMockRoomConfig,
   players,
   profile,
   roomMessages,
   rooms,
+  updateMockRoomConfig,
   tournaments,
 } from '../mocks'
 import type { CreateTournamentBody } from '@customaov/contracts'
@@ -130,6 +133,7 @@ export const mockAdapter: DataAdapter = {
   },
   rooms: {
     ...capabilities,
+    configPersisted: true,
     initial: readMockRooms,
     initialPage: readMockRoomsPage,
     initialRoom: readMockRoom,
@@ -137,6 +141,15 @@ export const mockAdapter: DataAdapter = {
     page: (params, signal) => resolved(readMockRoomsPage(params), signal),
     room: (code, signal) => resolved(readMockRoom(code), signal),
     create: (_body, signal) => resolved({ code: '' }, signal),
+    createRoomWithConfig: (config, signal) => {
+      const roomId = createMockRoomWithConfig(config)
+      return resolved({ roomId, status: 'OPEN', config: { ...config }, configPersisted: true }, signal)
+    },
+    getRoomConfig: (roomId, signal) => resolved({ config: getMockRoomConfig(roomId), configPersisted: true }, signal),
+    updateRoomConfig: (roomId, editable, signal) => resolved({
+      config: updateMockRoomConfig(roomId, editable),
+      configPersisted: true,
+    }, signal),
     join: (code, signal) => resolved({ code }, signal),
   },
   chat: {

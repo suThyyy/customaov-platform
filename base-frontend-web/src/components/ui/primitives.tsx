@@ -161,7 +161,7 @@ export function LevelPill({ level, className }: { level: number; className?: str
   )
 }
 
-/** Chip trung tính (5v5 · Custom) */
+/** Chip trung tính (ví dụ nhãn phong cách Fun / Tryhard) */
 export function Chip({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <span

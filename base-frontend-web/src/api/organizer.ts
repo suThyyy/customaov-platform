@@ -26,7 +26,7 @@ export const organizerActions = {
 /** "2026-11-20T19:00" → "2026-11-20T19:00:00+07:00" */
 export const vietnamIso = (local: string): string => `${local.length === 16 ? `${local}:00` : local}+07:00`
 
-export const WINS_NEEDED: Record<Series, number> = { BO1: 1, BO3: 2, BO5: 3 }
+export const WINS_NEEDED: Record<Series, number> = { BO1: 1, BO3: 2, BO5: 3, BO7: 4 }
 
 /** Thể thức BO của giải: API có `series`; thiếu thì đọc từ nhãn "Loại trực tiếp (BO3)" */
 export const seriesOf = (d: Pick<TournamentDetail, 'series' | 'formatLabel'>): Series =>

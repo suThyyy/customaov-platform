@@ -3,8 +3,9 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RoomMutationError } from '../api/supabase/roomMutations'
 
-const { createOpenRoomMock, joinOpenRoomMock, notifyMock, mockRoomsAdapter } = vi.hoisted(() => ({
+const { createOpenRoomMock, createRoomWithConfigMock, joinOpenRoomMock, notifyMock, mockRoomsAdapter } = vi.hoisted(() => ({
   createOpenRoomMock: vi.fn(),
+  createRoomWithConfigMock: vi.fn(),
   joinOpenRoomMock: vi.fn(),
   notifyMock: vi.fn(),
   mockRoomsAdapter: {
@@ -19,6 +20,7 @@ vi.mock('../api', async () => {
   return {
     ...actual,
     createOpenRoom: createOpenRoomMock,
+    createRoomWithConfig: createRoomWithConfigMock,
     joinOpenRoom: joinOpenRoomMock,
     roomsAdapter: mockRoomsAdapter,
   }
@@ -116,20 +118,18 @@ describe('Open Room routes (unit)', () => {
     })
   })
 
-  it('/rooms/new ở chế độ supabase gọi createOpenRoom và điều hướng tới /rooms/<id>', async () => {
-    createOpenRoomMock.mockResolvedValue({
-      ok: true,
-      data: {
-        id: 'open-room-99',
-        host_user_id: '00000000-0000-0000-0000-000000000001',
-        invite_code: 'NEW99',
-        status: 'open',
-        current_round_no: 0,
-        current_round_state: 'idle',
-        version: 1,
-        created_at: '2026-01-01',
-        closed_at: null,
+  it('/rooms/new ở chế độ supabase dùng wizard 4 bước, gọi createRoomWithConfig và điều hướng tới /rooms/<id>', async () => {
+    createRoomWithConfigMock.mockResolvedValue({
+      roomId: 'open-room-99',
+      status: 'OPEN',
+      config: {
+        name: 'Phòng mở 5v5',
+        series: 'BO5',
+        access: 'private',
+        playStyle: 'fun',
+        splitTool: 'random',
       },
+      configPersisted: false,
     })
 
     render(
@@ -141,15 +141,28 @@ describe('Open Room routes (unit)', () => {
       </MemoryRouter>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tạo phòng mở' }))
+    expect(screen.queryByRole('button', { name: 'Tạo phòng mở' })).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Tạo phòng Custom' })).toBeTruthy()
+
+    fireEvent.change(screen.getByLabelText('Tên phòng'), { target: { value: 'Phòng mở 5v5' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Tiếp tục' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Tiếp tục' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Tiếp tục' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Tạo phòng' }))
 
     await waitFor(() => {
-      expect(createOpenRoomMock).toHaveBeenCalledTimes(1)
+      expect(createRoomWithConfigMock).toHaveBeenCalledWith({
+        name: 'Phòng mở 5v5',
+        series: 'BO5',
+        access: 'private',
+        playStyle: 'fun',
+        splitTool: 'random',
+      })
       expect(screen.getByText('Created Room Page')).toBeTruthy()
     })
   })
 
-  it('/rooms/new ngoài chế độ supabase giữ nguyên wizard và không gọi createOpenRoom', () => {
+  it('/rooms/new ngoài chế độ supabase cũng dùng cùng wizard 4 bước', () => {
     mockRoomsAdapter.roomView = undefined
 
     render(
@@ -160,8 +173,8 @@ describe('Open Room routes (unit)', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByRole('heading', { name: 'Tạo phòng custom' })).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Thông tin phòng' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Tạo phòng Custom' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Bước 1 — Thông tin phòng' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Tạo phòng mở' })).toBeNull()
     expect(createOpenRoomMock).not.toHaveBeenCalled()
   })

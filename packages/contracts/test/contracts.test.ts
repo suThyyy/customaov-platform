@@ -233,7 +233,7 @@ const schemaCases: SchemaCase[] = [
   { name: "RoomMutationResponse", schema: contracts.RoomMutationResponseSchema, valid: roomDetail, invalid: null },
   { name: "WsClientMessage", schema: contracts.WsClientMessageSchema, valid: { type: "subscribe", room: "AOV-1024", key: "secret-key" }, invalid: { type: "subscribe", room: "AOV-1024", key: "" } },
   { name: "WsServerMessage", schema: contracts.WsServerMessageSchema, valid: { type: "error", code: "FORBIDDEN", room: "AOV-1024" }, invalid: { type: "error", code: "BAD", room: "AOV-1024" } },
-  { name: "Series", schema: contracts.SeriesSchema, valid: "BO3", invalid: "BO7" },
+  { name: "Series", schema: contracts.SeriesSchema, valid: "BO7", invalid: "BO9" },
   { name: "TournamentStatus", schema: contracts.TournamentStatusSchema, valid: "open", invalid: "waiting" },
   { name: "TeamCount", schema: contracts.TeamCountSchema, valid: 8, invalid: 12 },
   { name: "Team", schema: contracts.TeamSchema, valid: team, invalid: { ...team, id: "bad" } },
@@ -243,7 +243,7 @@ const schemaCases: SchemaCase[] = [
   { name: "ScheduledMatch", schema: contracts.ScheduledMatchSchema, valid: tournamentDetail.upcoming[0], invalid: { ...tournamentDetail.upcoming[0], score: [-1, 0] } },
   { name: "TournamentSummary", schema: contracts.TournamentSummarySchema, valid: tournamentSummary, invalid: { ...tournamentSummary, teamCount: 12 } },
   { name: "Registration", schema: contracts.RegistrationSchema, valid: registration, invalid: { ...registration, members: [user] } },
-  { name: "TournamentDetail", schema: contracts.TournamentDetailSchema, valid: tournamentDetail, invalid: { ...tournamentDetail, series: "BO7" } },
+  { name: "TournamentDetail", schema: contracts.TournamentDetailSchema, valid: { ...tournamentDetail, series: "BO7" }, invalid: { ...tournamentDetail, series: "BO9" } },
   { name: "TournamentsQuery", schema: contracts.TournamentsQuerySchema, valid: { sort: "deadline" }, invalid: { sort: "name" } },
   { name: "TournamentsResponse", schema: contracts.TournamentsResponseSchema, valid: { items: [tournamentSummary], total: 1, page: 1, pageSize: 10 }, invalid: { items: [], total: 0, page: 0, pageSize: 10 } },
   { name: "CreateTournamentBody", schema: contracts.CreateTournamentBodySchema, valid: { name: "Cup", description: "", intro: [], teamCount: 8, series: "BO3", registrationDeadline: AT, drawDate: "2026-11-16T12:00:00+07:00", dateStart: "2026-11-17T12:00:00+07:00", dateEnd: "2026-11-18T12:00:00+07:00", rules: [], prizes: [], cover: "tour-1" }, invalid: { name: "Cup", description: "", intro: [], teamCount: 12, series: "BO3", registrationDeadline: AT, drawDate: AT, dateStart: AT, dateEnd: AT, rules: [], prizes: [], cover: "tour-1" } },
@@ -293,7 +293,7 @@ test("normalizeVi removes Vietnamese marks including đ and Đ", () => {
   assert.equal(contracts.normalizeVi("Ngũ Kiệt ĐẠI CHIẾN"), "ngu kiet dai chien");
 });
 
-test("isValidSeriesScore validates BO1, BO3 and BO5", () => {
+test("isValidSeriesScore validates BO1, BO3, BO5 and BO7", () => {
   assert.equal(contracts.isValidSeriesScore("BO1", 1, 0), true);
   assert.equal(contracts.isValidSeriesScore("BO1", 1, 1), false);
   assert.equal(contracts.isValidSeriesScore("BO3", 2, 0), true);
@@ -301,6 +301,9 @@ test("isValidSeriesScore validates BO1, BO3 and BO5", () => {
   assert.equal(contracts.isValidSeriesScore("BO3", 1, 0), false);
   assert.equal(contracts.isValidSeriesScore("BO5", 3, 2), true);
   assert.equal(contracts.isValidSeriesScore("BO5", 4, 2), false);
+  assert.equal(contracts.isValidSeriesScore("BO7", 4, 3), true);
+  assert.equal(contracts.isValidSeriesScore("BO7", 3, 2), false);
+  assert.equal(contracts.isValidSeriesScore("BO7", 5, 3), false);
 });
 
 test("moveMember swaps two players", () => {

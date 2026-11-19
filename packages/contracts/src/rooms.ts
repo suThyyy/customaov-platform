@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { UserSummarySchema, type UserSummary } from "./auth.js";
+import { SeriesSchema } from "./tournaments.js";
 import {
   ErrorCodeSchema,
   IsoDateTimeSchema,
@@ -25,7 +26,7 @@ export type Lane = z.infer<typeof LaneSchema>;
 export const RoomConfigSchema = z.object({
   format: z.literal("5v5"),
   pickMode: z.enum(["draft", "blind", "random"]),
-  series: z.enum(["BO1", "BO3", "BO5"]),
+  series: SeriesSchema,
   tools: z
     .array(z.enum(["balance", "lane", "champion", "mystery", "chat"]))
     .refine((tools) => new Set(tools).size === tools.length, "Công cụ không được trùng"),
