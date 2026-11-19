@@ -227,3 +227,53 @@ Phần này ghi lại cách tổ chức giao diện thao tác Open Room ở ch�
 - Dev server cổng `5199` (chế độ `mock`):
   - `node scripts/e2e-auth.mjs http://localhost:5199`: đạt tất cả kiểm tra (`Tất cả kiểm tra đều đạt`).
   - `node scripts/screenshot.mjs huy15b http://localhost:5199`: `40/40` đạt (10 route × 4 khổ `375/768/1280/1440`, `scrollWidth` khớp khung nhìn, 0 lỗi console).
+
+
+---
+
+## ROOM-CFG – Luồng tạo phòng 4 bước
+
+### 1. Cấu trúc component
+
+- **`base-frontend-web/src/components/ui/RadioGroup.tsx`**: component chọn một dùng chung cho cả wizard và panel trong phòng, hỗ trợ 3 biến thể:
+  - `inline`: các nút radio nằm ngang (Thể thức `BO3/BO5/BO7`, Quyền truy cập `Công khai/Riêng tư`).
+  - `card`: thẻ mô tả có icon (Phong cách `Fun/Tryhard`, Công cụ `Random/Tier/Rank`).
+  - `segmented`: thanh chia ô gọn (nhóm 2 và nhóm 3 trong `RoomConfigPanel`).
+- **`base-frontend-web/src/pages/CreateRoom.tsx`**: wizard 4 bước dùng chung cho mọi nguồn (`mock`, `api`, `supabase`), bỏ màn hình `CreateOpenRoom` cũ.
+  - Stepper 4 ô (`1. Phòng`, `2. Chế độ`, `3. Công cụ`, `4. Xem lại`) dùng state `reached` để chỉ cho phép bấm lại các bước đã mở.
+  - Bước 4 hiển thị bảng nhãn–giá trị theo đúng lựa chọn của người dùng, gọi `createRoomWithConfig(config)` rồi điều hướng tới `/rooms/:roomId` kèm `state` (`roomConfig`, `configPersisted`).
+  - Lỗi theo trường (`RoomConfigValidationError` hoặc `ApiError` 400) tự nhảy về bước chứa ô lỗi đầu tiên.
+- **`base-frontend-web/src/components/domain/RoomConfigPanel.tsx`**: panel cấu hình trong phòng dùng chung cho `RoomDetail` (tab `Cấu hình`) và `SupabaseRoomView`.
+  - Đầu panel hiển thị tên phòng (`h2` khi trang đã có `h1`, `h1` nếu dùng độc lập), dòng phụ `<Thể thức> · <Public/Private> · <số người>/10 Players` và badge `OPEN`/`CLOSED`.
+  - Khi `configPersisted === false` (Supabase chưa lưu backend), panel đọc cấu hình từ navigation state (hoặc hiện `"Chưa có cấu hình"` nếu không có), khoá các nút chuyển và hiện ghi chú `"Cấu hình chưa được lưu lên server (chờ backend)"`.
+- **`base-frontend-web/src/components/domain/open-room/OpenRoomLineup.tsx`**: nhận `splitTool`, giữ nguyên hành vi `Random`; với `Tier`/`Rank` thì disable nút chia và hiện ghi chú `"Cần điểm Tier/Rank của người chơi — sắp có"`.
+
+### 2. Vì sao tách nhóm khoá và nhóm sửa được
+
+- Trong `RoomConfig` (`src/api/roomConfig.ts`), cấu hình phòng chia làm 2 phần rõ ràng:
+  - **`RoomConfigLocked`** (`name`, `series`, `access`): cố định ngay khi tạo phòng vì ảnh hưởng tới định danh phòng, số ván BO và quyền truy cập/invite link. Trên UI, nhóm **"Thông tin phòng"** hiện icon khoá để người dùng biết không thể sửa sau khi tạo.
+  - **`RoomConfigEditable`** (`playStyle`, `splitTool`): chủ phòng có thể đổi linh hoạt trong lúc chuẩn bị trận mà không làm hỏng phòng. Tách riêng interface giúp `updateRoomConfig` và `validateRoomConfigEditable` chặn ngay nếu có trường khoá lọt vào payload, đồng thời UI chỉ render segmented control cho 2 nhóm này.
+
+### 3. Cách `radiogroup` hoạt động với bàn phím
+
+- Container gắn `role="radiogroup"` kèm `aria-label` hoặc `aria-labelledby`.
+- Mỗi lựa chọn là `<button type="button" role="radio" aria-checked={checked}>` dùng kỹ thuật **roving `tabIndex`**: chỉ lựa chọn đang chọn (hoặc lựa chọn đầu tiên nếu chưa chọn gì) có `tabIndex={0}`, các lựa chọn còn lại `tabIndex={-1}` để phím `Tab` đi qua cả nhóm chỉ trong 1 lần dừng.
+- Khi nhấn `ArrowRight` / `ArrowDown` (hoặc `ArrowLeft` / `ArrowUp`), handler chuyển chọn sang mục kế tiếp/trước đó (quay vòng ở đầu/cuối), bỏ qua mục `disabled`, gọi `onChange` và dời `focus()` tới nút vừa chọn. Phím `Home`/`End` nhảy tới mục đầu/cuối.
+
+### 4. Cách kiểm và kết quả Verify (19/11/2026)
+
+- **Unit test (Vitest):**
+  - `src/pages/CreateRoom.test.tsx`: kiểm tra stepper chỉ mở bước đã tới, validate tên phòng, bước 4 hiện đúng giá trị đã chọn, gọi `createRoomWithConfig` đúng cấu hình và điều hướng phím mũi tên trên `radiogroup`.
+  - `src/pages/CreateRoom.api.test.tsx` và `src/pages/OpenRoomRoutes.unit.test.tsx`: cập nhật selector theo wizard 4 bước mới cho chế độ `api` và `supabase`.
+  - `src/components/domain/RoomConfigPanel.test.tsx` và `src/components/domain/SupabaseRoomView.unit.test.tsx`: kiểm tra host đổi được nhóm 2/3, khách bị disable, nhóm 1 khoá, `configPersisted: false` hiện ghi chú + disable, và `OpenRoomLineup` khi chọn `Tier`/`Rank`.
+- **Verify toàn workspace:**
+  - `npm run build`: đạt (build sạch cả 4 package).
+  - `npm run lint`: đạt (0 lỗi; giữ đúng 2 cảnh báo có sẵn ở `AppContext.tsx`).
+  - `npm test`: đạt (`team-core` 15/15, `contracts` 89/89, `base-frontend-web` 40 file / 229 tests passed, `@customaov/api` 16 file / 170 tests passed).
+- **Dev server cổng `5199` (chế độ `mock`):**
+  - `node scripts/e2e-auth.mjs http://localhost:5199`: đạt 13/13 kiểm tra.
+  - `node scripts/screenshot.mjs roomcfg http://localhost:5199`: đạt 40/40 (10 route × 4 khổ `375/768/1280/1440`, không cuộn ngang, 0 lỗi console).
+  - **Playwright probe tạm (`375px` và `1280px`, đã xoá sau khi chạy):**
+    - Đi hết 4 bước tạo phòng → điều hướng `/rooms/AOV-2000`.
+    - Mở tab `Cấu hình`, đổi `Fun → Tryhard` (`aria-checked="true"`) và `Random → Tier` (`aria-checked="true"`).
+    - Số nút vàng đặc (`main .bg-gold-gradient:is(button,a)`) tại mọi bước (`step-1`..`step-4`, `room-tools`, `room-config`) ở cả `375px` và `1280px` đều là `1` (`<= 1`), `overflow: false`.
