@@ -23,6 +23,9 @@ export function mapOpenRoomSnapshot(payload: OpenRoomSnapshotPayload, viewerId?:
     slot: player?.slot,
     team: player?.team,
     readyState: player?.ready_state,
+    skillMode: player?.skill_mode,
+    skillValue: player?.skill_value,
+    skillScore: player?.skill_score,
   })
   const queue = [...payload.queue].sort((a, b) => a.queue_seq - b.queue_seq)
   const entries = new Map(queue.map((entry) => [entry.id, entry]))
@@ -40,7 +43,9 @@ export function mapOpenRoomSnapshot(payload: OpenRoomSnapshotPayload, viewerId?:
   return {
     room: payload.room,
     members: payload.members,
-    waiting: queue.filter((entry) => entry.status === 'waiting').map((entry) => participant(entry)),
+    waiting: queue
+      .filter((entry) => entry.status === 'waiting' && members.get(entry.member_id)?.status === 'active')
+      .map((entry) => participant(entry)),
     selected,
     version: payload.room.version,
     viewer: {

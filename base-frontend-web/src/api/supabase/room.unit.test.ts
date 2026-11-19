@@ -27,6 +27,18 @@ describe('Supabase room snapshot adapter (unit)', () => {
     expect(mapped.viewer).toEqual({ isHost: true, isMember: true })
   })
 
+  it('lọc thành viên đã rời khỏi hàng chờ nhưng giữ dữ liệu đội hình vòng hiện tại', () => {
+    const payload: OpenRoomSnapshotPayload = {
+      ...roomPayload,
+      members: roomPayload.members.map((member) => member.id === 'm2'
+        ? { ...member, status: 'left' as const, left_at: '2026-01-02' }
+        : member),
+    }
+    const mapped = mapOpenRoomSnapshot(payload, 'u1')
+    expect(mapped.waiting).toEqual([])
+    expect(mapped.selected.map((player) => player.memberId)).toEqual(['m1'])
+  })
+
   it('trả null khi phòng không tồn tại', async () => {
     setSupabaseClientForUnitTests({
       auth: { getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: 'u1', app_metadata: {} } } }, error: null }) },

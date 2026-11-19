@@ -33,4 +33,6 @@ export const supabaseAdapter: Pick<DataAdapter, 'auth' | 'profile' | 'rooms'> = 
 
 export * from './realtime'
 export * from './room'
+export * from './roomActions'
+export * from './roomMutations'
 export * from './types'

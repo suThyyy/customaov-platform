@@ -91,3 +91,71 @@ Hai model không được gộp: UUID Open Room render `SupabaseRoomView`; room 
 - Mạng rớt: giữ trạng thái connection reconnecting, retry backoff; snapshot không được patch từ event.
 - Token hết hạn: Supabase JS tự refresh; nếu refresh thất bại, `onAuthStateChange` trả session null, AppContext xóa user/cache/subscription.
 - Auth sai mật khẩu/email chưa xác minh/rate limit/OTP hết hạn: map thông báo tiếng Việt; không log email, mật khẩu hay token.
+
+## 9. RPC ghi phía frontend (HUY-15a)
+
+Adapter `base-frontend-web/src/api/supabase/roomMutations.ts` là biên ghi duy nhất của Open Room. Mỗi hàm trim chuỗi, giới hạn tên hiển thị tối đa 40 ký tự như `room-api-core.js`, chặn phiên chưa đăng nhập/Anonymous Auth trước khi gọi RPC, và trả union `{ ok: true, data } | { ok: false, error: RoomMutationError }`. Adapter không gọi Supabase thật trong test; client được thay bằng fake qua seam unit test hiện có.
+
+| Hàm frontend | RPC và tham số SQL | Kết quả |
+| --- | --- | --- |
+| `createOpenRoom()` | `create_open_room`, `{}` | `rooms` |
+| `closeOpenRoom(roomId)` | `close_open_room`, `{p_room_id}` | `rooms` |
+| `joinOpenRoom(inviteCode, displayName)` | `join_open_room`, `{p_invite_code,p_display_name}` | `room_members` |
+| `leaveOpenRoom(roomId)` | `leave_open_room`, `{p_room_id}` | `void` |
+| `hostAddPlayerToRoom(roomId, displayName)` | `host_add_player_to_room`, `{p_room_id,p_display_name}` | `room_members` |
+| `hostKickRoomMember(roomId, memberId)` | `host_kick_room_member`, `{p_room_id,p_member_id}` | `void` |
+| `hostRequeueRoomMember(roomId, memberId)` | `host_requeue_room_member`, `{p_room_id,p_member_id}` | `room_queue_entries` |
+| `continueOpenRoomQueue(roomId)` | `continue_open_room_queue`, `{p_room_id}` | `room_queue_entries` |
+| `prepareNextOpenRoomRound(roomId)` | `prepare_next_open_room_round`, `{p_room_id}` | `rooms` |
+| `startOpenRoomRound(roomId)` | `start_open_room_round`, `{p_room_id}` | `rooms` |
+| `endOpenRoomRound(roomId)` | `end_open_room_round`, `{p_room_id}` | `rooms` |
+| `saveOpenRoomLineup(roomId,version,players)` | `save_open_room_lineup`, `{p_room_id,p_version,p_players}` | `rooms` |
+| `replaceOpenRoomPlayer(roomId,version,memberId)` | `replace_open_room_player`, `{p_room_id,p_version,p_member_id}` | `rooms` |
+
+`useOpenRoomActions(roomId, snapshot)` gắn sẵn `roomId` và `snapshot.version`, đồng thời giữ `pending` riêng cho từng action. Sau mutation thành công, hook yêu cầu chính cơ chế refetch snapshot của `useOpenRoom`; không tạo channel Realtime thứ hai. Với `version_conflict`, hook cũng refetch rồi vẫn trả lỗi “Phòng vừa thay đổi, đã tải lại.” để UI thông báo.
+
+### 9.1 Phân loại lỗi mutation
+
+Thông điệp SQL gốc chỉ được giữ ở `sourceMessage` để chẩn đoán/test; `message` đưa lên UI luôn là tiếng Việt chung, không lộ chi tiết database.
+
+| `RoomMutationError.kind` | `raise exception` được ánh xạ | Nguồn migration |
+| --- | --- | --- |
+| `version_conflict` | `Room changed; refresh and retry`; `Queue changed; refresh and retry` | `20261103_huy11_room_lineup.sql:38,123` |
+| `forbidden` | `Host only`; các biến thể `Only ... Host ...`; Host không được kick chính mình; Postgres `42501` | `20261103_huy11_room_lineup.sql:36,105,141`; `20261104_huy11_kick_replace_selected.sql:33,43` |
+| `not_found` | room/membership/member/selected player không tồn tại | `20261103_huy10_account_only_join.sql:38`; `20261103_huy9_open_room_security.sql:280,398`; `20261104_huy11_kick_replace_selected.sql:41`; `20261103_huy11_room_lineup.sql:79` |
+| `invalid_state` | room đóng, sai pha vòng, đã ở queue, đã bị kick | `20261103_huy11_room_lineup.sql:37,107,142`; `20261103_huy9_open_room_security.sql:403`; `20261104_huy11_kick_replace_selected.sql:97` |
+| `not_enough_players` | chưa đủ 10 waiting, không có người waiting để replace, lineup active 5v5 chưa hoàn chỉnh | `20261103_huy11_room_lineup.sql:84,115,149` |
+| `queue_full` | Loại dự phòng cho hợp đồng UI; migration hiện tại **không có** giới hạn dung lượng hay exception queue-full | Khoảng trống backend |
+| `auth_required` | các exception yêu cầu permanent/registered authenticated account hoặc Host | `20261103_huy10_account_only_join.sql:26`; `20261103_huy10_room_api_support.sql:34,62,143`; `20261103_huy11_room_lineup.sql:34,103,139` |
+| `invalid_input` | invite/name/lineup sai, không đủ đúng 10 selected, team không 5v5 | `20261103_huy10_account_only_join.sql:30`; `20261103_huy10_room_api_support.sql:65`; `20261104_huy11_random_mode_lineup.sql:18,20,30,32` |
+| `network` | fetch/network thất bại trước khi có lỗi SQL | Client |
+| `unknown` | lỗi không khớp contract đã biết | Client |
+
+### 9.2 Quyền theo vai trò và pha
+
+`openRoomPermissions(snapshot, userId)` suy ra quyền để HUY-15b ẩn/disable control. Điều kiện theo mục tiêu cụ thể (ví dụ member phải active, người requeue phải là Host-added và chưa có active queue entry, lineup phải đủ 5v5) vẫn được server kiểm tra; bảng dưới là quyền cấp action theo vai trò/pha.
+
+| Action | Host | Member active | Khán giả | Pha/trạng thái bổ sung |
+| --- | --- | --- | --- | --- |
+| Join | Có nếu Host chưa là member | Không | Có | Room `open` |
+| Leave | Có nếu Host đồng thời là member | Có | Không | SQL không giới hạn pha |
+| Close / thêm player / kick | Có | Không | Không | Room `open` |
+| Requeue Host-added player | Có | Không | Không | Room `open`; RPC kiểm tra mục tiêu active và không ở queue |
+| Continue queue của chính mình | Nếu Host đồng thời là member | Có | Không | Room `open`, member không còn entry `waiting|selected` |
+| Prepare / Next | Có | Không | Không | `idle|ended` |
+| Save lineup / swap / replace / Start | Có | Không | Không | `preparing` |
+| End | Có | Không | Không | `active` |
+
+### 9.3 Swap và randomizer
+
+Không có RPC swap trong bất kỳ migration HUY-9/10/11 nào. Swap là helper thuần `swapLineupPlayers(lineup,a,b)`: chỉ đổi `team` của hai member thuộc hai đội khác nhau, rồi Host gửi toàn bộ lineup mới qua `save_open_room_lineup` với `p_version` hiện tại. Vì vậy swap dùng cùng optimistic lock và cùng kiểm tra 10 unique selected + 5v5 của SQL.
+
+So với `D:\ProjectCustom\randomizer-core.js` tại commit `595a24e`, low-level `packages/team-core` giữ nguyên Fisher–Yates, kích thước đội `floor(n/2)`, thứ tự tổ hợp, các cửa sổ `48–52` / `40–60` / `30–70`, tối đa ba lần nới thêm 5 điểm, fallback gần 50% nhất, và quy tắc điểm legacy `Number(value) || 1`. Khác biệt có chủ đích: `splitTeams5v5` thêm kiểm tra đúng 10 người, ID duy nhất, mode/balance level/score và RNG hợp lệ với `TeamCoreError`; còn các tiện ích gán vị trí/tướng của script cũ không thuộc API chia đội hiện tại. Luồng `room-controller.js` cũ tự dựng `skill_*` rồi gọi thuật toán cân bằng; HUY-15a không thay đổi `team-core` hay thuật toán.
+
+### 9.4 Khoảng trống backend đã xác nhận
+
+- “Next” hiện chỉ là `prepare_next_open_room_round` sau pha `ended`; chưa có state/field nhập Match ID hay RPC lưu kết quả trận. Đây là khoảng trống Huy Hoàng đã xác nhận.
+- Không có Match History/Statistics gắn với Open Room; `room_current_players` chỉ giữ snapshot vòng hiện tại.
+- Không có RPC swap riêng; client phải lưu lại toàn bộ lineup bằng optimistic version như trên.
+- Không có giới hạn dung lượng hàng chờ nên SQL chưa thể phát sinh `queue_full`.
+- `ready_state` có trong bảng nhưng chưa có RPC browser để thành viên cập nhật trạng thái sẵn sàng.

@@ -6,6 +6,7 @@ import HomeGuest from './pages/HomeGuest'
 import HomeUser from './pages/HomeUser'
 import RoomDetail from './pages/RoomDetail'
 import CreateRoom from './pages/CreateRoom'
+import JoinRoom from './pages/JoinRoom'
 import Tournaments from './pages/Tournaments'
 import TournamentDetail from './pages/TournamentDetail'
 import CreateTournament from './pages/CreateTournament'
@@ -32,6 +33,7 @@ export default function App() {
               <Route path="/activities" element={<Activities />} />
               <Route path="/rooms/new" element={<CreateRoom />} />
               <Route path="/rooms/:roomId" element={<RoomDetail />} />
+              <Route path="/join/:inviteCode" element={<JoinRoom />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/profile/:userId" element={<Profile />} />
             </Route>

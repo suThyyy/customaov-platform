@@ -10,11 +10,33 @@ export type OpenRoomStatus = 'loading' | 'ready' | 'error'
 
 const TABLES = ['rooms', 'room_members', 'room_queue_entries', 'room_current_players'] as const
 const BACKOFF_MS = [1_000, 2_000, 5_000, 10_000] as const
+type OpenRoomRefetchResult = OpenRoomSnapshot | null | undefined
+type OpenRoomRefetch = () => OpenRoomRefetchResult | Promise<OpenRoomRefetchResult>
+
+const refetchers = new Map<string, Set<OpenRoomRefetch>>()
+
+export function registerOpenRoomRefetch(roomId: string, refetch: OpenRoomRefetch): () => void {
+  const listeners = refetchers.get(roomId) ?? new Set()
+  listeners.add(refetch)
+  refetchers.set(roomId, listeners)
+  return () => {
+    listeners.delete(refetch)
+    if (!listeners.size) refetchers.delete(roomId)
+  }
+}
+
+export async function requestOpenRoomRefetch(roomId: string): Promise<OpenRoomRefetchResult> {
+  const results = await Promise.all([...refetchers.get(roomId) ?? []].map((refetch) => refetch()))
+  for (let index = results.length - 1; index >= 0; index -= 1) {
+    if (results[index] !== undefined) return results[index]
+  }
+  return undefined
+}
 
 interface SubscriptionOptions {
   client: SupabaseClient
   roomId: string
-  refetch: () => void | Promise<void>
+  refetch: OpenRoomRefetch
   setConnection: (connection: OpenRoomConnection) => void
   reset: () => void
 }
@@ -114,6 +136,7 @@ export function useOpenRoom(roomId: string | undefined): {
         setSnapshot(next)
         setStatus('ready')
         setError(undefined)
+        return next
       } catch (reason) {
         if (epoch.current !== token) return
         setSnapshot(null)
@@ -121,10 +144,12 @@ export function useOpenRoom(roomId: string | undefined): {
         setError(reason instanceof Error ? reason : new Error(String(reason)))
       }
     }
+    const unregisterRefetch = registerOpenRoomRefetch(roomId, refetch)
     const dispose = subscribeOpenRoom({ client: getSupabaseClient(), roomId, refetch, setConnection, reset })
     const unregister = registerSupabaseCleanup(dispose)
     void refetch()
     return () => {
+      unregisterRefetch()
       unregister()
       dispose()
       epoch.current += 1
