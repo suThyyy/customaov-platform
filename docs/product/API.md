@@ -201,6 +201,11 @@ Mục này **ghi đè** các mục trên nếu mâu thuẫn. Contracts cập nh�
 - WS: production **từ chối khi thiếu `Origin`** hoặc Origin không thuộc `ALLOWED_ORIGINS`. Tối đa 5 kết nối/IP cho khách, 20 phòng subscribe/kết nối.
 - Kiểm tra sẵn sàng: `GET /health` (đã có).
 
+### 9.5b. WebSocket – bổ sung khi làm E4-T03 (15/11)
+- `{"type":"error","code":<ErrorCode>,"room"?:code}`: `room` không bắt buộc. Ví dụ lỗi `VALIDATION` khi JSON hoặc mã phòng sai thì không có `room`.
+- `room.updated.room` = `RoomDetail & {restricted:false}` **hoặc** `RoomRestricted` (`restricted:true`), tính theo góc nhìn từng người nhận, cùng luật với `GET /api/rooms/:code`.
+- Backend có thêm hook `onRoomKicked(code, userId)`, gọi sau khi transaction kick commit thành công, để gửi `room.kicked` riêng cho người bị mời ra.
+
 ### 9.6. Sửa nhỏ ở contracts
 - `formatTeamsText`: lane `null` → in "Chưa chọn".
 - `CreateMessageBody.text`: `.trim()` rồi `min(1)`.

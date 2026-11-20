@@ -44,3 +44,59 @@
 - 15/11 · Lead · Lockfile xung đột khi merge: giữ bản của integration, chạy `npm install` để sinh lại, rồi chạy lại build/test trước khi commit merge.
 - 15/11 · Lead · Lead verify trên worktree `.worktrees/integration` (đang checkout `integration/mvp`), merge `main` trong `.worktrees/main`.
 - 15/11 · Lead · **Task B1 nhỏ do Codex/Gemini/Copilot code thì Lead (Claude, Anthropic) tự review**, vì vẫn khác hãng. Lead kiểm diff, chạy build/lint/test, ghi PASS/FAIL trong commit merge. Áp dụng lần đầu cho E2-T05. Lý do: tiết kiệm quota worker và rút ngắn vòng chờ. Task B2 trở lên vẫn giao reviewer worker.
+- 15/11 09:05 · Lead · agy báo hết quota model Claude (Sonnet + Opus), reset ~12:20. Theo quy tắc đổi ngay sang model cùng bậc ở agent khác: E3-T02 review SN → agy hydrogen-medium; E5-T04a OP → agy hydrogen-high. Codex chỉ còn ~21% (reset 12:19) nên giữ cho review quan trọng. Review code Gemini (khác Google) tạm do Lead hoặc Codex làm.
+- 15/11 · Lead · Từ 10:00 trở đi Lead tự review nhiều task B2 do Gemini code (E3-T01 re-review, E3-T03, E3-T04, E4-T01, E5-T01, E5-T02a, E5-T04a), vì Codex và agy Claude hết quota. Các review này có chạy test thật và probe Playwright/e2e khi cần.
+- 15/11 15:32 · Lead · agy hết quota **tuần** cho model Claude (~160 giờ, tới khoảng 22/11). Bỏ SN/OP khỏi bảng phân việc cho tới khi reset:
+  - E5-T02b fix1 → agy hydrogen-medium;
+  - E3-T05 review → agy hydrogen-medium;
+  - E4-T03 → agy hydrogen-high.
+  - Task về sau: B2 = Codex hoặc hydrogen-medium, B3 = hydrogen-high. Reviewer luôn khác hãng: Codex hoặc Lead cho code Gemini; hydrogen hoặc Lead cho code Codex.
+- 15/11 15:40 · Lead · Duyệt câu hỏi của worker E4-T03:
+  - (1) Sửa `WsServerMessageSchema` trong contracts: `error.room` thành optional; `room.updated.room` là union RoomDetail | RoomRestricted.
+  - (2) Thêm hook `onRoomKicked` vào `RoomRoutesDeps`.
+  - Lý do: cần để làm đúng API.md 9.1 (bản restricted theo người nhận) và gửi `room.kicked` riêng. Đã ghi vào API.md mục 9.5b.
+- 15/11 ~15:55 · Owner yêu cầu tận dụng tối đa hạn mức 5 giờ của Claude trước khi tuần reset. Lead tạm **nâng giới hạn song song từ 3 lên ~8 worker** và dùng **Claude Code `claude-opus-5-5` effort high** (`claude --dangerously-skip-permissions`) làm coder cho E4-T04, E5-T03, E5-T04b, E6-T02, E4-T05, E5-T05, E6-T01. Reviewer luôn khác hãng (Codex hoặc agy Gemini).
+  - Khởi động Claude Code trong worktree mới: màn hình theme → Enter; Security notes → Enter; "trust this folder" → ↓ + Enter; "Bypass Permissions" → ↓ + Enter.
+  - Lưu ý: lựa chọn đầu tiên của các màn này là "No, exit".
+- 15/11 · Lead · E6-T02 review: agy kẹt `agent-trust-workspace` 2 lần nên chuyển sang Codex, không thử lần thứ 3 (tránh circuit breaker).
+- 15/11 · Lead · E5-T04b: chấp nhận cách `close-registration` đặt `registration_deadline = now` (schema không có cờ đóng). E5-T03 (registrations) phải từ chối đăng ký khi đã quá hạn.
+- 15/11 · Owner · **Ưu tiên Codex, tiết kiệm Claude**: không giao thêm task code cho Claude (Claude Code hay agy Claude). Lead (Claude) chỉ điều phối và gộp merge, giữ lượt ngắn gọn.
+  - Coder mặc định: Codex `gpt-5.6-sol`; dự phòng: agy Gemini.
+  - Reviewer: agy Gemini cho code Codex; Codex cho code Gemini/Claude.
+- 15/11 · Lead · E6-T01: activity `join` chỉ ghi **lần đầu** mỗi cặp (user, phòng); vào lại không ghi thêm. Đây là chủ ý của spec ("nếu chưa có"), để chống spam feed khi rời/vào lại. Reviewer Codex đánh FAIL điểm này; Lead quyết định giữ hành vi và coi task là PASS.
+- 15/11 · Lead · E5-T05: chấp nhận nút xác nhận primary bên trong modal (giống E3-T05); nút hành động BTC trên trang phải là nút viền.
+- 15/11 21:30 · Lead · Codex hết hạn mức tới 01:53 ngày 16/11, khi integrator vừa test xong lần merge E6-T01; Lead commit thay (`ef1ae3f`). Thanh trạng thái phiên đó ghi "GPT-6-Luna": có thể Codex đã tự đổi model khi chạm giới hạn. Kết quả vẫn được nhận vì build/lint/test đầy đủ đều xanh. Integrator chuyển sang agy Gemini cho E4-T05 và E5-T05.
+- 16/11 · Owner · Cho phép push **một lần** lên `https://github.com/suThyyy/customaov-platform`. Lead đã push `main` (`00e416d`) và các tag `epic-1..7-before`, `cleanup-before`. Chỉ đẩy `main`; các nhánh task, `orch/lead`, `integration/mvp` giữ ở máy. Hàng rào "không push" vẫn áp dụng cho các lần sau nếu Owner không nói khác.
+- 16/11 · Owner · Cho phép Lead **đọc** (không ghi) `D:\ProjectCustom` để so sánh với repo mới. Lead không sửa gì trong thư mục đó.
+- 17/11 · Owner · HUY-13 (Linear): làm đúng issue (giữ backend, không xoá). Nhánh `refactor/huy-13-frontend-isolation`. Owner cho phép **push nhánh này và mở PR** khi kiểm tra xanh; không push `main`.
+- 17/11 · Lead · HUY-13: Codex hết hạn mức 5 giờ khi đã commit xong code + tài liệu, chỉ còn verify cuối. Lead tự chạy lại toàn bộ verify trên clone sạch và ghi kết quả (commit `e7c7a2f`), review PASS (khác hãng). Đã push nhánh `refactor/huy-13-frontend-isolation`. `gh` chưa đăng nhập nên PR do Owner mở qua link compare.
+- 17/11 · Owner · HUY-13b: gom `DATA_SOURCE` về tầng adapter, chọn nguồn theo từng tính năng (hybrid cố định theo feature, **không** fallback lúc chạy). Nhánh `refactor/huy-13b-data-source-adapter` rẽ từ nhánh HUY-13 (PR xếp chồng). Owner cho phép push nhánh này khi kiểm tra xanh. Không có công cụ Linear: Lead soạn nội dung log để Owner dán.
+- 17/11 · Lead · HUY-13b review PASS (Lead tự chạy lại build/lint/test: 15/89/136/170; Codex chạy e2e mock + screenshot 40/40 và e2e api 5/5, 7/7, 14/14). Đã push nhánh `refactor/huy-13b-data-source-adapter` (`1fed3b1`), PR xếp chồng lên HUY-13.
+- 17/11 · Owner · HUY-14: dùng project Supabase cũ `mbgiwrocfacxianindfp` (Production) **chỉ đọc**. Được: cài `@supabase/supabase-js`, chạy test local, đăng nhập/đăng xuất bằng 2 tài khoản test có sẵn, đọc profile/phòng/hàng chờ, quan sát realtime. **Cấm:** ghi DB Production, đăng ký tài khoản, thao tác phòng, migration, test phá huỷ. Đăng nhập React: email + đăng ký OTP (OTP chỉ viết code, không test thật). Hàng chờ: adapter + khối hiển thị tối thiểu, UI đầy đủ để HUY-15.
+- 17/11 · Lead · HUY-14: tài khoản test chỉ nằm trong `.env.local` (gitignore `.env*`), không commit, không đưa vào spec hay log. Worker Codex **không** được gọi mạng tới Supabase; chỉ Lead chạy kiểm chứng thật (chỉ đọc). Worker được đọc (không ghi) các file Supabase trong `D:\ProjectCustom` ở commit `595a24e`, theo quyền đọc Owner đã cấp.
+- 18/11 · Lead · HUY-14 review PASS có điều kiện, đã push `feat/huy-14-supabase-adapters`. Lead sửa thêm 2 lỗi: (1) `dev:all` crash do `predev` của web (có từ HUY-13) xoá `contracts/dist` khi API đang watch; (2) `.env.local` của dev làm Vitest chạy chế độ supabase (17 test đỏ) → ghim `VITE_DATA_SOURCE=mock` trong `test.env`. Kiểm chứng thật chỉ đọc trên Production với 2 tài khoản test: login/logout, khôi phục phiên, hồ sơ, chặn phòng không có quyền, không gọi Platform, không request ghi. **Chưa kiểm chứng**: snapshot/FIFO dữ liệu thật, realtime 2 client, reconnect thật, đăng ký OTP (thiếu phòng + bị cấm ghi). HUY-14 để In Review, chưa Done.
+- 18/11 · Owner · Duyệt và cho push + mở PR 3 nhánh: `feat/huy-14-supabase-adapters`, `fix/topnav-overlap`, `fix/ui-002-003-profile-room-settings`. Đã push cả 3; `gh` chưa đăng nhập nên Owner mở PR qua link compare.
+- 18/11 · Lead · **HUY-15 tách 3 phần.** Huy Hoàng xác định HUY-14 = scan, HUY-15 = đưa vào React.
+  - 15a (Codex): adapter ghi cho 13 RPC + phân loại lỗi + quyền + hook action; chỉ test client giả.
+  - 15b (agy, sau 15a): UI join/host/lineup/vòng đấu; Codex review.
+  - 15c (Lead): kiểm chứng ghi thật 2 client. Bị chặn tới khi Owner duyệt môi trường ghi, vì quyền hiện tại cấm ghi Production.
+  - Nhánh `feat/huy-15-room-mutations` xếp chồng trên `feat/huy-14-supabase-adapters`.
+- 18/11 · Lead · **Graphify chỉ dùng AST, chạy offline.** Lệnh: `graphify update . --no-cluster` + `cluster-only --no-label --no-viz`. Không gọi LLM/API ngoài.
+  - `graphify-out/` bị bỏ qua qua `.git/info/exclude` (dùng chung mọi worktree), không commit.
+  - Mỗi worktree tự dựng graph (~20 giây). Worker phải `graphify query` trước khi đọc code rộng.
+- 18/11 · Owner · **Cho ghi tối thiểu trên Supabase Production cho HUY-15c** (chọn phương án 2, không dùng staging). Giới hạn Lead tự áp:
+  - chỉ dùng 2 tài khoản test, không đăng ký tài khoản mới;
+  - chỉ thao tác trên phòng do chính tài khoản test tạo, đóng phòng (`close_open_room`) sau khi thử;
+  - không migration, không xoá dữ liệu, không đụng phòng/người dùng thật;
+  - ghi lại từng thao tác ghi (thời gian, RPC, room id) vào HUY-15_REPORT.md;
+  - không dùng service_role.
+- 18/11 · Lead · **HUY-15c đạt trên Production.**
+  - Lần chạy cuối `50d39ac4…` đạt mọi kiểm tra; 10 phòng thử đều đã đóng.
+  - Bug tìm ra và đã sửa: Start khi chưa đủ 5v5; replace xoá đội của cả 10 người (SQL `team=null` toàn phòng), nay UI lưu lại đội cũ sau replace.
+  - Báo cáo: `docs/product/HUY-15_REPORT.md` (nhánh `feat/huy-15-room-mutations`, chưa push).
+- 18/11 · Owner · Duyệt push `feat/huy-15-room-mutations` + PR (base `feat/huy-14-supabase-adapters`). Đã push; gh chưa đăng nhập nên Owner tự tạo PR. Lỗi SQL replace báo Huy Hoàng sau.
+- 19/11 · Owner · **Refactor luồng Tạo phòng theo 5 mockup** (`docs/ui-refactor/mockups/create-room/`). Nhóm 1 (tên, BO3/5/7, công khai/riêng tư) khoá sau khi tạo; nhóm 2 (Fun/Tryhard) và nhóm 3 (Random/Tier/Rank) host đổi được.
+  - Supabase chưa có cột cấu hình: làm UI trước. Supabase mode hiện "chưa lưu lên server"; đặc tả SQL gửi Huy Hoàng.
+  - ROOM-CFG-a (Codex): dữ liệu + adapter + BO7 contracts + đặc tả. ROOM-CFG-b (agy): wizard + panel trong phòng.
+  - Nhánh `feat/room-create-config` từ `main` `f79c3d3`.
+- 19/11 · Owner · Đăng nhập gh (suThyyy, keyring). Push `feat/room-create-config`, Lead tự mở PR #7.

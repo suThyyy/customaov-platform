@@ -2,6 +2,119 @@
 
 > Lead cập nhật cuối mỗi epic và mỗi khi dừng. Mới nhất ở trên.
 
+## 15/11/2026 ~23:20 – MVP HOÀN THÀNH: cả 7 epic đã merge `main`
+
+- **`main` = `bc29b31`**. Tag `epic-1-before` … `epic-7-before` dùng để quay lại từng mốc.
+- **E7:**
+  - audit 0 P0 / 2 P1 / 2 P2;
+  - đã sửa: rate limit ghi 60/phút/người, phòng `finished` không còn hiện là "đang diễn ra", validate tham số `:username`/`:slug`, thông báo 404 tiếng Việt;
+  - `npm run dev:all` chạy cả app bằng một lệnh;
+  - `TEST_DATABASE_URL` để chạy test trên Postgres;
+  - README, `docs/product/HDSD.md`, `CHANGELOG.md`.
+- **Hồi quy cuối:**
+  - build, lint 0 lỗi;
+  - test web 135, api 170, contracts 89, team-core 15;
+  - e2e mock, screenshot 40/40;
+  - e2e api: auth đạt, phòng 10 người 7/7, giải 8 đội 14/14.
+
+**Owner cần làm khi rảnh**
+1. **Bật Docker Desktop.** Bộ test backend chưa chạy kiểm chứng trên Postgres thật. Lệnh chạy có trong README: `docker compose up -d` rồi `TEST_DATABASE_URL=... npm test --workspace @customaov/api`. Lead sẽ chạy khi có Docker.
+2. Bật "Continue automatically when limits reset" trong Orca nếu muốn (CLI không bật được).
+
+**Backlog sau MVP** (không chặn):
+- Unique tên đội tính cả đội bị từ chối.
+- Chưa có UI sửa giải; chưa có UI chọn balanceLevel hay nhập tier.
+- `RoomConfig` chưa lưu số lượt cấm, bản đồ, cách chia.
+- Các P1/P2 dữ liệu mock từ E1.
+
+**Quota:** Codex hết tới 01:53 16/11; agy Claude hết tuần; Claude Lead đã tiết kiệm từ ~20:45; Copilot 0/20.
+
+## 15/11/2026 ~22:40 – E4, E5, E6 đã merge `main`; E7 bắt đầu
+
+- **`main` = `809af7e`**. Tag `epic-4-before`, `epic-5-before`, `epic-6-before` cùng trỏ vào `c333228`.
+- Kiểm tra trước merge:
+  - build và lint 0 lỗi;
+  - test: web 132, api 165, contracts 89, team-core 15;
+  - e2e-auth (mock), screenshot 40/40;
+  - e2e-auth-api, e2e-rooms-api 7/7, e2e-tournament-api 14/14.
+- **Lưu ý chạy e2e api:** rate limit lưu trong bộ nhớ, nên mỗi script cần một backend vừa khởi động lại (seed mới). Backend phải đặt `ALLOWED_ORIGINS` đúng cổng web để WebSocket kết nối được.
+- **Quota:**
+  - Codex hết tới 01:53 16/11, sau đó Codex là coder chính;
+  - agy Claude hết tuần;
+  - Claude (Lead) đang tiết kiệm theo yêu cầu Owner;
+  - Copilot 0/20.
+- **Đang chạy:** E7-T01 audit toàn MVP (agy Gemini).
+- **Còn lại:** E7-T02 sửa P0, E7-T03 chạy Postgres thật + lệnh chạy một bước, E7-T04 tài liệu, E7-T05 hồi quy cuối, rồi merge E7 vào `main`.
+
+## 15/11/2026 ~11:10 – TẠM DỪNG theo yêu cầu Owner (tắt máy)
+
+**Đã xong từ lần báo trước** (đều merge `integration/mvp`, chưa merge `main`):
+
+| Task | Nội dung | Coder | Review |
+|---|---|---|---|
+| E3-T01 | API auth | agy sonnet → sửa bởi agy hydrogen | Lead; lần 1 FAIL vì rate limit dùng chung bộ đếm toàn cục |
+| E3-T01b | schema/contracts theo API.md §9 (migration 0002) | – | – |
+| E3-T02 | tầng dữ liệu FE | – | Lead sửa nối `map.ts` cho BracketSlot mới |
+| E3-T04 | API hồ sơ | – | – |
+| E4-T01 | API phòng | – | – |
+| E5-T01 | API đọc giải | – | **chưa chạy lại test sau merge** |
+| E5-T02a | UI `/tournaments/new` | – | – |
+| E5-T04a | engine nhánh đấu | – | – |
+
+**Đang dở (WIP commit, chưa verify):**
+- E3-T03 nối đăng nhập FE (`eccf855`);
+- E4-T02 API chủ phòng (`373fba3`).
+
+Worker đã dừng, dispatch đã abandon, terminal đã đóng. Không có tiến trình nào của Lead còn chạy.
+
+**`main` không đổi** từ epic E2 (`35b74ed`).
+
+**Quyết định Lead tự đưa ra** (chi tiết DECISIONS.md):
+- Chuyển việc sang Gemini khi Codex và Claude-trên-agy hết quota.
+- Lead tự review code của Gemini (khác hãng).
+- Lead gộp tay các xung đột 1 dòng ở `app.ts`.
+
+**Lỗi / vướng chưa giải quyết**
+- Orca khởi động worker agy hay kẹt (banner, trust prompt, "[Pasted text]"). Đã có cách xử lý trong STATE.md. Đã tốn 2/3 lượt start ở 3 chuỗi task.
+- Orca mở lại worker khi `send` sau khi đóng terminal: model mặc định, không có cờ tự duyệt. Đã ghi chú.
+- "Continue automatically when limits reset": vẫn chưa bật được qua CLI.
+
+**Quota ước tính đã dùng:**
+- Codex: hết hạn mức 5 giờ (reset 12:19).
+- agy Claude: hết (reset ~12:20).
+- agy Gemini: dùng nhiều (khoảng 12 phiên hydrogen, 3 flash, 1 hydrogen-high), chưa báo giới hạn.
+- Claude Lead: phiên rất dài.
+- Copilot: 0/20.
+
+**Owner cần làm khi quay lại:** không bắt buộc gì. Mở lại phiên Lead (Claude) trong `base-workspace` và nói "chạy tiếp". Lead sẽ làm theo mục "Việc đầu tiên khi quay lại" trong STATE.md. Nếu Claude chưa dùng được thì chạy lệnh tiếp quản Codex trong STATE.md.
+
+## 15/11/2026 ~10:00 – E2 xong và đã merge `main`; E3 đang chạy
+
+**Epic E2 (nền backend): XONG, đã merge `main`** (`35b74ed`; tag `epic-2-before` = `ef16a9a`).
+
+| Task | Nội dung | Coder | Review |
+|---|---|---|---|
+| E2-T01 | API.md + mục 9 bổ sung bảo mật/đồng thời | Lead | cross-review agy |
+| E2-T02 | Fastify 5 scaffold | codex | agy |
+| E2-T03 | `@customaov/contracts` (86 test) | codex | agy |
+| E2-T04 | Drizzle + PGlite + migration + seed khớp mock | agy hydrogen | codex FAIL lần 1 (thiếu CHECK, log lộ DATABASE_URL) → sửa → PASS |
+| E2-T05 | script gốc | agy flash | Lead |
+| E2-T06 | rule backend viết lại theo stack thật | agy flash | Lead FAIL lần 1 (lệch API.md §9) → sửa → PASS |
+
+Kiểm tra trước merge: build, lint 0 lỗi, test 15+86+33+17, e2e-auth, screenshot 32/32, API `/health` OK.
+
+**E3 đang chạy:** T01 auth API (agy sonnet), T01b schema/contracts theo §9 (agy hydrogen), T02 tầng dữ liệu FE (codex).
+
+**Quyết định mới:**
+- Lead tự review task B1 nhỏ của coder khác hãng.
+- Đổi schema theo API.md §9 (cột `active`, partial unique index, `is_bye`): làm ở E3-T01b.
+- Codex sắp cạn hạn mức 5 giờ nên chuyển task B2 sang agy claude-sonnet.
+
+**Sự cố nhỏ:**
+- Lead dùng lệnh tắt process node quá rộng (`pkill`/`taskkill`) để tắt server smoke test. Đã kiểm: chỉ tắt dev server của chính Lead, server 5174 (PID 37208) và các worker vẫn chạy. Đã ghi chú để không lặp lại.
+
+**Quota ước tính:** Codex còn ~21% (reset 12:19). agy dùng nhiều nhưng chưa báo giới hạn. Copilot 0/20.
+
 ## 15/11/2026 ~09:00 – E1 xong và đã merge `main`; E2 đang chạy
 
 **Epic**
