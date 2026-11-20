@@ -20,6 +20,7 @@ const isMember = (room: Room, userId?: string): boolean => room.isMember ?? isRo
 
 /** Như `roomAction`, nhưng nhận biết thành viên qua `isMember` */
 const actionOf = (room: Room, userId?: string): RoomAction => {
+  if (room.status === 'unknown') return 'join'
   if (room.status === 'finished') return 'view'
   return isMember(room, userId) ? 'join' : roomAction(room)
 }
@@ -27,12 +28,14 @@ const actionOf = (room: Room, userId?: string): RoomAction => {
 export function RoomStatusBadge({ status }: { status: Room['status'] }) {
   if (status === 'live') return <Badge tone="live">Đang diễn ra</Badge>
   if (status === 'finished') return <Badge tone="neutral">Đã kết thúc</Badge>
+  if (status === 'unknown') return <Badge tone="neutral">Trạng thái chưa có</Badge>
   return <Badge tone="waiting">Đang chờ</Badge>
 }
 
 interface RoomHandlers {
   onJoin: (room: Room) => void
   onWatch: (room: Room) => void
+  joinLabel?: (room: Room) => string
   /** Mã phòng đang gửi yêu cầu vào phòng: nút tương ứng bị khoá, hiện "Đang vào…" */
   pendingId?: string
 }
@@ -44,6 +47,7 @@ export function RoomActionButton({
   onJoin,
   onWatch,
   pendingId,
+  joinLabel,
   className,
 }: RoomHandlers & { room: Room; userId?: string; className?: string }) {
   const action = actionOf(room, userId)
@@ -58,9 +62,9 @@ export function RoomActionButton({
         onClick={() => onJoin(room)}
         disabled={pendingId !== undefined}
         aria-busy={pending || undefined}
-        aria-label={`Vào phòng ${roomFullTitle(room)}`}
+        aria-label={`${room.status === 'unknown' ? 'Tham gia bằng lời mời' : 'Vào phòng'} ${roomFullTitle(room)}`}
       >
-        {pending ? 'Đang vào…' : 'Vào phòng'}
+        {pending ? 'Đang mở lời mời…' : joinLabel?.(room) ?? (room.status === 'unknown' ? 'Tham gia bằng lời mời' : 'Vào phòng')}
       </Button>
     )
   }
@@ -80,6 +84,7 @@ export function RoomActionButton({
 
 /** "6 / 10" + nhãn "Đủ người" khi phòng chờ đã đầy */
 function PlayerCount({ room }: { room: Room }) {
+  if (room.metadataUnavailable) return <span className="text-sm text-fg-muted">Xem hàng chờ trong phòng</span>
   const full = room.playerCount >= room.capacity
   return (
     <span className="inline-flex flex-wrap items-center gap-2 whitespace-nowrap text-sm">
@@ -97,6 +102,7 @@ function PlayerCount({ room }: { room: Room }) {
 
 /** Dòng phụ dưới tên phòng: #mã · chủ phòng · chế độ */
 function RoomMeta({ room, userId }: { room: Room; userId?: string }) {
+  if (room.metadataUnavailable) return <p className="mt-1 text-sm text-fg-muted">{room.modeLabel} · {room.visibility === 'public' ? 'Công khai' : 'Riêng tư'}</p>
   return (
     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-muted">
       <span className="tabular">#{room.id}</span>
@@ -132,7 +138,7 @@ export function RoomCard({
       )}
     >
       <div className="flex min-w-0 items-start gap-3">
-        <img src={room.thumbnail} alt="" className="size-12 shrink-0 rounded-btn object-cover ring-1 ring-white/10" />
+        {room.thumbnail && <img src={room.thumbnail} alt="" className="size-12 shrink-0 rounded-btn object-cover ring-1 ring-white/10" />}
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-fg">{roomFullTitle(room)}</p>
           <RoomMeta room={room} userId={userId} />
@@ -378,11 +384,11 @@ export function ActiveRoomsCard({
                       >
                         <td className={cn(td, 'pl-4')}>
                           <div className="flex min-w-0 items-center gap-3">
-                            <img
+                            {room.thumbnail && <img
                               src={room.thumbnail}
                               alt=""
                               className="size-10 shrink-0 rounded-btn object-cover ring-1 ring-white/10"
-                            />
+                            />}
                             <div className="min-w-0">
                               <p className="text-sm font-semibold text-fg">{roomFullTitle(room)}</p>
                               <RoomMeta room={room} userId={userId} />

@@ -45,7 +45,11 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
   // Đồng bộ đăng nhập/đăng xuất giữa các tab (mock) hoặc khôi phục phiên từ API
   useEffect(() => {
+    let active = true
+    let changed = false
     const unsubscribe = authAdapter.subscribe((nextLoggedIn, nextUser) => {
+      if (!active) return
+      changed = true
       setLoggedIn(nextLoggedIn)
       setUser(nextUser ?? null)
       setLoading(false)
@@ -55,11 +59,13 @@ export function AppProviders({ children }: { children: ReactNode }) {
       setLoading(true)
       authAdapter.restore(controller.signal).then(
         (restoredUser) => {
+          if (!active || changed) return
           setUser(restoredUser)
           setLoggedIn(restoredUser !== null)
           setLoading(false)
         },
         (err: unknown) => {
+          if (!active || changed) return
           if (err instanceof DOMException && err.name === 'AbortError') return
           setUser(null)
           setLoggedIn(false)
@@ -67,11 +73,12 @@ export function AppProviders({ children }: { children: ReactNode }) {
         },
       )
       return () => {
+        active = false
         controller.abort()
         unsubscribe()
       }
     }
-    return unsubscribe
+    return () => { active = false; unsubscribe() }
   }, [])
 
   const auth = useMemo<AuthState>(

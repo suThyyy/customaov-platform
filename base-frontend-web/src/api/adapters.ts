@@ -7,9 +7,17 @@ import { DATA_SOURCE } from './source'
 
 const adapterFor = <K extends Feature>(feature: K): DataAdapter[K] => {
   const source = sourceOf(feature)
+  if (source === 'invalid') return new Proxy({} as DataAdapter[K], {
+    get: () => { throw new Error('Cần cấu hình VITE_DATA_SOURCE=mock, api hoặc supabase.') },
+  })
   if (source === 'api') return httpAdapter[feature]
   if (source === 'supabase') return supabaseAdapter[feature as keyof typeof supabaseAdapter] as DataAdapter[K]
   const adapter = mockAdapter[feature]
+  if (DATA_SOURCE === 'supabase' && feature === 'search') return {
+    ...mockAdapter.search, showsSampleBadge: true,
+    initial: () => ({ rooms: [], tournaments: [], players: [] }),
+    search: async () => ({ rooms: [], tournaments: [], players: [] }),
+  } as unknown as DataAdapter[K]
   return (DATA_SOURCE === 'supabase' ? { ...adapter, showsSampleBadge: true } : adapter) as DataAdapter[K]
 }
 

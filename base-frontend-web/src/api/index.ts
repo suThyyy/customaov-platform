@@ -19,6 +19,7 @@ import {
 } from './roomConfig'
 
 export { ApiError, apiRequest } from './client'
+export { DATA_SOURCE } from './source'
 export { authAdapter, profileAdapter, roomsAdapter, chatAdapter, tournamentsAdapter, registrationsAdapter, activitiesAdapter, searchAdapter } from './adapters'
 export { registrationActions, roomActions } from './actions'
 export { timeAgo } from './time'

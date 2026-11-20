@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Room } from '../../api'
 import { roomAction } from '../../lib/room'
@@ -51,5 +51,19 @@ describe('RoomsTable finished status', () => {
 
     expect(screen.getByText('Tryhard')).toBeTruthy()
     expect(screen.queryByText(/5v5 · (Custom|Căng|Vui)/)).toBeNull()
+  })
+  it('renders unknown discovery phase honestly without changing explicit mock waiting rows', () => {
+    const discovered: Room = { ...baseRoom, id: 'public-room', title: 'Public BO5', status: 'unknown', inviteCode: 'invite-secret', metadataUnavailable: true, isMember: false }
+    const onJoin = vi.fn()
+    const { rerender } = render(<RoomCard room={discovered} onJoin={onJoin} onWatch={vi.fn()} />)
+    expect(screen.getByText('Trạng thái chưa có')).toBeTruthy()
+    const discoveryJoin = screen.getByRole('button', { name: /Tham gia bằng lời mời Public BO5/ })
+    expect(discoveryJoin.textContent).toContain('Tham gia bằng lời mời')
+    fireEvent.click(discoveryJoin)
+    expect(onJoin).toHaveBeenCalledWith(discovered)
+
+    rerender(<RoomCard room={{ ...baseRoom, status: 'waiting' }} onJoin={onJoin} onWatch={vi.fn()} />)
+    expect(screen.getByText('Đang chờ')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Vào phòng/ }).textContent).toContain('Vào phòng')
   })
 })

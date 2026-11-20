@@ -2,7 +2,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { useResource } from './hooks'
+import { clearDataCache, useResource } from './hooks'
 
 function Probe({ load, cacheKey }: { load: () => Promise<string>; cacheKey: string }) {
   const state = useResource(cacheKey, 'empty', () => load())
@@ -18,6 +18,14 @@ function Probe({ load, cacheKey }: { load: () => Promise<string>; cacheKey: stri
 afterEach(cleanup)
 
 describe('data hooks', () => {
+  it('không khôi phục dữ liệu riêng từ request cũ sau logout', async () => {
+    let finish!: (value: string) => void
+    const load = vi.fn(() => new Promise<string>(resolve => { finish = resolve }))
+    render(<MemoryRouter><Probe cacheKey="private" load={load} /></MemoryRouter>)
+    clearDataCache()
+    await act(async () => finish('private-old-user'))
+    expect(screen.queryByText('private-old-user')).toBeNull()
+  })
   it('chuyển loading → ready', async () => {
     let resolve!: (value: string) => void
     const load = vi.fn(() => new Promise<string>((done) => { resolve = done }))

@@ -14,8 +14,9 @@ import { sourceOf, type Feature } from './sources'
 import type { ChatMessage, Registration, Room, Tournament, TournamentDetail, UserProfile } from './types'
 
 const cache = new Map<string, unknown>()
+let cacheGeneration = 0
 
-export const clearDataCache = (): void => cache.clear()
+export const clearDataCache = (): void => { cacheGeneration += 1; cache.clear() }
 
 export interface HookResult<T> {
   status: 'loading' | 'error' | 'ready'
@@ -59,13 +60,16 @@ export function useResource<T>(
       return
     }
     const controller = new AbortController()
+    const generation = cacheGeneration
     if (!readyImmediately) setState((current) => ({ ...current, status: 'loading', error: undefined }))
     loadRef.current(controller.signal).then(
       (data) => {
+        if (controller.signal.aborted || generation !== cacheGeneration) return
         cache.set(key, data)
         setState({ status: 'ready', data })
       },
       (error: unknown) => {
+        if (controller.signal.aborted || generation !== cacheGeneration) return
         if (error instanceof DOMException && error.name === 'AbortError') return
         setState((current) => ({ ...current, status: 'error', error: error instanceof Error ? error : new Error(String(error)) }))
       },
@@ -80,7 +84,9 @@ export function useResource<T>(
   }, [key, mockStatus, isSampleData])
 
   const refresh = useCallback(async () => {
+    const generation = cacheGeneration
     const data = await loadRef.current(new AbortController().signal)
+    if (generation !== cacheGeneration) return
     cache.set(key, data)
     setState({ status: 'ready', data })
   }, [key])

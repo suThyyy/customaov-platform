@@ -34,6 +34,7 @@ function makeActions(overrides: Partial<OpenRoomActions> = {}): OpenRoomActions 
     prepare: vi.fn(ok),
     saveLineup: vi.fn(ok),
     replace: vi.fn(ok),
+    swap: vi.fn(ok),
     start: vi.fn(ok),
     end: vi.fn(ok),
     ...overrides,
@@ -185,7 +186,7 @@ describe('SupabaseRoomView (unit)', () => {
     })
   })
 
-  it('swap chọn 1 người mỗi đội rồi gọi saveLineup với đội đã đổi', async () => {
+  it('swap chọn 1 người mỗi đội rồi gọi thao tác nguyên tử', async () => {
     const actions = makeActions()
     const snapshot = mapOpenRoomSnapshot(makeTenPlayerPreparingPayload(), 'u1')
     render(<SupabaseRoomSnapshot snapshot={snapshot} connection="live" userId="u1" actions={actions} />)
@@ -197,18 +198,8 @@ describe('SupabaseRoomView (unit)', () => {
     fireEvent.click(within(teamBHeading).getByRole('button', { name: 'Player 6' }))
     fireEvent.click(screen.getByRole('button', { name: 'Đổi chỗ' }))
 
-    await waitFor(() => {
-      expect(actions.saveLineup).toHaveBeenCalledTimes(1)
-    })
-    const savedLineup = (actions.saveLineup as ReturnType<typeof vi.fn>).mock.calls[0][0]
-    expect(savedLineup).toHaveLength(10)
-    expect(savedLineup.filter((p: { team: string }) => p.team === 'a')).toHaveLength(5)
-    expect(savedLineup.filter((p: { team: string }) => p.team === 'b')).toHaveLength(5)
-    expect(savedLineup).toEqual(expect.arrayContaining([
-      expect.objectContaining({ member_id: expect.any(String), skill_mode: 'random', skill_value: null, skill_score: null }),
-    ]))
-    expect(savedLineup.find((p: { member_id: string }) => p.member_id === 'm1').team).toBe('b')
-    expect(savedLineup.find((p: { member_id: string }) => p.member_id === 'm6').team).toBe('a')
+    await waitFor(() => expect(actions.swap).toHaveBeenCalledWith('m1', 'm6'))
+    expect(actions.saveLineup).not.toHaveBeenCalled()
   })
 
   it('chia ngẫu nhiên gửi đủ 10 người, đúng 5v5 và đủ trường lineup', async () => {
@@ -319,7 +310,7 @@ describe('SupabaseRoomView (unit)', () => {
     })
   })
 
-  it('OpenRoomLineup khi splitTool là tier hoặc rank sẽ disable nút chia và hiện ghi chú sắp có', () => {
+  it('OpenRoomLineup cho nhập kỹ năng Tier và Rank trước khi chia', () => {
     const snapshot = mapOpenRoomSnapshot(makeTenPlayerPreparingPayload(), 'u1')
     const { rerender } = render(
       <SupabaseRoomSnapshot
@@ -340,8 +331,8 @@ describe('SupabaseRoomView (unit)', () => {
 
     expect(screen.getByText('Cấu hình chưa được lưu lên server (chờ backend)')).toBeTruthy()
     const tierBtn = screen.getByRole('button', { name: 'Chia theo Tier Balance' }) as HTMLButtonElement
-    expect(tierBtn.disabled).toBe(true)
-    expect(screen.getByText('Cần điểm Tier/Rank của người chơi — sắp có')).toBeTruthy()
+    expect(tierBtn.disabled).toBe(false)
+    expect(screen.getByLabelText('tier cho Player 1')).toBeTruthy()
 
     rerender(
       <SupabaseRoomSnapshot
@@ -360,7 +351,8 @@ describe('SupabaseRoomView (unit)', () => {
       />,
     )
     const rankBtn = screen.getByRole('button', { name: 'Chia theo Rank Balance' }) as HTMLButtonElement
-    expect(rankBtn.disabled).toBe(true)
-    expect(screen.getByText('Cần điểm Tier/Rank của người chơi — sắp có')).toBeTruthy()
+    expect(rankBtn.disabled).toBe(false)
+    expect(screen.getByLabelText('rank cho Player 1')).toBeTruthy()
+    expect(screen.getByLabelText('Điểm cho Player 1')).toBeTruthy()
   })
 })

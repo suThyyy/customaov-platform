@@ -22,6 +22,11 @@ export interface GameProfileRow {
 }
 
 export interface OpenRoomRow {
+  room_name?: string | null
+  best_of?: 3 | 5 | 7 | null
+  visibility?: 'public' | 'private'
+  play_style?: 'fun' | 'tryhard' | null
+  allocation_mode?: 'random' | 'tier' | 'rank' | null
   id: string
   host_user_id: string
   invite_code: string
@@ -88,6 +93,7 @@ export interface OpenRoomParticipant {
 }
 
 export interface OpenRoomSnapshot {
+  seriesState?: import('./series').SeriesState
   room: OpenRoomRow
   members: OpenRoomMemberRow[]
   waiting: OpenRoomParticipant[]

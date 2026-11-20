@@ -25,6 +25,8 @@ export function RoomConfigPanel({
   fallbackTitle,
   headingAs = 'h2',
   pending = false,
+  styleLocked = false,
+  allocationLocked = false,
   onUpdate,
   className,
 }: {
@@ -37,6 +39,8 @@ export function RoomConfigPanel({
   fallbackTitle?: string
   headingAs?: 'h1' | 'h2'
   pending?: boolean
+  styleLocked?: boolean
+  allocationLocked?: boolean
   onUpdate?: (next: RoomConfigEditable) => void | Promise<void>
   className?: string
 }) {
@@ -79,7 +83,7 @@ export function RoomConfigPanel({
           variant="segmented"
           ariaLabel="Chế độ chơi"
           value={config?.playStyle ?? null}
-          disabled={!canEdit}
+          disabled={!canEdit || styleLocked}
           options={PLAY_STYLE_OPTIONS}
           onChange={(playStyle) => {
             if (!config || playStyle === config.playStyle) return
@@ -97,7 +101,7 @@ export function RoomConfigPanel({
           variant="segmented"
           ariaLabel="Công cụ chia đội"
           value={config?.splitTool ?? null}
-          disabled={!canEdit}
+          disabled={!canEdit || allocationLocked}
           options={SPLIT_TOOL_OPTIONS}
           onChange={(splitTool) => {
             if (!config || splitTool === config.splitTool) return

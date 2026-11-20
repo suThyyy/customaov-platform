@@ -13,10 +13,14 @@ import CreateTournament from './pages/CreateTournament'
 import Profile from './pages/Profile'
 import Activities from './pages/Activities'
 import NotFound from './pages/NotFound'
+import { DATA_SOURCE } from './api'
 
 export default function App() {
+  if (DATA_SOURCE === 'invalid') return <main className="p-8"><h1 className="text-2xl">Chưa cấu hình nguồn dữ liệu</h1><p>Đặt VITE_DATA_SOURCE thành supabase, api hoặc mock rồi khởi động lại ứng dụng.</p></main>
   return (
     <AppProviders>
+      {DATA_SOURCE === 'mock' && <div role="status" className="bg-surface-2 p-2 text-center text-sm">Chế độ demo · Dữ liệu mẫu, không lưu lên máy chủ</div>}
+      {DATA_SOURCE === 'supabase' && <div role="status" className="bg-surface-2 p-2 text-center text-sm">Auth, hồ sơ và phòng dùng Supabase. Giải đấu, hoạt động, tìm kiếm và chat chỉ là demo.</div>}
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<HomeGuest />} />

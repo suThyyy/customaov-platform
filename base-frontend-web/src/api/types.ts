@@ -90,7 +90,12 @@ export type UserProfile = Omit<MockUserProfile, 'stats'> & {
  * Phòng ở UI. `isMember` chỉ có ở chế độ api (`RoomSummary.isMember`): danh sách phòng của server
  * không kèm đội, nên không suy ra thành viên từ `teams` được.
  */
-export type Room = MockRoom & { isMember?: boolean }
+export type Room = Omit<MockRoom, 'status'> & {
+  status: MockRoom['status'] | 'unknown'
+  inviteCode?: string
+  isMember?: boolean
+  metadataUnavailable?: boolean
+}
 
 /** Nhãn phong cách ngắn thay cho nhãn mode của wizard cũ. */
 export const ROOM_MODE_SHORT_LABEL: Record<RoomMode, string> = {

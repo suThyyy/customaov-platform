@@ -18,7 +18,6 @@ import { isRoomMember } from '../lib/room'
 import { ListStatus, SkeletonRows } from '../components/ui/ListStatus'
 import { useAuth, useToast } from '../context/AppContext'
 import {
-  ApiError,
   activitiesAdapter,
   roomsAdapter,
   tournamentsAdapter,
@@ -94,7 +93,7 @@ export default function HomeUser() {
       const { code } = await joinRoom(r.id)
       navigate(`/rooms/${code}`)
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Không kết nối được máy chủ. Thử lại sau.'
+      const message = err instanceof Error ? err.message : 'Không kết nối được máy chủ. Thử lại sau.'
       notify(`Không vào được phòng #${r.id}`, message)
     } finally {
       setJoiningId(undefined)
@@ -104,7 +103,13 @@ export default function HomeUser() {
     id: 'rooms',
     userId,
     pendingId: joiningId,
-    onJoin: join,
+    onJoin: (room: Room) => {
+      if (isApi && room.status === 'unknown' && room.inviteCode) {
+        navigate('/join/discovery', { state: { inviteCode: room.inviteCode } })
+        return
+      }
+      void join(room)
+    },
     onWatch: openRoom,
     onMore: (r: Room) => comingSoon(`Tùy chọn phòng #${r.id}`),
     onSeeAll: () => comingSoon('Danh sách tất cả phòng'),
@@ -161,14 +166,14 @@ export default function HomeUser() {
                 {myRooms.map((r) => (
                   <li key={r.id} className="rounded-btn border border-line bg-surface-2/60 p-3">
                     <div className="flex items-start gap-3">
-                      <img src={r.thumbnail} alt="" className="size-10 shrink-0 rounded-btn object-cover ring-1 ring-white/10" />
+                      {r.thumbnail && <img src={r.thumbnail} alt="" className="size-10 shrink-0 rounded-btn object-cover ring-1 ring-white/10" />}
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold">{roomFullTitle(r)}</p>
                         <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-fg-muted">
                           <span className="tabular">#{r.id}</span>
-                          <span className="tabular">
+                          {!r.metadataUnavailable && <span className="tabular">
                             {r.playerCount}/{r.capacity} người
-                          </span>
+                          </span>}
                           <RoomStatusBadge status={r.status} />
                         </p>
                       </div>
@@ -223,7 +228,7 @@ export default function HomeUser() {
               {QUICK_TOOLS.map((t, i) => (
                 <li key={t.title} className={cn(i > 0 && 'border-t border-line')}>
                   <Link
-                    to={t.to}
+                    to={roomsAdapter.roomView === 'open-room' && t.to.startsWith('/rooms/') ? '/rooms/new' : t.to}
                     className="group flex items-center gap-3 rounded-btn px-2 py-3 transition-colors hover:bg-white/[0.03]"
                   >
                     <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-btn bg-gold-tint text-gold">

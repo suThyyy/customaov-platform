@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RoomMutationError } from '../api/supabase/roomMutations'
 
@@ -50,6 +50,17 @@ vi.mock('../context/AppContext', () => ({
 
 import CreateRoom from './CreateRoom'
 import JoinRoom from './JoinRoom'
+
+function InviteStateProbe() {
+  const location = useLocation()
+  const inviteCode = (location.state as { inviteCode?: string } | null)?.inviteCode
+  return <p>invite-state:{inviteCode ?? 'missing'}</p>
+}
+
+function ProtectedRoomProbe() {
+  const location = useLocation()
+  return <><p>protected-room:{location.pathname}</p><InviteStateProbe /></>
+}
 
 describe('Open Room routes (unit)', () => {
   afterEach(() => {
@@ -116,6 +127,42 @@ describe('Open Room routes (unit)', () => {
       expect(screen.getByRole('alert').textContent).toBe('Không tìm thấy phòng hoặc người chơi cần thao tác.')
       expect(notifyMock).toHaveBeenCalledWith('Không tìm thấy phòng hoặc người chơi cần thao tác.')
     })
+  })
+
+  it('redeems discovery invite once before entering Room and clears credential navigation state', async () => {
+    joinOpenRoomMock.mockImplementation(() => new Promise(resolve => setTimeout(() => resolve({ ok: true, data: { room_id: 'public-room' } }), 20)))
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/join/discovery', state: { inviteCode: 'SECRET-CODE' } }]}>
+        <Routes>
+          <Route path="/join/:inviteCode" element={<JoinRoom />} />
+          <Route path="/rooms/:roomId" element={<ProtectedRoomProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(screen.queryByText(/protected-room:/)).toBeNull()
+    const submit = screen.getByRole('button', { name: 'Vào phòng' })
+    fireEvent.click(submit)
+    fireEvent.click(submit)
+    await waitFor(() => expect(joinOpenRoomMock).toHaveBeenCalledExactlyOnceWith('SECRET-CODE', 'Suthy Profile'))
+    expect(await screen.findByText('protected-room:/rooms/public-room')).toBeTruthy()
+    expect(screen.getByText('invite-state:missing')).toBeTruthy()
+  })
+
+  it('keeps rejected discovery redemption outside Room and redacts the invite credential', async () => {
+    joinOpenRoomMock.mockResolvedValue({ ok: false, error: new RoomMutationError('forbidden', 'SECRET-CODE rejected') })
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/join/discovery', state: { inviteCode: 'SECRET-CODE' } }]}>
+        <Routes>
+          <Route path="/join/:inviteCode" element={<JoinRoom />} />
+          <Route path="/rooms/:roomId" element={<p>protected-room</p>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Vào phòng' }))
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('[ẩn] rejected'))
+    expect(joinOpenRoomMock).toHaveBeenCalledOnce()
+    expect(screen.queryByText('protected-room')).toBeNull()
+    expect(screen.queryByText('SECRET-CODE')).toBeNull()
   })
 
   it('/rooms/new ở chế độ supabase dùng wizard 4 bước, gọi createRoomWithConfig và điều hướng tới /rooms/<id>', async () => {

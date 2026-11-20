@@ -65,6 +65,17 @@ afterEach(() => {
 })
 
 describe('useOpenRoomActions', () => {
+  it('routes configured Room Start to start_series_game and never legacy lifecycle RPCs', async () => {
+    const base = completePreparingSnapshot()
+    const configured: OpenRoomSnapshot = { ...base, room: { ...base.room, best_of: 5 } }
+    const rpc = setFakeRpc({ data: { id: 'game-1' }, error: null })
+    const { result } = renderHook(() => useOpenRoomActions('room-1', configured))
+    await act(async () => { await result.current.start() })
+    expect(rpc).toHaveBeenCalledExactlyOnceWith('start_series_game', { p_room_id: 'room-1', p_version: 7 })
+    expect(rpc).not.toHaveBeenCalledWith('start_open_room_round', expect.anything())
+    expect(rpc).not.toHaveBeenCalledWith('end_open_room_round', expect.anything())
+  })
+
   it('gắn roomId/version, pending theo action và refetch snapshot sau thành công', async () => {
     const rpc = setFakeRpc({ data: baseSnapshot.room, error: null })
     const refetch = vi.fn().mockResolvedValue(undefined)
@@ -82,7 +93,7 @@ describe('useOpenRoomActions', () => {
     unregister()
   })
 
-  it('replace phục hồi 5v5 bằng snapshot/version mới và đưa người thay vào đúng đội cũ', async () => {
+  it('replace chỉ gọi một RPC, không sửa bù đội hình trên client', async () => {
     const before = completePreparingSnapshot()
     before.selected = before.selected.map((player) => player.memberId === 'lineup-6'
       ? { ...player, skillMode: 'tier', skillValue: 'Tinh Anh', skillScore: 42 }
@@ -119,27 +130,15 @@ describe('useOpenRoomActions', () => {
     await act(async () => {
       await expect(result.current.replace('lineup-3')).resolves.toEqual({
         ok: true,
-        data: { ...before.room, version: 9 },
+        data: { ...before.room, version: 8 },
       })
     })
 
     expect(rpc).toHaveBeenNthCalledWith(1, 'replace_open_room_player', {
       p_room_id: 'room-1', p_version: 7, p_member_id: 'lineup-3',
     })
-    expect(rpc).toHaveBeenNthCalledWith(2, 'save_open_room_lineup', expect.objectContaining({
-      p_room_id: 'room-1',
-      p_version: 8,
-    }))
-    const saved = rpc.mock.calls[1][1].p_players as Array<Record<string, unknown>>
-    expect(saved).toHaveLength(10)
-    expect(saved.filter((player) => player.team === 'a')).toHaveLength(5)
-    expect(saved.filter((player) => player.team === 'b')).toHaveLength(5)
-    expect(saved).toEqual(expect.arrayContaining([
-      expect.objectContaining({ member_id: 'lineup-1', team: 'a' }),
-      expect.objectContaining({ member_id: 'lineup-6', team: 'b', skill_mode: 'tier', skill_value: 'Tinh Anh', skill_score: 42 }),
-      expect.objectContaining({ member_id: 'replacement', team: 'a', skill_mode: 'rank', skill_value: 'Cao Thủ', skill_score: 88 }),
-    ]))
-    expect(refetch).toHaveBeenCalledTimes(2)
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(refetch).toHaveBeenCalledTimes(1)
     unregister()
   })
 

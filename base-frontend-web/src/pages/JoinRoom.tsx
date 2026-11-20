@@ -1,5 +1,5 @@
-import { useId, useState, type FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useId, useRef, useState, type FormEvent } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { joinOpenRoom } from '../api'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Button, ButtonLink } from '../components/ui/Button'
@@ -10,10 +10,15 @@ const DISPLAY_NAME_MAX = 40
 
 export default function JoinRoom() {
   const { inviteCode } = useParams()
+  const location = useLocation()
   const navigate = useNavigate()
   const { user } = useAuth()
   const { notify } = useToast()
   const inputId = useId()
+  const pendingRef = useRef(false)
+  const stateInviteCode = (location.state as { inviteCode?: unknown } | null)?.inviteCode
+  const effectiveInviteCode = typeof stateInviteCode === 'string' ? stateInviteCode : inviteCode ?? ''
+  const inviteFromDiscovery = typeof stateInviteCode === 'string'
 
   const [displayName, setDisplayName] = useState(user?.displayName ?? '')
   const [pending, setPending] = useState(false)
@@ -21,29 +26,44 @@ export default function JoinRoom() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
-    if (pending) return
+    if (pendingRef.current || pending) return
+    if (!effectiveInviteCode) {
+      setError('Thiếu lời mời. Hãy quay lại danh sách phòng công khai và chọn tham gia lại.')
+      return
+    }
     const trimmed = displayName.trim()
     if (!trimmed || trimmed.length > DISPLAY_NAME_MAX) {
       setError('Vui lòng nhập tên hiển thị (1–40 ký tự).')
       return
     }
+    pendingRef.current = true
     setPending(true)
     setError(null)
-    const result = await joinOpenRoom(inviteCode ?? '', trimmed)
-    setPending(false)
-    if (result.ok) {
-      navigate(`/rooms/${result.data.room_id}`, { replace: true })
-      return
+    try {
+      const result = await joinOpenRoom(effectiveInviteCode, trimmed)
+      if (result.ok) {
+        navigate(`/rooms/${result.data.room_id}`, { replace: true, state: null })
+        return
+      }
+      const message = result.error.message.split(effectiveInviteCode).join('[ẩn]')
+      setError(message)
+      notify(message)
+    } catch (reason) {
+      const rawMessage = reason instanceof Error ? reason.message : 'Không thể tham gia phòng lúc này.'
+      const message = effectiveInviteCode ? rawMessage.split(effectiveInviteCode).join('[ẩn]') : rawMessage
+      setError(message)
+      notify(message)
+    } finally {
+      pendingRef.current = false
+      setPending(false)
     }
-    setError(result.error.message)
-    notify(result.error.message)
   }
 
   return (
     <div className="min-w-0">
       <PageHeader
         title="Tham gia phòng mở"
-        description={inviteCode ? `Mã mời: ${inviteCode}` : 'Nhập tên hiển thị để vào hàng chờ.'}
+        description={inviteFromDiscovery ? 'Nhập tên hiển thị để gửi yêu cầu tham gia phòng công khai.' : inviteCode ? `Mã mời: ${inviteCode}` : 'Nhập tên hiển thị để vào hàng chờ.'}
       />
       <Card className="mt-6 max-w-lg min-w-0 p-6">
         <form onSubmit={submit} className="flex min-w-0 flex-col gap-4">
