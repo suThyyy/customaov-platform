@@ -100,3 +100,5 @@
   - ROOM-CFG-a (Codex): dữ liệu + adapter + BO7 contracts + đặc tả. ROOM-CFG-b (agy): wizard + panel trong phòng.
   - Nhánh `feat/room-create-config` từ `main` `f79c3d3`.
 - 19/11 · Owner · Đăng nhập gh (suThyyy, keyring). Push `feat/room-create-config`, Lead tự mở PR #7.
+
+- 25/11/2026 · Role Foundation remediation theo todo.md · Giữ profiles.role ở backend customAOV; thêm role_approved_at và platform_role_audit. Legacy organizer/admin chưa duyệt không có quyền tổ chức. Chỉ postgres SQL operator được gọi hàm cấp quyền SECURITY INVOKER có audit; không dựa vào JWT service_role. Migration Room chặn rollout nếu còn Host chưa duyệt. Chưa triển khai Production; cần PO phê duyệt. Xem handoff của backend và docs/product/PLATFORM_ROLE_FOUNDATION.md. Không thay schema Fastify của monorepo.

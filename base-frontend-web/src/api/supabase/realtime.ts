@@ -4,6 +4,7 @@ import { getSupabaseClient } from './client'
 import { registerSupabaseCleanup } from './lifecycle'
 import { readOpenRoomSnapshot } from './room'
 import type { OpenRoomSnapshot } from './types'
+import { readSeriesState } from './series'
 
 export type OpenRoomConnection = 'connecting' | 'live' | 'reconnecting' | 'offline'
 export type OpenRoomStatus = 'loading' | 'ready' | 'error'
@@ -104,12 +105,14 @@ export function useOpenRoom(roomId: string | undefined): {
   connection: OpenRoomConnection
   error?: Error
   retry: () => void
+  refreshing: boolean
 } {
   const [snapshot, setSnapshot] = useState<OpenRoomSnapshot | null>(null)
   const [status, setStatus] = useState<OpenRoomStatus>('loading')
   const [connection, setConnection] = useState<OpenRoomConnection>('connecting')
   const [error, setError] = useState<Error>()
   const [attempt, setAttempt] = useState(0)
+  const [refreshing, setRefreshing] = useState(true)
   const epoch = useRef(0)
   const retry = useCallback(() => setAttempt((value) => value + 1), [])
 
@@ -125,21 +128,40 @@ export function useOpenRoom(roomId: string | undefined): {
     }
     const reset = () => {
       if (epoch.current === token) {
+        epoch.current += 1
         setSnapshot(null)
         setConnection('offline')
       }
     }
-    const refetch = async () => {
+    let request = 0
+    let latestVersion = -1
+    const refetch = async (retries = 0): Promise<OpenRoomRefetchResult> => {
+      const sequence = ++request
+      if (epoch.current === token) setRefreshing(true)
       try {
-        const next = await readOpenRoomSnapshot(roomId)
-        if (epoch.current !== token) return
+        let next = await readOpenRoomSnapshot(roomId)
+        if (next?.room.best_of) {
+          const seriesState = await readSeriesState(roomId)
+          const check = await readOpenRoomSnapshot(roomId)
+          // Never publish a mixture of two versions. The next event/refetch reconciles it.
+          if (check?.version !== next.version) {
+            if (epoch.current === token && sequence === request && retries < 2) return refetch(retries + 1)
+            if (epoch.current === token && sequence === request) throw new Error('Phòng đang thay đổi. Hãy tải lại để xem phiên bản mới nhất.')
+            return
+          }
+          next = { ...next, seriesState }
+        }
+        if (epoch.current !== token || sequence !== request || (next && next.version < latestVersion)) return
+        if (next) latestVersion = next.version
         setSnapshot(next)
+        setRefreshing(false)
         setStatus('ready')
         setError(undefined)
         return next
       } catch (reason) {
-        if (epoch.current !== token) return
+        if (epoch.current !== token || sequence !== request) return
         setSnapshot(null)
+        setRefreshing(false)
         setStatus('error')
         setError(reason instanceof Error ? reason : new Error(String(reason)))
       }
@@ -156,5 +178,5 @@ export function useOpenRoom(roomId: string | undefined): {
     }
   }, [roomId, attempt])
 
-  return { snapshot, status, connection, error, retry }
+  return { snapshot, status, connection, error, retry, refreshing }
 }

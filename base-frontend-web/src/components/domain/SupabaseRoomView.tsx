@@ -1,8 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { Radio, UsersRound } from 'lucide-react'
 import {
-  getRoomConfig,
   openRoomPermissions,
   useOpenRoom,
   useOpenRoomActions,
@@ -22,6 +20,11 @@ import { OpenRoomControls } from './open-room/OpenRoomControls'
 import { OpenRoomLineup } from './open-room/OpenRoomLineup'
 import { OpenRoomQueue } from './open-room/OpenRoomQueue'
 import { RoomConfigPanel } from './RoomConfigPanel'
+import { configFromRoom, updateConfiguredRoom } from '../../api/supabase/configuration'
+import { SeriesPanel } from './open-room/SeriesPanel'
+import { PublicRoomAccess } from './open-room/PublicRoomAccess'
+import { PersonalQueueStatus } from './open-room/PersonalQueueStatus'
+import { prepareNextOpenRoomRound } from '../../api/supabase/roomMutations'
 
 export type OpenRoomActions = ReturnType<typeof useOpenRoomActions>
 
@@ -52,6 +55,7 @@ const IDLE_ACTIONS: OpenRoomActions = {
   prepare: noopResult,
   saveLineup: noopResult,
   replace: noopResult,
+  swap: noopResult,
   start: noopResult,
   end: noopResult,
 }
@@ -59,27 +63,9 @@ const IDLE_ACTIONS: OpenRoomActions = {
 export function SupabaseRoomView({ roomId }: { roomId: string | undefined }) {
   const room = useOpenRoom(roomId)
   const actions = useOpenRoomActions(roomId ?? '', room.snapshot)
-  const { user } = useAuth()
+  const { user, canOrganize } = useAuth()
   const { notify } = useToast()
-  const location = useLocation()
-  const navState = location.state as { roomConfig?: RoomConfig; configPersisted?: boolean } | null
-  const [loadedConfig, setLoadedConfig] = useState<{ config: RoomConfig | null; configPersisted: boolean }>({
-    config: navState?.roomConfig ?? null,
-    configPersisted: navState?.configPersisted ?? false,
-  })
-
-  useEffect(() => {
-    if (navState?.roomConfig) {
-      setLoadedConfig({ config: navState.roomConfig, configPersisted: navState.configPersisted ?? false })
-      return
-    }
-    if (!roomId) return
-    let cancelled = false
-    void getRoomConfig(roomId).then((res) => {
-      if (!cancelled) setLoadedConfig(res)
-    })
-    return () => { cancelled = true }
-  }, [roomId, navState?.roomConfig, navState?.configPersisted])
+  if (roomId && (room.status === 'error' || room.status === 'ready' && !room.snapshot)) return <PublicRoomAccess key={roomId} roomId={roomId} />
 
   if (room.status !== 'ready') {
     return (
@@ -105,10 +91,12 @@ export function SupabaseRoomView({ roomId }: { roomId: string | undefined }) {
       snapshot={room.snapshot}
       connection={room.connection}
       userId={user?.id}
+      canOrganize={canOrganize}
+      refreshing={room.refreshing}
       actions={actions}
       onNotify={notify}
-      roomConfig={loadedConfig.config}
-      configPersisted={loadedConfig.configPersisted}
+      roomConfig={configFromRoom(room.snapshot.room)}
+      configPersisted={Boolean(room.snapshot.room.best_of)}
     />
   )
 }
@@ -121,6 +109,8 @@ export function SupabaseRoomSnapshot({
   onNotify = () => {},
   roomConfig = null,
   configPersisted = false,
+  canOrganize = false,
+  refreshing = false,
 }: {
   snapshot: OpenRoomSnapshot
   connection: 'connecting' | 'live' | 'reconnecting' | 'offline'
@@ -129,25 +119,31 @@ export function SupabaseRoomSnapshot({
   onNotify?: (title: string, description?: string) => void
   roomConfig?: RoomConfig | null
   configPersisted?: boolean
+  canOrganize?: boolean
+  refreshing?: boolean
 }) {
   const live = connection === 'live'
-  const permissions = useMemo(() => openRoomPermissions(snapshot, userId), [snapshot, userId])
+  const permissions = useMemo(() => openRoomPermissions(snapshot, userId, canOrganize), [snapshot, userId, canOrganize])
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null)
   const closeConfirm = useCallback(() => setConfirm(null), [])
+  const [configPending, setConfigPending] = useState(false)
+  const configBusy = useRef(false)
 
-  const runAction = useCallback(async <T,>(fn: () => Promise<RoomMutationResult<T>>): Promise<boolean> => {
+  const runAction = useCallback(async <T,>(fn: () => Promise<RoomMutationResult<T>>, organizer = true): Promise<boolean> => {
+    if (organizer && permissions.role !== 'host') { onNotify('Bạn không có quyền quản lý phòng này.'); return false }
     const result = await fn()
     if (!result.ok) {
       onNotify(result.error.message)
       return false
     }
     return true
-  }, [onNotify])
+  }, [onNotify, permissions.role])
 
   const handleConfirm = async (request: ConfirmRequest) => {
+    if (request.kind !== 'leave' && !permissions[request.kind]) { setConfirm(null); onNotify('Bạn không có quyền quản lý phòng này.'); return }
     if (request.kind === 'kick') await runAction(() => actions.kick(request.memberId))
     else if (request.kind === 'requeue') await runAction(() => actions.requeue(request.memberId))
-    else if (request.kind === 'leave') await runAction(() => actions.leave())
+    else if (request.kind === 'leave') await runAction(() => actions.leave(), false)
     else if (request.kind === 'close') await runAction(() => actions.close())
     setConfirm(null)
   }
@@ -161,7 +157,7 @@ export function SupabaseRoomSnapshot({
       <header className="flex min-w-0 flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-sm text-fg-muted">Open Room</p>
-          <h1 className="text-2xl font-bold md:text-4xl">Phòng #{snapshot.room.invite_code}</h1>
+          <h1 className="break-words text-2xl font-bold md:text-4xl">{snapshot.room.room_name ?? `Phòng #${snapshot.room.invite_code}`}</h1>
           <p className="mt-2 text-sm text-fg-muted">
             Vòng {snapshot.room.current_round_no} · {OPEN_ROOM_PHASE_LABEL[snapshot.room.current_round_state]} · phiên bản {snapshot.version}
           </p>
@@ -176,6 +172,8 @@ export function SupabaseRoomSnapshot({
         </div>
       </header>
 
+      <PersonalQueueStatus snapshot={snapshot} userId={userId} current={live && !refreshing} />
+
       <RoomConfigPanel
         config={roomConfig}
         configPersisted={configPersisted}
@@ -183,6 +181,17 @@ export function SupabaseRoomSnapshot({
         playerCount={snapshot.selected.length}
         roomStatus={snapshot.room.status === 'open' ? 'OPEN' : 'CLOSED'}
         headingAs="h2"
+        pending={configPending}
+        styleLocked={snapshot.room.status !== 'open' || snapshot.room.current_round_state === 'active'}
+        allocationLocked={snapshot.room.status !== 'open' || snapshot.room.current_round_state === 'active' || snapshot.selected.some(player => player.team)}
+        onUpdate={async editable => {
+          if (configBusy.current || permissions.role !== 'host') return
+          configBusy.current = true
+          setConfigPending(true)
+          try { await updateConfiguredRoom(snapshot.room.id, editable, snapshot.version) }
+          catch (error) { onNotify(error instanceof Error ? error.message : String(error)) }
+          finally { configBusy.current = false; setConfigPending(false) }
+        }}
       />
 
       <OpenRoomControls
@@ -192,7 +201,7 @@ export function SupabaseRoomSnapshot({
         onPrepare={() => void runAction(() => actions.prepare())}
         onStart={() => void runAction(() => actions.start())}
         onEnd={() => void runAction(() => actions.end())}
-        onContinueQueue={() => void runAction(() => actions.continueQueue())}
+        onContinueQueue={() => void runAction(() => actions.continueQueue(), false)}
         onRequestLeave={() => setConfirm({ kind: 'leave' })}
         onRequestClose={() => setConfirm({ kind: 'close' })}
         onNotify={onNotify}
@@ -204,11 +213,20 @@ export function SupabaseRoomSnapshot({
         pending={actions.pending}
         splitTool={roomConfig?.splitTool ?? 'random'}
         onSaveLineup={(players) => runAction(() => actions.saveLineup(players))}
+        onSwap={(first, second) => runAction(() => actions.swap(first, second))}
         onKick={(memberId, displayName) => setConfirm({ kind: 'kick', memberId, displayName })}
         onRequeue={(memberId, displayName) => setConfirm({ kind: 'requeue', memberId, displayName })}
         onReplace={(memberId) => void runAction(() => actions.replace(memberId))}
         onNotify={onNotify}
       />
+
+      {snapshot.room.best_of && <SeriesPanel
+        snapshot={snapshot}
+        isHost={permissions.role === 'host'}
+        canPrepareNext={permissions.prepare}
+        onPrepareNext={() => prepareNextOpenRoomRound(snapshot.room.id)}
+        notify={onNotify}
+      />}
 
       <OpenRoomQueue
         snapshot={snapshot}

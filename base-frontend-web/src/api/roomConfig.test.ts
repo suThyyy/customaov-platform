@@ -132,13 +132,13 @@ describe('Platform API compatibility mapping', () => {
 })
 
 describe('Supabase room config adapter', () => {
-  it('calls createOpenRoom once and reports that config is not persisted', async () => {
-    const createOpenRoom = vi.fn().mockResolvedValue({
+  it('calls create_series_room once and returns persisted server configuration', async () => {
+    const rpc = vi.fn().mockResolvedValue({
       ok: true,
-      data: { id: 'room-uuid' },
+      data: { id: 'room-uuid', room_name: 'Phòng Supabase', best_of: 5, visibility: 'private', play_style: 'fun', allocation_mode: 'random' },
     })
     vi.resetModules()
-    vi.doMock('./supabase/roomMutations', () => ({ createOpenRoom }))
+    vi.doMock('./supabase/roomMutations', () => ({ rpc }))
     const { supabaseRoomsAdapter } = await import('./supabase')
     const config = { ...DEFAULT_ROOM_CONFIG, name: 'Phòng Supabase' }
 
@@ -146,20 +146,8 @@ describe('Supabase room config adapter', () => {
       roomId: 'room-uuid',
       status: 'OPEN',
       config,
-      configPersisted: false,
+      configPersisted: true,
     })
-    await expect(supabaseRoomsAdapter.getRoomConfig('room-uuid')).resolves.toEqual({
-      config: null,
-      configPersisted: false,
-    })
-    await expect(supabaseRoomsAdapter.updateRoomConfig('room-uuid', {
-      playStyle: 'tryhard',
-      splitTool: 'rank',
-    })).resolves.toEqual({
-      config: { playStyle: 'tryhard', splitTool: 'rank' },
-      configPersisted: false,
-    })
-    expect(createOpenRoom).toHaveBeenCalledTimes(1)
-    expect(createOpenRoom).toHaveBeenCalledWith()
+    expect(rpc).toHaveBeenCalledExactlyOnceWith('create_series_room', { p_name: 'Phòng Supabase', p_best_of: 5, p_visibility: 'private', p_style: 'fun', p_mode: 'random' })
   })
 })

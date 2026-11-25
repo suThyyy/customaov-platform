@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeftRight, Shuffle } from 'lucide-react'
 import {
-  swapLineupPlayers,
   type OpenRoomLineupPlayer,
   type OpenRoomParticipant,
   type OpenRoomPending,
@@ -14,6 +13,7 @@ import { Button } from '../../ui/Button'
 import { Card } from '../../ui/primitives'
 import { buildLineupFromSelected, buildRandomLineup } from './helpers'
 import { ParticipantMenu } from './ParticipantMenu'
+import { DEFAULT_TIER_SCORES, splitTeams5v5 } from '@customaov/team-core'
 
 export function OpenRoomLineup({
   snapshot,
@@ -21,6 +21,7 @@ export function OpenRoomLineup({
   pending,
   splitTool = 'random',
   onSaveLineup,
+  onSwap,
   onKick,
   onRequeue,
   onReplace,
@@ -31,6 +32,7 @@ export function OpenRoomLineup({
   pending: OpenRoomPending
   splitTool?: RoomSplitTool
   onSaveLineup: (players: readonly OpenRoomLineupPlayer[]) => Promise<boolean>
+  onSwap: (first: string, second: string) => Promise<boolean>
   onKick: (memberId: string, displayName: string) => void
   onRequeue: (memberId: string, displayName: string) => void
   onReplace: (memberId: string) => void
@@ -38,6 +40,16 @@ export function OpenRoomLineup({
 }) {
   const [selectedA, setSelectedA] = useState<string | null>(null)
   const [selectedB, setSelectedB] = useState<string | null>(null)
+  const [skills, setSkills] = useState<Record<string, { value: string; score: string }>>({})
+  const [reveal, setReveal] = useState(false)
+  const lineupKey = snapshot.selected.map(player => `${player.memberId}:${player.team}:${player.slot}`).join('|')
+  const hasLineup = snapshot.selected.length === 10 && snapshot.selected.every(player => player.team)
+  useEffect(() => {
+    if (!hasLineup || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    setReveal(true)
+    const timer = setTimeout(() => setReveal(false), 1800)
+    return () => clearTimeout(timer)
+  }, [lineupKey, hasLineup])
 
   useEffect(() => {
     setSelectedA(null)
@@ -57,9 +69,7 @@ export function OpenRoomLineup({
   const handleSwap = async () => {
     if (!completeLineup || !selectedA || !selectedB || pending.saveLineup) return
     try {
-      const lineup = buildLineupFromSelected(snapshot.selected)
-      const swapped = swapLineupPlayers(lineup, selectedA, selectedB)
-      const ok = await onSaveLineup(swapped)
+      const ok = await onSwap(selectedA, selectedB)
       if (ok) {
         setSelectedA(null)
         setSelectedB(null)
@@ -71,7 +81,21 @@ export function OpenRoomLineup({
 
   const handleRandomSplit = async () => {
     if (pending.saveLineup) return
-    await onSaveLineup(buildRandomLineup(snapshot.selected))
+    if (splitTool === 'random') { await onSaveLineup(buildRandomLineup(snapshot.selected)); return }
+    try {
+      const entries = snapshot.selected.map(player => {
+        const value = skills[player.memberId]?.value ?? player.skillValue ?? ''
+        const score = splitTool === 'tier' ? Number(DEFAULT_TIER_SCORES[value]) : Number(skills[player.memberId]?.score ?? player.skillScore)
+        if (!value.trim() || !Number.isFinite(score) || score <= 0) throw new Error('Nhập Tier/Rank và điểm hợp lệ cho đủ mười người.')
+        return { id: player.memberId, value, score }
+      })
+      // A replacement only needs its skill entered: retain the server's slots/teams.
+      const needsRepair = completeLineup && snapshot.selected.some(player => !player.skillMode)
+      const teams = splitTeams5v5(entries, { mode: splitTool, balanceLevel: '60-40', scores: Object.fromEntries(entries.map(entry => [entry.id, entry.score])), getScoreKey: entry => entry.id })
+      if (teams.warning && !needsRepair) onNotify('Chênh lệch điểm còn cao; hãy kiểm tra đội hình sau khi lưu.')
+      const blue = new Set(teams.teamA.map(player => player.id))
+      await onSaveLineup(entries.map(entry => ({ member_id: entry.id, team: needsRepair ? snapshot.selected.find(player => player.memberId === entry.id)!.team as 'a' | 'b' : blue.has(entry.id) ? 'a' : 'b', skill_mode: splitTool, skill_value: entry.value, skill_score: entry.score })))
+    } catch (error) { onNotify(error instanceof Error ? error.message : String(error)) }
   }
 
   const handleAssignTeam = async (memberId: string, team: 'a' | 'b') => {
@@ -101,7 +125,7 @@ export function OpenRoomLineup({
       {players.length ? (
         <ul className="flex min-w-0 flex-col gap-2">
           {players.map((player) => {
-            const picked = activeId === player.memberId
+            const picked = activeId === player.memberId || selectedA === player.memberId || selectedB === player.memberId
             return (
               <li
                 key={player.memberId}
@@ -149,7 +173,7 @@ export function OpenRoomLineup({
         <div className="min-w-0">
           <h2 className="text-lg font-semibold">Đội hình 5v5</h2>
           {permissions.saveLineup && completeLineup && (
-            <p className="text-xs text-fg-muted">Chọn 1 người ở Team A và 1 người ở Team B để đổi chỗ.</p>
+            <p className="text-xs text-fg-muted">Chọn hai người ở cùng đội hoặc khác đội để đổi chỗ.</p>
           )}
         </div>
         {permissions.saveLineup && (
@@ -167,7 +191,7 @@ export function OpenRoomLineup({
               variant="outline"
               size="sm"
               leftIcon={<Shuffle size={14} aria-hidden />}
-              disabled={splitTool !== 'random' || snapshot.selected.length !== 10 || pending.saveLineup}
+              disabled={snapshot.selected.length !== 10 || pending.saveLineup}
               onClick={handleRandomSplit}
             >
               {splitTool === 'tier'
@@ -182,12 +206,16 @@ export function OpenRoomLineup({
         )}
       </div>
       {permissions.saveLineup && splitTool !== 'random' && (
-        <p className="mt-2 text-xs text-fg-muted">Cần điểm Tier/Rank của người chơi — sắp có</p>
+        <div className="mt-4 space-y-3">
+          <p className="text-sm text-fg-muted">Nhập {splitTool === 'tier' ? 'Tier 1–5 (điểm 8 / 4 / 2 / 1 / 0.5)' : 'Rank và điểm do chủ phòng xác nhận'} cho từng người. Sau Replace, lưu điểm người mới sẽ giữ đội hình.</p>
+          {snapshot.selected.map(player => <div key={player.memberId} className="grid min-w-0 gap-2 md:grid-cols-3"><label className="min-w-0 text-sm">{player.displayName}<input aria-label={`${splitTool} cho ${player.displayName}`} className="w-full rounded-btn border border-line bg-surface p-2" value={skills[player.memberId]?.value ?? player.skillValue ?? ''} onChange={event => setSkills(old => ({ ...old, [player.memberId]: { value: event.target.value, score: old[player.memberId]?.score ?? String(player.skillScore ?? '') } }))} /></label>{splitTool === 'rank' && <label className="text-sm">Điểm<input aria-label={`Điểm cho ${player.displayName}`} type="number" min="0.0001" step="any" className="w-full rounded-btn border border-line bg-surface p-2" value={skills[player.memberId]?.score ?? player.skillScore ?? ''} onChange={event => setSkills(old => ({ ...old, [player.memberId]: { value: old[player.memberId]?.value ?? player.skillValue ?? '', score: event.target.value } }))} /></label>}</div>)}
+        </div>
       )}
 
-      <div className="mt-4 grid min-w-0 gap-4 md:grid-cols-2">
-        {renderTeamColumn('Team A', teamA, 'a', selectedA, (id) => setSelectedA(id || null), 'text-team-blue-fg')}
-        {renderTeamColumn('Team B', teamB, 'b', selectedB, (id) => setSelectedB(id || null), 'text-team-red-fg')}
+      {reveal && <div className="mt-4 flex flex-wrap items-center gap-3 text-sm" role="status">Đang công bố đội hình đã lưu<Button variant="ghost" onClick={() => setReveal(false)}>Bỏ qua hiệu ứng</Button></div>}
+      <div className={cn('mt-4 grid min-w-0 gap-4 md:grid-cols-2', reveal && (splitTool === 'random' ? 'room-reveal-roulette' : 'room-reveal-meteor'))}>
+        {renderTeamColumn('Team A', teamA, 'a', selectedA, (id) => { if (!selectedA || selectedA === id) setSelectedA(id || null); else setSelectedB(id || null) }, 'text-team-blue-fg')}
+        {renderTeamColumn('Team B', teamB, 'b', selectedB, (id) => { if (!selectedA || selectedA === id) setSelectedA(id || null); else setSelectedB(id || null) }, 'text-team-red-fg')}
       </div>
 
       {unassigned.length > 0 && (

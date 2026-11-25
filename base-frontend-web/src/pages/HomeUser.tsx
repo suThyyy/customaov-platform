@@ -2,7 +2,6 @@ import { useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   BarChart3,
-  BookOpen,
   Box,
   ChevronRight,
   Clock3,
@@ -18,7 +17,6 @@ import { isRoomMember } from '../lib/room'
 import { ListStatus, SkeletonRows } from '../components/ui/ListStatus'
 import { useAuth, useToast } from '../context/AppContext'
 import {
-  ApiError,
   activitiesAdapter,
   roomsAdapter,
   tournamentsAdapter,
@@ -30,7 +28,7 @@ import {
   useTournaments,
   type Room,
 } from '../api'
-import { Button, ButtonLink } from '../components/ui/Button'
+import { ButtonLink } from '../components/ui/Button'
 import { Card, SectionTitle, SeeAllLink } from '../components/ui/primitives'
 import { PageHeader } from '../components/layout/PageHeader'
 import { ActiveRoomsCard, RemoteActiveRoomsCard, RoomStatusBadge } from '../components/domain/RoomsTable'
@@ -66,7 +64,7 @@ const QUICK_TOOLS: Array<{ icon: ReactNode; title: string; description: string; 
 export default function HomeUser() {
   const navigate = useNavigate()
   const { comingSoon, notify } = useToast()
-  const { user } = useAuth()
+  const { user, canOrganize } = useAuth()
   const isApi = roomsAdapter.persistsWrites
   const userId = isApi ? user?.username : currentUser.id
   const displayName = isApi ? (user?.displayName ?? '') : currentUser.name
@@ -94,7 +92,7 @@ export default function HomeUser() {
       const { code } = await joinRoom(r.id)
       navigate(`/rooms/${code}`)
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Không kết nối được máy chủ. Thử lại sau.'
+      const message = err instanceof Error ? err.message : 'Không kết nối được máy chủ. Thử lại sau.'
       notify(`Không vào được phòng #${r.id}`, message)
     } finally {
       setJoiningId(undefined)
@@ -104,11 +102,17 @@ export default function HomeUser() {
     id: 'rooms',
     userId,
     pendingId: joiningId,
-    onJoin: join,
+    onJoin: (room: Room) => {
+      if (isApi && room.status === 'unknown' && room.inviteCode) {
+        navigate('/join/discovery', { state: { inviteCode: room.inviteCode } })
+        return
+      }
+      void join(room)
+    },
     onWatch: openRoom,
     onMore: (r: Room) => comingSoon(`Tùy chọn phòng #${r.id}`),
     onSeeAll: () => comingSoon('Danh sách tất cả phòng'),
-    onCreate: () => navigate('/rooms/new'),
+    onCreate: canOrganize ? () => navigate('/rooms/new') : undefined,
   }
 
   return (
@@ -121,9 +125,7 @@ export default function HomeUser() {
         }
         description="Tạo phòng, lập đội và theo dõi các giải đấu cộng đồng Custom Liên Quân."
         actions={
-          <Button variant="ghost" leftIcon={<BookOpen size={18} aria-hidden />} onClick={() => comingSoon('Xem hướng dẫn')}>
-            Xem hướng dẫn
-          </Button>
+          <ButtonLink to="/quick-team" variant="gold-outline">Chia đội ngay</ButtonLink>
         }
       />
 
@@ -152,23 +154,23 @@ export default function HomeUser() {
             {myRooms.length === 0 ? (
               <div className="mt-3 flex flex-col items-start gap-3">
                 <p className="text-sm text-fg-muted">Bạn chưa ở trong phòng nào.</p>
-                <ButtonLink to="/rooms/new" variant="outline" size="sm" leftIcon={<Plus size={16} aria-hidden />}>
+                {canOrganize && <ButtonLink to="/rooms/new" variant="outline" size="sm" leftIcon={<Plus size={16} aria-hidden />}>
                   Tạo phòng
-                </ButtonLink>
+                </ButtonLink>}
               </div>
             ) : (
               <ul className="mt-3 flex flex-col gap-3">
                 {myRooms.map((r) => (
                   <li key={r.id} className="rounded-btn border border-line bg-surface-2/60 p-3">
                     <div className="flex items-start gap-3">
-                      <img src={r.thumbnail} alt="" className="size-10 shrink-0 rounded-btn object-cover ring-1 ring-white/10" />
+                      {r.thumbnail && <img src={r.thumbnail} alt="" className="size-10 shrink-0 rounded-btn object-cover ring-1 ring-white/10" />}
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold">{roomFullTitle(r)}</p>
                         <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-fg-muted">
                           <span className="tabular">#{r.id}</span>
-                          <span className="tabular">
+                          {!r.metadataUnavailable && <span className="tabular">
                             {r.playerCount}/{r.capacity} người
-                          </span>
+                          </span>}
                           <RoomStatusBadge status={r.status} />
                         </p>
                       </div>
@@ -220,10 +222,10 @@ export default function HomeUser() {
           <Card className="p-4">
             <SectionTitle size="sm" icon={<Zap size={20} />} title="Công cụ nhanh" />
             <ul className="mt-2 flex flex-col">
-              {QUICK_TOOLS.map((t, i) => (
+              {QUICK_TOOLS.filter(t => canOrganize || !t.to.startsWith('/rooms/')).map((t, i) => (
                 <li key={t.title} className={cn(i > 0 && 'border-t border-line')}>
                   <Link
-                    to={t.to}
+                    to={roomsAdapter.roomView === 'open-room' && t.to.startsWith('/rooms/') ? '/rooms/new' : t.to}
                     className="group flex items-center gap-3 rounded-btn px-2 py-3 transition-colors hover:bg-white/[0.03]"
                   >
                     <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-btn bg-gold-tint text-gold">

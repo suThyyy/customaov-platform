@@ -41,6 +41,7 @@ for (const r of ROUTES) {
   for (const width of WIDTHS) {
     const ctx = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1 })
     await ctx.addInitScript((v) => localStorage.setItem('customaov.mockLoggedIn', v), r.loggedIn ? '1' : '0')
+    await ctx.addInitScript(() => sessionStorage.setItem('customaov.mockRole', 'admin'))
     const page = await ctx.newPage()
     const errors = []
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))

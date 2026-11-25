@@ -52,11 +52,11 @@ export function OpenRoomControls({
           <p className="mt-1 text-base font-semibold">
             Vòng {snapshot.room.current_round_no} · {OPEN_ROOM_PHASE_LABEL[phase]}
           </p>
-          <p className="mt-1 text-xs text-fg-muted">Lưu kết quả trận: sắp có</p>
+          {!snapshot.room.best_of && <p className="mt-1 text-xs text-fg-muted">Lưu kết quả trận: sắp có</p>}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {permissions.prepare && (
+          {permissions.prepare && !(snapshot.room.best_of && phase === 'ended') && (
             <Button variant="primary" size="md" disabled={pending.prepare} onClick={onPrepare}>
               {pending.prepare
                 ? phase === 'ended' ? 'Đang tạo vòng…' : 'Đang chuẩn bị…'

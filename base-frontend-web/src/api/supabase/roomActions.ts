@@ -12,10 +12,12 @@ import {
   replaceOpenRoomPlayer,
   saveOpenRoomLineup,
   startOpenRoomRound,
+  rpc,
   type OpenRoomLineupPlayer,
   type RoomMutationResult,
 } from './roomMutations'
 import type { OpenRoomSnapshot } from './types'
+import { startSeriesGame } from './series'
 
 export type OpenRoomActionName =
   | 'close' | 'leave' | 'addPlayer' | 'kick' | 'requeue' | 'continueQueue'
@@ -63,41 +65,7 @@ export function useOpenRoomActions(roomId: string, snapshot: OpenRoomSnapshot | 
   }, [roomId])
 
   const version = snapshot?.version ?? 0
-  const replace = (memberId: string) => {
-    const selectedBeforeReplace = snapshot?.selected ?? []
-    const teamBeforeReplace = new Map(selectedBeforeReplace.map((player) => [player.memberId, player.team]))
-    const replacedTeam = teamBeforeReplace.get(memberId)
-    const completeLineupBeforeReplace = selectedBeforeReplace.length === 10
-      && selectedBeforeReplace.filter((player) => player.team === 'a').length === 5
-      && selectedBeforeReplace.filter((player) => player.team === 'b').length === 5
-
-    return run('replace', async () => {
-      const replaced = await replaceOpenRoomPlayer(roomId, version, memberId)
-      if (!replaced.ok || !completeLineupBeforeReplace || (replacedTeam !== 'a' && replacedTeam !== 'b')) return replaced
-
-      const refreshed = await requestOpenRoomRefetch(roomId)
-      if (!refreshed || refreshed.selected.length !== 10) return replaced
-      const newcomers = refreshed.selected.filter((player) => !teamBeforeReplace.has(player.memberId))
-      if (newcomers.length !== 1) return replaced
-
-      const lineup: OpenRoomLineupPlayer[] = []
-      for (const player of refreshed.selected) {
-        const priorTeam = teamBeforeReplace.get(player.memberId)
-        const team = priorTeam === 'a' || priorTeam === 'b'
-          ? priorTeam
-          : player.memberId === newcomers[0].memberId ? replacedTeam : null
-        if (!team) return replaced
-        lineup.push({
-          member_id: player.memberId,
-          team,
-          skill_mode: player.skillMode ?? 'random',
-          skill_value: player.skillValue ?? null,
-          skill_score: player.skillScore ?? null,
-        })
-      }
-      return saveOpenRoomLineup(roomId, refreshed.version, lineup)
-    })
-  }
+  const replace = (memberId: string) => run('replace', () => replaceOpenRoomPlayer(roomId, version, memberId))
 
   return {
     pending,
@@ -111,7 +79,8 @@ export function useOpenRoomActions(roomId: string, snapshot: OpenRoomSnapshot | 
     saveLineup: (players: readonly OpenRoomLineupPlayer[]) =>
       run('saveLineup', () => saveOpenRoomLineup(roomId, version, players)),
     replace,
-    start: () => run('start', () => startOpenRoomRound(roomId)),
+    swap: (first: string, second: string) => run('saveLineup', () => rpc('swap_open_room_players', { p_room_id: roomId, p_version: version, p_first: first, p_second: second })),
+    start: () => run<unknown>('start', () => snapshot?.room.best_of ? startSeriesGame(roomId, version) : startOpenRoomRound(roomId)),
     end: () => run('end', () => endOpenRoomRound(roomId)),
   }
 }
@@ -137,8 +106,8 @@ export interface OpenRoomPermissions {
   canReplaceMember: (memberId: string) => boolean
 }
 
-export function openRoomPermissions(snapshot: OpenRoomSnapshot, userId: string | null | undefined): OpenRoomPermissions {
-  const isHost = Boolean(userId && snapshot.room.host_user_id === userId)
+export function openRoomPermissions(snapshot: OpenRoomSnapshot, userId: string | null | undefined, canOrganize = false): OpenRoomPermissions {
+  const isHost = Boolean(canOrganize && userId && snapshot.room.host_user_id === userId)
   const member = userId ? snapshot.members.find((item) => item.user_id === userId && item.status === 'active') : undefined
   const isMember = Boolean(member)
   const role: OpenRoomRole = isHost ? 'host' : isMember ? 'member' : 'spectator'
@@ -155,7 +124,8 @@ export function openRoomPermissions(snapshot: OpenRoomSnapshot, userId: string |
     && snapshot.selected.every((player) => {
       const selectedMember = activeMembers.get(player.memberId)
       const hasValidSkill = !((player.skillMode === 'tier' || player.skillMode === 'rank') && player.skillScore == null)
-      return Boolean(selectedMember && player.queueStatus === 'selected' && hasValidSkill)
+      const modeMatches = !snapshot.room.best_of || player.skillMode === snapshot.room.allocation_mode
+      return Boolean(selectedMember && player.queueStatus === 'selected' && hasValidSkill && modeMatches)
     })
   const kick = open && isHost
   const requeue = open && isHost
@@ -165,7 +135,7 @@ export function openRoomPermissions(snapshot: OpenRoomSnapshot, userId: string |
     role,
     join: open && !isMember,
     leave: isMember,
-    close: open && isHost,
+    close: open && isHost && !(snapshot.room.best_of && phase === 'active'),
     addPlayer: open && isHost,
     kick,
     requeue,
@@ -174,7 +144,7 @@ export function openRoomPermissions(snapshot: OpenRoomSnapshot, userId: string |
     saveLineup: open && isHost && phase === 'preparing',
     replace,
     start: open && isHost && phase === 'preparing' && completeLineup,
-    end: open && isHost && phase === 'active',
+    end: open && isHost && phase === 'active' && !snapshot.room.best_of,
     canKickMember: (memberId) => kick && activeMembers.has(memberId) && memberId !== hostMemberId,
     canRequeueMember: (memberId) => {
       const target = activeMembers.get(memberId)

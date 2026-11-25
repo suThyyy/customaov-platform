@@ -33,12 +33,16 @@ function renderWizard() {
 }
 
 beforeEach(() => {
+  localStorage.setItem('customaov.mockLoggedIn', '1')
+  sessionStorage.setItem('customaov.mockRole', 'admin')
   resetMockRoomConfigStore()
   Element.prototype.scrollIntoView = vi.fn()
 })
 
 afterEach(() => {
   cleanup()
+  localStorage.clear()
+  sessionStorage.clear()
   vi.restoreAllMocks()
 })
 

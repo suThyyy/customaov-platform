@@ -22,7 +22,7 @@ const iconBtn =
  * - ≥ 1280px: ô tìm kiếm dạng nút rộng có Ctrl K, hiện tên người dùng
  */
 export function TopNav() {
-  const { loggedIn } = useAuth()
+  const { loggedIn, canOrganize } = useAuth()
   const { comingSoon } = useToast()
   const { pathname, hash } = useLocation()
   const [searchOpen, setSearchOpen] = useState(false)
@@ -94,7 +94,7 @@ export function TopNav() {
                   <span aria-hidden className="absolute top-2.5 right-3 size-2 rounded-full bg-notify ring-2 ring-sidebar" />
                 </button>
                 {/* Viền vàng (không đặc) để mỗi màn chỉ còn 1 nút vàng chính nằm trong nội dung trang */}
-                <ButtonLink
+                {canOrganize && <ButtonLink
                   to="/rooms/new"
                   variant="gold-outline"
                   aria-label="Tạo phòng"
@@ -102,7 +102,7 @@ export function TopNav() {
                   leftIcon={<Plus size={20} aria-hidden />}
                 >
                   <span className="hidden lg:inline">Tạo phòng</span>
-                </ButtonLink>
+                </ButtonLink>}
               </div>
               <UserMenu />
             </>
@@ -175,6 +175,7 @@ function MoreMenu({ items }: { items: NavItem[] }) {
         >
           {items.map((item) => {
             const Icon = item.icon
+            if (item.to) return <Link key={item.label} role="menuitem" to={item.to} onClick={close} className="flex min-h-11 items-center gap-3 rounded-btn px-3 text-sm hover:bg-white/5"><Icon size={17} aria-hidden />{item.label}</Link>
             return (
               <span
                 key={item.label}

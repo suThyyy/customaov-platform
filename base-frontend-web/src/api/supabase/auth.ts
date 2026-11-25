@@ -60,18 +60,24 @@ export const supabaseAuthAdapter: AuthAdapter = {
   },
   subscribe(onChange) {
     let currentUserId: string | null = null
+    let generation = 0
+    let active = true
     const { data } = getSupabaseClient().auth.onAuthStateChange((_event, session) => {
+      const token = ++generation
       const nextUserId = isAnonymousSupabaseUser(session?.user) ? null : session?.user?.id ?? null
-      void (async () => {
-        if (currentUserId !== null && currentUserId !== nextUserId) {
+      const changed = currentUserId !== nextUserId
+      currentUserId = nextUserId
+      if (!nextUserId) onChange(false, null)
+      // Leave the Auth callback before awaiting SDK requests (Auth holds a lock).
+      void Promise.resolve().then(async () => {
+        if (changed || !nextUserId) {
           await clearSupabaseRuntime()
           clearDataCache()
         }
-        currentUserId = nextUserId
         return meFromUser(session?.user)
-      })().then((user) => onChange(Boolean(user), user), () => onChange(false, null))
+      }).then((user) => { if (active && token === generation) onChange(Boolean(user), user) }, () => { if (active && token === generation) onChange(false, null) })
     })
-    return () => data.subscription.unsubscribe()
+    return () => { active = false; generation += 1; data.subscription.unsubscribe() }
   },
   remember: () => undefined,
   async login(body) {

@@ -9,7 +9,7 @@ import { bottomNavItems } from './nav'
  * Trang dùng BottomNav phải chừa khoảng trống đáy bằng class `pb-bottom-nav` (xem index.css).
  */
 export function BottomNav() {
-  const { loggedIn } = useAuth()
+  const { loggedIn, canOrganize } = useAuth()
   const { pathname, hash } = useLocation()
 
   return (
@@ -17,8 +17,8 @@ export function BottomNav() {
       aria-label="Điều hướng nhanh"
       className="fixed inset-x-0 bottom-0 z-[60] border-t border-line bg-sidebar pb-[env(safe-area-inset-bottom)] md:hidden"
     >
-      <ul className="grid h-[var(--bottom-nav-h)] grid-cols-5">
-        {bottomNavItems(loggedIn).map((item) => {
+      <ul className="grid h-[var(--bottom-nav-h)] grid-cols-6">
+        {bottomNavItems(loggedIn, canOrganize).map((item) => {
           const Icon = item.icon
           const active = item.isActive?.(pathname, hash) ?? false
           return (

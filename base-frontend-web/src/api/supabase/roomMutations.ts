@@ -68,7 +68,7 @@ export function mapRoomMutationError(reason: unknown): RoomMutationError {
   const code = typeof error.code === 'string' ? error.code : ''
 
   let kind: RoomMutationErrorKind = 'unknown'
-  if (messageMatches(sourceMessage, ['Room changed; refresh and retry', 'Queue changed; refresh and retry'])) {
+  if (code === '40001' || messageMatches(sourceMessage, ['Room changed; refresh and retry', 'Queue changed; refresh and retry'])) {
     kind = 'version_conflict'
   } else if (messageMatches(sourceMessage, [
     'Host only', 'Only the Host', 'Only the Room Host', 'Only the active Room Host',
@@ -84,7 +84,7 @@ export function mapRoomMutationError(reason: unknown): RoomMutationError {
     kind = 'incomplete_lineup'
   } else if (messageMatches(sourceMessage, ['Ten waiting players required', 'No waiting player available'])) {
     kind = 'not_enough_players'
-  } else if (messageMatches(sourceMessage, ['queue full'])) {
+  } else if (messageMatches(sourceMessage, ['queue full', 'QUEUE_FULL'])) {
     kind = 'queue_full'
   } else if (messageMatches(sourceMessage, [
     'Round is not preparing', 'Current Round must be ended', 'current Round is still in progress',
@@ -109,7 +109,12 @@ export function mapRoomMutationError(reason: unknown): RoomMutationError {
   ) {
     kind = 'network'
   }
-  return new RoomMutationError(kind, UI_MESSAGES[kind], sourceMessage || undefined)
+  const businessError = code === 'P0001' || code === 'P0002' || [
+    'Complete assignments first', 'Already generated', 'Invalid or duplicate assignment',
+    'Correction would invalidate later games', 'Subsequent series already prepared',
+    'Game in progress', 'Unexpected game state', 'Save selected allocation mode',
+  ].includes(sourceMessage)
+  return new RoomMutationError(kind, kind === 'unknown' && businessError ? sourceMessage : UI_MESSAGES[kind], sourceMessage || undefined)
 }
 
 function requireText(value: unknown, label: string, maxLength = 128): RoomMutationResult<string> {
@@ -138,13 +143,17 @@ async function currentPermanentUser(client: SupabaseClient): Promise<RoomMutatio
   }
 }
 
-async function rpc<T>(name: string, args: Record<string, unknown> = {}): Promise<RoomMutationResult<T>> {
+export async function rpc<T>(name: string, args: Record<string, unknown> = {}): Promise<RoomMutationResult<T>> {
   const client = getSupabaseClient()
   const auth = await currentPermanentUser(client)
   if (!auth.ok) return auth
   try {
     const result = await client.rpc(name, args)
-    if (result.error) return { ok: false, error: mapRoomMutationError(result.error) }
+    if (result.error) {
+      const error = mapRoomMutationError(result.error)
+      if (error.kind === 'forbidden') window.dispatchEvent(new Event('customaov:permission-denied'))
+      return { ok: false, error }
+    }
     return { ok: true, data: result.data as T }
   } catch (reason) {
     return { ok: false, error: mapRoomMutationError(reason) }

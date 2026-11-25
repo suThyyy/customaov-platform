@@ -1,6 +1,6 @@
 import { DATA_SOURCE } from './source'
 
-export type Source = 'mock' | 'api' | 'supabase'
+export type Source = 'mock' | 'api' | 'supabase' | 'invalid'
 export type Feature = 'auth' | 'profile' | 'rooms' | 'chat' | 'tournaments' | 'registrations' | 'activities' | 'search'
 
 export const SUPABASE_FEATURE_SOURCES: Record<Feature, Source> = {

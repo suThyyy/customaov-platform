@@ -1,13 +1,20 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Me } from '@customaov/contracts'
 import { Construction, X } from 'lucide-react'
-import { authAdapter } from '../api'
+import { authAdapter, DATA_SOURCE } from '../api'
+import { isOrganizerRole, usePlatformRole, type PlatformRole } from '../api/platformRole'
 
 /* ------------------------------------------------------------------ */
 /* Auth: mock (localStorage) hoặc API (/api/auth/me)                  */
 /* ------------------------------------------------------------------ */
 
 interface AuthState {
+  canOrganize: boolean
+  role: PlatformRole | null
+  roleLoading: boolean
+  roleError: string | null
+  refreshRole: () => Promise<void>
+  setMockRole: (role: PlatformRole) => void
   loggedIn: boolean
   user: Me | null
   loading: boolean
@@ -42,24 +49,35 @@ export function AppProviders({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState<boolean>(!authAdapter.readyImmediately)
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const nextId = useRef(1)
+  const roleState = usePlatformRole(loggedIn, user?.id)
 
   // Đồng bộ đăng nhập/đăng xuất giữa các tab (mock) hoặc khôi phục phiên từ API
   useEffect(() => {
+    let active = true
+    let changed = false
     const unsubscribe = authAdapter.subscribe((nextLoggedIn, nextUser) => {
+      if (!active) return
+      changed = true
       setLoggedIn(nextLoggedIn)
       setUser(nextUser ?? null)
       setLoading(false)
+      // Defer out of the Supabase auth callback before making another RPC.
+      if (DATA_SOURCE === 'supabase') window.setTimeout(() => {
+        if (active) window.dispatchEvent(new Event('customaov:permission-denied'))
+      }, 0)
     })
     if (!authAdapter.readyImmediately) {
       const controller = new AbortController()
       setLoading(true)
       authAdapter.restore(controller.signal).then(
         (restoredUser) => {
+          if (!active || changed) return
           setUser(restoredUser)
           setLoggedIn(restoredUser !== null)
           setLoading(false)
         },
         (err: unknown) => {
+          if (!active || changed) return
           if (err instanceof DOMException && err.name === 'AbortError') return
           setUser(null)
           setLoggedIn(false)
@@ -67,15 +85,19 @@ export function AppProviders({ children }: { children: ReactNode }) {
         },
       )
       return () => {
+        active = false
         controller.abort()
         unsubscribe()
       }
     }
-    return unsubscribe
+    return () => { active = false; unsubscribe() }
   }, [])
 
   const auth = useMemo<AuthState>(
     () => ({
+      ...roleState,
+      // API mode retains its existing server-owned authorization contract.
+      canOrganize: loggedIn && (DATA_SOURCE === 'api' || (!roleState.roleLoading && !roleState.roleError && isOrganizerRole(roleState.role))),
       loggedIn,
       user,
       loading,
@@ -90,6 +112,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
         setLoggedIn(true)
       },
       logout: () => {
+        roleState.setMockRole('user')
         if (authAdapter.persistsWrites) {
           setUser(null)
           setLoggedIn(false)
@@ -99,7 +122,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
         setLoggedIn(false)
       },
     }),
-    [loggedIn, user, loading],
+    [loggedIn, user, loading, roleState],
   )
 
   const dismiss = useCallback((id: number) => setToasts((list) => list.filter((t) => t.id !== id)), [])
