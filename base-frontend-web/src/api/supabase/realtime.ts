@@ -105,12 +105,14 @@ export function useOpenRoom(roomId: string | undefined): {
   connection: OpenRoomConnection
   error?: Error
   retry: () => void
+  refreshing: boolean
 } {
   const [snapshot, setSnapshot] = useState<OpenRoomSnapshot | null>(null)
   const [status, setStatus] = useState<OpenRoomStatus>('loading')
   const [connection, setConnection] = useState<OpenRoomConnection>('connecting')
   const [error, setError] = useState<Error>()
   const [attempt, setAttempt] = useState(0)
+  const [refreshing, setRefreshing] = useState(true)
   const epoch = useRef(0)
   const retry = useCallback(() => setAttempt((value) => value + 1), [])
 
@@ -135,6 +137,7 @@ export function useOpenRoom(roomId: string | undefined): {
     let latestVersion = -1
     const refetch = async (retries = 0): Promise<OpenRoomRefetchResult> => {
       const sequence = ++request
+      if (epoch.current === token) setRefreshing(true)
       try {
         let next = await readOpenRoomSnapshot(roomId)
         if (next?.room.best_of) {
@@ -151,12 +154,14 @@ export function useOpenRoom(roomId: string | undefined): {
         if (epoch.current !== token || sequence !== request || (next && next.version < latestVersion)) return
         if (next) latestVersion = next.version
         setSnapshot(next)
+        setRefreshing(false)
         setStatus('ready')
         setError(undefined)
         return next
       } catch (reason) {
         if (epoch.current !== token || sequence !== request) return
         setSnapshot(null)
+        setRefreshing(false)
         setStatus('error')
         setError(reason instanceof Error ? reason : new Error(String(reason)))
       }
@@ -173,5 +178,5 @@ export function useOpenRoom(roomId: string | undefined): {
     }
   }, [roomId, attempt])
 
-  return { snapshot, status, connection, error, retry }
+  return { snapshot, status, connection, error, retry, refreshing }
 }

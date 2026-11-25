@@ -17,7 +17,7 @@ export default function JoinRoom() {
   const inputId = useId()
   const pendingRef = useRef(false)
   const stateInviteCode = (location.state as { inviteCode?: unknown } | null)?.inviteCode
-  const effectiveInviteCode = typeof stateInviteCode === 'string' ? stateInviteCode : inviteCode ?? ''
+  const effectiveInviteCode = typeof stateInviteCode === 'string' ? stateInviteCode.trim() : inviteCode === 'discovery' ? '' : inviteCode ?? ''
   const inviteFromDiscovery = typeof stateInviteCode === 'string'
 
   const [displayName, setDisplayName] = useState(user?.displayName ?? '')
@@ -43,6 +43,7 @@ export default function JoinRoom() {
       const result = await joinOpenRoom(effectiveInviteCode, trimmed)
       if (result.ok) {
         navigate(`/rooms/${result.data.room_id}`, { replace: true, state: null })
+        notify('Đã tham gia phòng', 'Đang xác nhận vị trí của bạn từ hàng chờ hiện tại.')
         return
       }
       const message = result.error.message.split(effectiveInviteCode).join('[ẩn]')
@@ -66,6 +67,7 @@ export default function JoinRoom() {
         description={inviteFromDiscovery ? 'Nhập tên hiển thị để gửi yêu cầu tham gia phòng công khai.' : inviteCode ? `Mã mời: ${inviteCode}` : 'Nhập tên hiển thị để vào hàng chờ.'}
       />
       <Card className="mt-6 max-w-lg min-w-0 p-6">
+        {!effectiveInviteCode ? <section className="space-y-4"><p role="alert">Không tìm thấy lời mời. Vui lòng chọn phòng hoặc mở lại liên kết mời hợp lệ.</p><ButtonLink to="/dashboard#rooms" variant="outline">Chọn phòng</ButtonLink></section> :
         <form onSubmit={submit} className="flex min-w-0 flex-col gap-4">
           <div className="flex min-w-0 flex-col gap-2">
             <label htmlFor={inputId} className="text-sm font-medium text-fg">
@@ -98,7 +100,7 @@ export default function JoinRoom() {
               Quay lại
             </ButtonLink>
           </div>
-        </form>
+        </form>}
       </Card>
     </div>
   )

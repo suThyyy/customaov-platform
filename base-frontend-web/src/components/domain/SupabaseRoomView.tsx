@@ -23,6 +23,7 @@ import { RoomConfigPanel } from './RoomConfigPanel'
 import { configFromRoom, updateConfiguredRoom } from '../../api/supabase/configuration'
 import { SeriesPanel } from './open-room/SeriesPanel'
 import { PublicRoomAccess } from './open-room/PublicRoomAccess'
+import { PersonalQueueStatus } from './open-room/PersonalQueueStatus'
 import { prepareNextOpenRoomRound } from '../../api/supabase/roomMutations'
 
 export type OpenRoomActions = ReturnType<typeof useOpenRoomActions>
@@ -91,6 +92,7 @@ export function SupabaseRoomView({ roomId }: { roomId: string | undefined }) {
       connection={room.connection}
       userId={user?.id}
       canOrganize={canOrganize}
+      refreshing={room.refreshing}
       actions={actions}
       onNotify={notify}
       roomConfig={configFromRoom(room.snapshot.room)}
@@ -108,6 +110,7 @@ export function SupabaseRoomSnapshot({
   roomConfig = null,
   configPersisted = false,
   canOrganize = false,
+  refreshing = false,
 }: {
   snapshot: OpenRoomSnapshot
   connection: 'connecting' | 'live' | 'reconnecting' | 'offline'
@@ -117,6 +120,7 @@ export function SupabaseRoomSnapshot({
   roomConfig?: RoomConfig | null
   configPersisted?: boolean
   canOrganize?: boolean
+  refreshing?: boolean
 }) {
   const live = connection === 'live'
   const permissions = useMemo(() => openRoomPermissions(snapshot, userId, canOrganize), [snapshot, userId, canOrganize])
@@ -167,6 +171,8 @@ export function SupabaseRoomSnapshot({
           </Badge>
         </div>
       </header>
+
+      <PersonalQueueStatus snapshot={snapshot} userId={userId} current={live && !refreshing} />
 
       <RoomConfigPanel
         config={roomConfig}

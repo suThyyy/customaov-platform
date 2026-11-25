@@ -141,12 +141,16 @@ describe('Open Room routes (unit)', () => {
       </MemoryRouter>,
     )
     expect(screen.queryByText(/protected-room:/)).toBeNull()
+    expect(notifyMock).not.toHaveBeenCalled()
     const submit = screen.getByRole('button', { name: 'Vào phòng' })
     fireEvent.click(submit)
     fireEvent.click(submit)
+    expect(notifyMock).not.toHaveBeenCalled()
+    expect(screen.queryByText(/protected-room:/)).toBeNull()
     await waitFor(() => expect(joinOpenRoomMock).toHaveBeenCalledExactlyOnceWith('SECRET-CODE', 'Suthy Profile'))
     expect(await screen.findByText('protected-room:/rooms/public-room')).toBeTruthy()
     expect(screen.getByText('invite-state:missing')).toBeTruthy()
+    expect(notifyMock).toHaveBeenCalledExactlyOnceWith('Đã tham gia phòng', expect.any(String))
   })
 
   it('keeps rejected discovery redemption outside Room and redacts the invite credential', async () => {
@@ -164,6 +168,24 @@ describe('Open Room routes (unit)', () => {
     expect(joinOpenRoomMock).toHaveBeenCalledOnce()
     expect(screen.queryByText('protected-room')).toBeNull()
     expect(screen.queryByText('SECRET-CODE')).toBeNull()
+    expect(notifyMock).not.toHaveBeenCalledWith('Đã tham gia phòng', expect.anything())
+  })
+
+  it('does not redeem the discovery sentinel without router state', () => {
+    render(<MemoryRouter initialEntries={['/join/discovery']}><Routes><Route path="/join/:inviteCode" element={<JoinRoom />} /></Routes></MemoryRouter>)
+    expect(screen.getByRole('alert').textContent).toContain('Không tìm thấy lời mời')
+    expect(screen.queryByRole('button', { name: 'Vào phòng' })).toBeNull()
+    expect(screen.getByRole('link', { name: 'Chọn phòng' }).getAttribute('href')).toBe('/dashboard#rooms')
+    expect(joinOpenRoomMock).not.toHaveBeenCalled()
+  })
+
+  it.each(['queue_full', 'invalid_state', 'not_found', 'network', 'auth_required'] as const)('keeps a %s join failure on the confirmation page without success', async kind => {
+    joinOpenRoomMock.mockResolvedValue({ ok: false, error: new RoomMutationError(kind, `Join failed: ${kind}`) })
+    render(<MemoryRouter initialEntries={['/join/VALID-INVITE']}><Routes><Route path="/join/:inviteCode" element={<JoinRoom />} /><Route path="/rooms/:roomId" element={<p>Destination</p>} /></Routes></MemoryRouter>)
+    fireEvent.click(screen.getByRole('button', { name: 'Vào phòng' }))
+    expect(await screen.findByRole('alert')).toBeTruthy()
+    expect(screen.queryByText('Destination')).toBeNull()
+    expect(notifyMock).not.toHaveBeenCalledWith('Đã tham gia phòng', expect.anything())
   })
 
   it('/rooms/new ở chế độ supabase dùng wizard 4 bước, gọi createRoomWithConfig và điều hướng tới /rooms/<id>', async () => {

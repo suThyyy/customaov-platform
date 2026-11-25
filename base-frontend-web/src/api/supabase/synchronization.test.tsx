@@ -41,6 +41,21 @@ it('logout invalidates pending reads and removes subscription', async () => {
   expect(client.removeChannel).toHaveBeenCalledOnce()
 })
 
+it('marks a retained snapshot refreshing until the newest queue read finishes', async () => {
+  setup()
+  mocks.read.mockResolvedValueOnce(snapshot(1))
+  const { result } = renderHook(() => useOpenRoom('room'))
+  await waitFor(() => expect(result.current.refreshing).toBe(false))
+  let finish!: (value: OpenRoomSnapshot) => void
+  mocks.read.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+  let request!: ReturnType<typeof requestOpenRoomRefetch>
+  act(() => { request = requestOpenRoomRefetch('room') })
+  expect(result.current.refreshing).toBe(true)
+  await act(async () => { finish(snapshot(2)); await request })
+  expect(result.current.refreshing).toBe(false)
+  expect(result.current.snapshot?.version).toBe(2)
+})
+
 it('publishes room, games, assignments and revisions only at a consistent version', async () => {
   setup()
   mocks.read.mockResolvedValueOnce(snapshot(10, true)).mockResolvedValueOnce(snapshot(11, true)).mockResolvedValue(snapshot(11, true))

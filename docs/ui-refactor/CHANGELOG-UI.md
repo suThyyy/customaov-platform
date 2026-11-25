@@ -749,6 +749,14 @@ Chỉ đổi hành vi ở chế độ `api` (`VITE_DATA_SOURCE=api`). Chế đ�
 - Không có.
 # Quick Team (25/11/2026)
 
+## Room Invite UX (25/11/2026)
+
+- `JoinRoom.tsx`: success toast only after confirmed RPC, followed by Room navigation; missing discovery invitation has an actionable fallback and never redeems the sentinel.
+- `PersonalQueueStatus.tsx`, `lib/personalQueue.ts`: personal waiting ordinal/size from active membership and sorted waiting snapshot, distinct selected/off-queue/closed states. Hide positions while disconnected or refetching. `SupabaseRoomView.tsx` and existing `realtime.ts` wire this state without extra channels/polling.
+- Focused tests cover pending/success/failure, fallback, active-member filtering, updates and stale-response/refetch handling. Fresh validation: typecheck/build PASS; lint 0 errors, 2 existing warnings; 54 files / 345 tests PASS; whitespace check PASS. `scripts/e2e-invite.mjs`: local Mock browser fixture PASS at 390/1440, no Supabase requests.
+- PO confirms UI UAT PASS and authorizes release to dev. Remaining: authenticated hosted multi-client queue/reconnect acceptance. No hosted PASS claimed. Queue size means active waiting entries; selected players are shown separately.
+- Undo: revert the scoped Invite UX release commit; preserve unrelated local todo.md changes.
+
 - Added public Quick Team workspace, core integration, exact reference Rank catalog, focused tests and browser scenario script. Navigation and Home CTAs link to the tool.
 - Reuses PageHeader, Card, Button and existing navy/gold/team tokens. No Room or Community/Tournament workflow changes.
 - Validation: typecheck, lint (two existing warnings), 53 test files / 336 tests and build passed. Browser results are reported separately in the task handoff.
