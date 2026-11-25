@@ -28,6 +28,7 @@ vi.mock('../api', async () => {
 
 vi.mock('../context/AppContext', () => ({
   useAuth: () => ({
+    canOrganize: true,
     loggedIn: true,
     loading: false,
     user: {

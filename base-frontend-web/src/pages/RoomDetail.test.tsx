@@ -45,10 +45,12 @@ function expectValidFiveVsFive() {
 }
 
 beforeEach(() => {
+  localStorage.setItem('customaov.mockLoggedIn', '1')
+  sessionStorage.setItem('customaov.mockRole', 'admin')
   resetMockRoomConfigStore()
   vi.mocked(splitTeams5v5).mockClear()
 })
-afterEach(cleanup)
+afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear() })
 
 describe('RoomDetail – chia đội', () => {
   it('meta dưới h1 lấy BO và quyền truy cập từ cấu hình phòng mới', async () => {

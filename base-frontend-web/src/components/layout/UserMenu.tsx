@@ -12,7 +12,7 @@ const itemCls = 'flex min-h-11 w-full items-center gap-3 rounded-btn px-3 text-l
 /** Avatar + menu tài khoản ở TopNav (thay phần tương ứng trong Topbar cũ) */
 export function UserMenu() {
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
+  const { user, logout, canOrganize, role } = useAuth()
   const { notify } = useToast()
   const ref = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
@@ -60,6 +60,12 @@ export function UserMenu() {
             <SoonBadge className="ml-auto" />
           </span>
           <div className="my-1 h-px bg-line" />
+          {canOrganize && <>
+            <Link role="menuitem" to="/dashboard#rooms" onClick={close} className={itemCls}>Quản lý phòng</Link>
+            <Link role="menuitem" to="/tournaments" onClick={close} className={itemCls}>Quản lý giải đấu</Link>
+            <Link role="menuitem" to="/tournaments/new" onClick={close} className={itemCls}>Tạo giải đấu</Link>
+          </>}
+          {role === 'super_admin' && <Link role="menuitem" to="/platform-admin" onClick={close} className={itemCls}>Quản trị nền tảng</Link>}
           <button
             role="menuitem"
             type="button"

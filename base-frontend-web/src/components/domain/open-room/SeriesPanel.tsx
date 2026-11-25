@@ -44,6 +44,7 @@ export function SeriesPanel({ snapshot, isHost, canPrepareNext, onPrepareNext, n
   }, [game, snapshot.version])
 
   const run = async (operation: () => Promise<RoomMutationResult<unknown>>) => {
+    if (!isHost) { notify('Bạn không có quyền quản lý phòng này.'); return }
     if (busy.current) return
     busy.current = true
     setPending(true)
@@ -101,7 +102,7 @@ export function SeriesPanel({ snapshot, isHost, canPrepareNext, onPrepareNext, n
         </Button>
       </div>}
     </>}
-    {editing && <form className="space-y-3 rounded-card border border-line p-4" onSubmit={event => { event.preventDefault(); if (!confirmed || !matchId.trim() || pending) return; void run(() => reportSeriesResult(snapshot.room.id, snapshot.version, editing.id, matchId, winner, confirmed, Boolean(editing.ended_at))) }}>
+    {editing && editable && <form className="space-y-3 rounded-card border border-line p-4" onSubmit={event => { event.preventDefault(); if (!confirmed || !matchId.trim() || pending) return; void run(() => reportSeriesResult(snapshot.room.id, snapshot.version, editing.id, matchId, winner, confirmed, Boolean(editing.ended_at))) }}>
       <h3 className="text-base font-semibold">{editing.ended_at ? 'Hiệu chỉnh' : 'Báo cáo'} Game {editing.game_no}</h3>
       <label className="block text-sm">Match ID<input className={inputClass} required maxLength={128} value={matchId} onChange={event => setMatchId(event.target.value)} /></label>
       <label className="block text-sm">Đội thắng<select className={inputClass} value={winner} onChange={event => setWinner(event.target.value as Side)}><option value="a">A / Xanh</option><option value="b">B / Đỏ</option></select></label>

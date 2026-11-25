@@ -2,7 +2,7 @@ import { useId, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, BarChart3, Scale, Shuffle, Smile, Swords } from 'lucide-react'
 import { cn } from '../lib/cn'
-import { useToast } from '../context/AppContext'
+import { useAuth, useToast } from '../context/AppContext'
 import {
   ACCESS_LABEL,
   ApiError,
@@ -121,6 +121,7 @@ function mapApiErrors(err: unknown): RoomConfigErrors | null {
 }
 
 export default function CreateRoom() {
+  const { canOrganize } = useAuth()
   const navigate = useNavigate()
   const { notify } = useToast()
   const uid = useId()
@@ -176,6 +177,7 @@ export default function CreateRoom() {
   }
 
   const handleCreate = async () => {
+    if (!canOrganize) { setFormError('Bạn cần quyền quản trị viên để tạo phòng.'); return }
     const errors = validateRoomConfig(config)
     if (Object.keys(errors).length > 0) {
       jumpToErrors(errors)

@@ -45,12 +45,14 @@ function renderWizard(initialPath = '/tournaments/new', loggedIn = true) {
 }
 
 beforeEach(() => {
+  sessionStorage.setItem('customaov.mockRole', 'admin')
   vi.mocked(api.createTournament).mockClear()
 })
 
 afterEach(() => {
   cleanup()
   localStorage.clear()
+  sessionStorage.clear()
 })
 
 describe('CreateTournament', () => {

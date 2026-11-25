@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { TournamentDetailSchema, type TournamentDetail as ApiDetail } from '@customaov/contracts'
 import { resetClientForTests } from '../api/client'
+import { TEST_ME } from '../api/testing'
 import { clearDataCache } from '../api/hooks'
 import { AppProviders } from '../context/AppContext'
 import TournamentDetail from './TournamentDetail'
@@ -119,7 +120,7 @@ beforeEach(() => {
     const body = typeof init?.body === 'string' ? JSON.parse(init.body) : undefined
     const custom = handler(method, body)
     if (custom) return custom
-    if (url === '/api/auth/me') return json({ user: null, csrfToken: 'test-token' })
+    if (url === '/api/auth/me') return json({ user: current.myRole ? TEST_ME : null, csrfToken: 'test-token' })
     if (url === '/api/tournaments/cup-test') return json(current)
     if (url.startsWith('/api/tournaments/cup-test/')) return json(current)
     return json({ error: { code: 'NOT_FOUND', message: 'Không thấy' } }, 404)

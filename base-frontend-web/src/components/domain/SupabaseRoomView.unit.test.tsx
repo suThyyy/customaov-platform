@@ -4,7 +4,8 @@ import { mapOpenRoomSnapshot } from '../../api/supabase/room'
 import type { OpenRoomPending } from '../../api/supabase/roomActions'
 import { RoomMutationError, type RoomMutationResult } from '../../api/supabase/roomMutations'
 import type { OpenRoomSnapshotPayload } from '../../api/supabase/types'
-import { SupabaseRoomSnapshot, type OpenRoomActions } from './SupabaseRoomView'
+import { SupabaseRoomSnapshot as RoleAwareSnapshot, type OpenRoomActions } from './SupabaseRoomView'
+const SupabaseRoomSnapshot = (props: Parameters<typeof RoleAwareSnapshot>[0]) => <RoleAwareSnapshot canOrganize {...props} />
 import { buildLineupFromSelected } from './open-room/helpers'
 
 const BASE_PENDING: OpenRoomPending = {

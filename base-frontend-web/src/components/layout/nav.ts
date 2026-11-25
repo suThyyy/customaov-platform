@@ -18,6 +18,7 @@ const isRoomDetail = (p: string) => p.startsWith('/rooms/') && p !== '/rooms/new
 /** Menu chính khi đã đăng nhập */
 export const USER_NAV: NavItem[] = [
   { label: 'Trang chủ', icon: House, to: '/dashboard', isActive: (p, h) => p === '/dashboard' && h !== '#rooms' },
+  { label: 'Chia đội', icon: Sparkles, to: '/quick-team', isActive: p => p === '/quick-team' },
   { label: 'Phòng', icon: Gamepad2, to: '/dashboard#rooms', isActive: (p, h) => isRoomDetail(p) || (p === '/dashboard' && h === '#rooms') },
   { label: 'Giải đấu', icon: Trophy, to: '/tournaments', isActive: (p) => p.startsWith('/tournaments') },
   { label: 'Bảng xếp hạng', short: 'BXH', icon: BarChart3, secondary: true },
@@ -29,10 +30,10 @@ const LANDING_ANCHORS = ['#features', '#community']
 /** Menu chính cho khách (landing + các trang công khai) */
 export const GUEST_NAV: NavItem[] = [
   { label: 'Trang chủ', icon: House, to: '/', isActive: (p, h) => p === '/' && !LANDING_ANCHORS.includes(h) },
-  { label: 'Tính năng', icon: Sparkles, to: '/#features', isActive: (p, h) => p === '/' && h === '#features' },
+  { label: 'Chia đội', icon: Sparkles, to: '/quick-team', isActive: p => p === '/quick-team' },
   { label: 'Giải đấu', icon: Trophy, to: '/tournaments', isActive: (p) => p.startsWith('/tournaments') },
   // Landing: anchor tới section "Cộng đồng" (số liệu cộng đồng + giải nổi bật)
-  { label: 'Cộng đồng', icon: UsersRound, to: '/#community', isActive: (p, h) => p === '/' && h === '#community' },
+  { label: 'Cộng đồng', icon: UsersRound, to: '/#community', isActive: (p,h) => p === '/' && h === '#community' },
   { label: 'Bảng xếp hạng', short: 'BXH', icon: BarChart3, secondary: true },
 ]
 
@@ -49,8 +50,9 @@ export interface BottomNavItem {
   primary?: boolean
 }
 
-export function bottomNavItems(loggedIn: boolean): BottomNavItem[] {
+export function bottomNavItems(loggedIn: boolean, canOrganize = false): BottomNavItem[] {
   return [
+    { label: 'Chia đội', icon: Sparkles, to: '/quick-team', isActive: p => p === '/quick-team' },
     {
       label: 'Trang chủ',
       icon: House,
@@ -64,11 +66,11 @@ export function bottomNavItems(loggedIn: boolean): BottomNavItem[] {
       isActive: (p, h) => isRoomDetail(p) || h === '#rooms',
     },
     {
-      label: 'Tạo phòng',
-      icon: Plus,
-      to: loggedIn ? '/rooms/new' : loginHref('start', '/rooms/new'),
-      isActive: (p) => p === '/rooms/new',
-      primary: true,
+      label: canOrganize ? 'Tạo phòng' : 'Cộng đồng',
+      icon: canOrganize ? Plus : UsersRound,
+      to: canOrganize ? '/rooms/new' : '/#community',
+      isActive: (p,h) => canOrganize ? p === '/rooms/new' : p === '/' && h === '#community',
+      primary: canOrganize,
     },
     { label: 'Giải đấu', icon: Trophy, to: '/tournaments', isActive: (p) => p.startsWith('/tournaments') },
     {

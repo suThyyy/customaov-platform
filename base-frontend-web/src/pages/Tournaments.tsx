@@ -29,7 +29,6 @@ import { Badge } from '../components/ui/primitives'
 import { FilterChips } from '../components/ui/FilterChips'
 import { Pagination } from '../components/ui/Pagination'
 import { PageHeader } from '../components/layout/PageHeader'
-import { loginHref } from '../components/layout/nav'
 import { EmptyState } from '../components/domain/EmptyState'
 import { RegistrationProgress } from '../components/domain/RegistrationProgress'
 import { SampleDataBadge } from '../components/ui/SampleDataBadge'
@@ -56,7 +55,7 @@ const TITLE_ICON: Record<Tournament['titleIcon'], LucideIcon> = {
 const isFilter = (v: string | null): v is Filter => FILTER_LABELS.some((f) => f.id === v)
 
 export default function Tournaments() {
-  const { loggedIn } = useAuth()
+  const { canOrganize } = useAuth()
   const load = useTournaments()
   const tournaments = load.data
 
@@ -113,9 +112,9 @@ export default function Tournaments() {
         actions={
           <span className="flex flex-wrap items-center gap-3">
             <SampleDataBadge show={tournamentsAdapter.showsSampleBadge} />
-            <ButtonLink to={loggedIn ? '/tournaments/new' : loginHref('login', '/tournaments/new')} leftIcon={<Plus size={18} aria-hidden />}>
+            {canOrganize && <ButtonLink to="/tournaments/new" leftIcon={<Plus size={18} aria-hidden />}>
               Tạo giải đấu
-            </ButtonLink>
+            </ButtonLink>}
           </span>
         }
       />

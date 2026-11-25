@@ -213,7 +213,9 @@ const shareCopy = async (notify: (title: string, description?: string) => void, 
 
 function MockRoomView({ room }: { room: Room }) {
   const { comingSoon, notify } = useToast()
-  const role = roomRole(room, currentUser.id)
+  const { canOrganize } = useAuth()
+  const membershipRole = roomRole(room, currentUser.id)
+  const role = membershipRole === 'host' && !canOrganize ? 'player' : membershipRole
   const perSide = room.capacity / 2
   const [teams, setTeams] = useState<Teams>({ blue: room.teams.blue, red: room.teams.red })
 
@@ -226,6 +228,7 @@ function MockRoomView({ room }: { room: Room }) {
   }
 
   const runSplit = (request: TeamSplitRequest) => {
+    if (!can(role, 'split')) return
     const outcome = splitRoomMembers([...teams.blue, ...teams.red], request)
     if (!outcome.ok) {
       notify('Không thể chia đội', outcome.message)
@@ -240,6 +243,7 @@ function MockRoomView({ room }: { room: Room }) {
   }
 
   const move = (playerId: string, to: Side, targetId?: string) => {
+    if (!can(role, 'move')) return
     const res = moveMember(teams, playerId, to, perSide, targetId)
     if (!res.ok) {
       notify('Không thể đổi đội', res.message)
@@ -252,6 +256,7 @@ function MockRoomView({ room }: { room: Room }) {
   }
 
   const kick = (m: RoomMember) => {
+    if (!can(role, 'kick')) return
     setTeams((t) => removeMember(t, m.player.id))
     notify(`Đã mời ${m.player.name} ra khỏi phòng`, 'Chỗ trống có thể mời người khác vào.')
   }
@@ -268,7 +273,7 @@ function MockRoomView({ room }: { room: Room }) {
   }, [room.id])
 
   const handleUpdateConfig = async (editable: RoomConfigEditable) => {
-    if (configPending) return
+    if (configPending || role !== 'host') return
     setConfigPending(true)
     try {
       const res = await updateRoomConfig(room.id, editable)
