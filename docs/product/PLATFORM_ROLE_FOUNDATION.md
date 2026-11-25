@@ -1,5 +1,15 @@
 # Role Foundation — HUY-25/26/27
 
+## Mock WIP integration (25/11/2026)
+
+PO approved integrating Community Mock WIP into dev. Community routes, persistence and management UI are now included; completion is not claimed. Both Community ownership and role-independent Quick Team browser checks are retained. The isolated release record below describes commit 6f40fd2 before this WIP merge.
+
+## Isolated release scope (supersedes historical source-session claims below)
+
+The release/huy27-quick-team worktree excludes Community routes, persistence, fixtures and management UI. Community navigation retains its prior landing/unavailable behavior. Existing Tournament pages receive permission checks only; no new tournament workflows are included. Browser ownership assertions for excluded Community UI are replaced by role-independent Quick Team access; Room owner/nonowner permissions remain unit-tested. Shared generic Community/Tournament capabilities and HUY-29 are future work, not a deployed feature claim.
+
+Backend release and PO functional acceptance are reported by the PO. No hosted role test or Production mutation is executed by this frontend release task. Historical local counts below describe the earlier mixed tree; use the release report for current isolated validation. Environment/package script edits are excluded.
+
 Source handoff, 25/11/2026. Production RBAC has not been deployed. Backend migrations and full ordered rollout/recovery instructions are in sibling repository `customAOV/docs/platform-role-foundation-handoff.md`.
 
 ## Implementation checklist

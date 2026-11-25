@@ -39,6 +39,12 @@ try {
     await persona.selectOption('super_admin')
     await page.goto(base + '/communities/ngu-kiet?tab=manage', { waitUntil: 'networkidle' })
     assert.equal(await page.getByRole('button', { name: 'Lưu thông tin' }).count(),0); checks++
+    // Preserve the accepted release's role-independent Quick Team access checks.
+    for (const role of ['user','admin','super_admin']) {
+      await persona.selectOption(role)
+      await page.goto(base + '/quick-team', { waitUntil: 'networkidle' })
+      assert.match(await page.locator('h1').innerText(),/Chia đội nhanh/); checks++
+    }
     await persona.selectOption('guest')
     await page.goto(base + '/rooms/new', { waitUntil: 'networkidle' })
     assert.equal(new URL(page.url()).searchParams.get('next'),'/rooms/new'); checks++
