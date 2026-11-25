@@ -7,6 +7,8 @@
     "build:shared": "npm run build --workspace @customaov/team-core && npm run build --workspace @customaov/contracts",
     "predev": "npm run build:shared",
     "dev": "vite",
+    "dev:mock": "vite --mode mock",
+    "dev:supabase": "vite --mode supabase",
     "prebuild": "npm run build:shared",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

@@ -106,8 +106,8 @@ export interface OpenRoomPermissions {
   canReplaceMember: (memberId: string) => boolean
 }
 
-export function openRoomPermissions(snapshot: OpenRoomSnapshot, userId: string | null | undefined): OpenRoomPermissions {
-  const isHost = Boolean(userId && snapshot.room.host_user_id === userId)
+export function openRoomPermissions(snapshot: OpenRoomSnapshot, userId: string | null | undefined, canOrganize = false): OpenRoomPermissions {
+  const isHost = Boolean(canOrganize && userId && snapshot.room.host_user_id === userId)
   const member = userId ? snapshot.members.find((item) => item.user_id === userId && item.status === 'active') : undefined
   const isMember = Boolean(member)
   const role: OpenRoomRole = isHost ? 'host' : isMember ? 'member' : 'spectator'

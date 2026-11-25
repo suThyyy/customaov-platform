@@ -1,5 +1,12 @@
 # CHANGELOG – UI/UX refactor (11/2026)
 
+## Role Foundation — 25/11/2026
+
+- AuthContext, role utilities, route/action guards, navigation and Mock persona selector integrated; existing shell/theme retained. Room ownership still required. Community fixture controls cannot elevate platform USER. Details and file groups: `docs/product/PLATFORM_ROLE_FOUNDATION.md`.
+- Validation: 49 files / 323 tests; typecheck/lint/build pass (2 existing warnings). Auth E2E pass; role browser 72 checks pass; screenshots 40/40 at 375/768/1280/1440 without overflow/console errors. Local PostgreSQL 107 checks and backend static 21 tests pass.
+- Recovery: reverse only reviewed role-task changes; preserve pre-existing Community/env/README changes. No commit or deployment to revert yet.
+- Còn tồn: actual account/Host approval, Production deployment and hosted HUY-28 acceptance; dynamic Permission Management remains HUY-29. API-mode authorization retains its existing backend contract.
+
 > Thay cho lịch sử commit trong đợt refactor theo `docs/UI_UX_CHECKLIST.md`.
 > **Bản sao lưu gốc:** `../web_backup_2026-11-15/` (toàn bộ `web/` trừ `node_modules`, `dist`), chụp trước khi sửa.
 > **Ảnh so sánh:** `docs/screenshots/<phase>/<route>-<width>.png` (bộ `before/` = trước khi sửa).
@@ -740,3 +747,10 @@ Chỉ đổi hành vi ở chế độ `api` (`VITE_DATA_SOURCE=api`). Chế đ�
 
 ### Còn tồn
 - Không có.
+# Quick Team (25/11/2026)
+
+- Added public Quick Team workspace, core integration, exact reference Rank catalog, focused tests and browser scenario script. Navigation and Home CTAs link to the tool.
+- Reuses PageHeader, Card, Button and existing navy/gold/team tokens. No Room or Community/Tournament workflow changes.
+- Validation: typecheck, lint (two existing warnings), 53 test files / 336 tests and build passed. Browser results are reported separately in the task handoff.
+- Rollback: remove the new Quick Team files and reverse only this task's route/navigation/Home additions; preserve earlier dirty changes.
+- Remaining: PO visual UAT; hosted operational acceptance is outside this local utility milestone.

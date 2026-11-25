@@ -17,6 +17,9 @@ export default defineConfig({
     },
   },
   test: {
+    // Bound jsdom workers: unrestricted parallel App imports can outlive a
+    // test timeout and pollute the following test after its cleanup runs.
+    maxWorkers: 4,
     environment: 'jsdom',
     include: ['src/**/*.test.{ts,tsx}'],
     // Không để `.env.local` của dev (vd. VITE_DATA_SOURCE=supabase) đổi chế độ khi chạy test.

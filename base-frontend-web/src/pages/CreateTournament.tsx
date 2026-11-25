@@ -24,7 +24,7 @@ import { CreateTournamentBodySchema, type CreateTournamentBody, type Series, typ
 import { ApiError, createTournament, tournamentsAdapter } from '../api'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Button, IconButton } from '../components/ui/Button'
-import { useToast } from '../context/AppContext'
+import { useAuth, useToast } from '../context/AppContext'
 import { asset } from '../lib/asset'
 import { cn } from '../lib/cn'
 
@@ -109,6 +109,7 @@ function apiFieldErrors(details: unknown): Record<string, string> {
 }
 
 export default function CreateTournament() {
+  const { canOrganize } = useAuth()
   const navigate = useNavigate()
   const { notify } = useToast()
   const uid = useId()
@@ -262,6 +263,7 @@ export default function CreateTournament() {
   }
 
   const handleSubmit = async () => {
+    if (!canOrganize) { setSubmitError('Bạn cần quyền quản trị viên để tạo giải đấu.'); return }
     const allErrors = collectErrors()
     const firstInvalidStep = ([1, 2, 3, 4] as Step[]).find((s) => keysForStep(s, allErrors).length > 0)
     if (firstInvalidStep) {

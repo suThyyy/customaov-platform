@@ -44,3 +44,5 @@
 - 15/11 · Lead · Lockfile xung đột khi merge: giữ bản của integration, chạy `npm install` để sinh lại, rồi chạy lại build/test trước khi commit merge.
 - 15/11 · Lead · Lead verify trên worktree `.worktrees/integration` (đang checkout `integration/mvp`), merge `main` trong `.worktrees/main`.
 - 15/11 · Lead · **Task B1 nhỏ do Codex/Gemini/Copilot code thì Lead (Claude, Anthropic) tự review**, vì vẫn khác hãng. Lead kiểm diff, chạy build/lint/test, ghi PASS/FAIL trong commit merge. Áp dụng lần đầu cho E2-T05. Lý do: tiết kiệm quota worker và rút ngắn vòng chờ. Task B2 trở lên vẫn giao reviewer worker.
+
+- 25/11/2026 · Role Foundation remediation theo todo.md · Giữ profiles.role ở backend customAOV; thêm role_approved_at và platform_role_audit. Legacy organizer/admin chưa duyệt không có quyền tổ chức. Chỉ postgres SQL operator được gọi hàm cấp quyền SECURITY INVOKER có audit; không dựa vào JWT service_role. Migration Room chặn rollout nếu còn Host chưa duyệt. Chưa triển khai Production; cần PO phê duyệt. Xem handoff của backend và docs/product/PLATFORM_ROLE_FOUNDATION.md. Không thay schema Fastify của monorepo.

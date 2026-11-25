@@ -2,7 +2,8 @@ import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { setSupabaseClientForUnitTests } from './client'
-import { openRoomPermissions, useOpenRoomActions } from './roomActions'
+import { openRoomPermissions as permissionsForRole, useOpenRoomActions } from './roomActions'
+const openRoomPermissions = (snapshot: Parameters<typeof permissionsForRole>[0], id: string) => permissionsForRole(snapshot, id, true)
 import { registerOpenRoomRefetch } from './realtime'
 import type { OpenRoomSnapshot } from './types'
 
@@ -189,6 +190,14 @@ describe('useOpenRoomActions', () => {
 })
 
 describe('openRoomPermissions', () => {
+  it('denies organizer actions for a host without current platform permission', () => {
+    const denied = permissionsForRole(baseSnapshot, 'host-1')
+    for (const key of ['close','addPlayer','kick','requeue','prepare','saveLineup','replace','start','end'] as const) expect(denied[key]).toBe(false)
+  })
+  it('does not grant nonowner organizer privileges', () => {
+    expect(permissionsForRole(baseSnapshot, 'unrelated-admin', true).close).toBe(false)
+    expect(permissionsForRole(baseSnapshot, 'unrelated-admin', true).addPlayer).toBe(false)
+  })
   it.each([
     ['idle', { prepare: true, saveLineup: false, start: false, end: false }],
     ['preparing', { prepare: false, saveLineup: true, start: true, end: false }],

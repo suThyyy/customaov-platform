@@ -149,7 +149,11 @@ export async function rpc<T>(name: string, args: Record<string, unknown> = {}): 
   if (!auth.ok) return auth
   try {
     const result = await client.rpc(name, args)
-    if (result.error) return { ok: false, error: mapRoomMutationError(result.error) }
+    if (result.error) {
+      const error = mapRoomMutationError(result.error)
+      if (error.kind === 'forbidden') window.dispatchEvent(new Event('customaov:permission-denied'))
+      return { ok: false, error }
+    }
     return { ok: true, data: result.data as T }
   } catch (reason) {
     return { ok: false, error: mapRoomMutationError(reason) }

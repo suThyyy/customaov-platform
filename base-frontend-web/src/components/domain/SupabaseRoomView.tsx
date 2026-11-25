@@ -62,7 +62,7 @@ const IDLE_ACTIONS: OpenRoomActions = {
 export function SupabaseRoomView({ roomId }: { roomId: string | undefined }) {
   const room = useOpenRoom(roomId)
   const actions = useOpenRoomActions(roomId ?? '', room.snapshot)
-  const { user } = useAuth()
+  const { user, canOrganize } = useAuth()
   const { notify } = useToast()
   if (roomId && (room.status === 'error' || room.status === 'ready' && !room.snapshot)) return <PublicRoomAccess key={roomId} roomId={roomId} />
 
@@ -90,6 +90,7 @@ export function SupabaseRoomView({ roomId }: { roomId: string | undefined }) {
       snapshot={room.snapshot}
       connection={room.connection}
       userId={user?.id}
+      canOrganize={canOrganize}
       actions={actions}
       onNotify={notify}
       roomConfig={configFromRoom(room.snapshot.room)}
@@ -106,6 +107,7 @@ export function SupabaseRoomSnapshot({
   onNotify = () => {},
   roomConfig = null,
   configPersisted = false,
+  canOrganize = false,
 }: {
   snapshot: OpenRoomSnapshot
   connection: 'connecting' | 'live' | 'reconnecting' | 'offline'
@@ -114,27 +116,30 @@ export function SupabaseRoomSnapshot({
   onNotify?: (title: string, description?: string) => void
   roomConfig?: RoomConfig | null
   configPersisted?: boolean
+  canOrganize?: boolean
 }) {
   const live = connection === 'live'
-  const permissions = useMemo(() => openRoomPermissions(snapshot, userId), [snapshot, userId])
+  const permissions = useMemo(() => openRoomPermissions(snapshot, userId, canOrganize), [snapshot, userId, canOrganize])
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null)
   const closeConfirm = useCallback(() => setConfirm(null), [])
   const [configPending, setConfigPending] = useState(false)
   const configBusy = useRef(false)
 
-  const runAction = useCallback(async <T,>(fn: () => Promise<RoomMutationResult<T>>): Promise<boolean> => {
+  const runAction = useCallback(async <T,>(fn: () => Promise<RoomMutationResult<T>>, organizer = true): Promise<boolean> => {
+    if (organizer && permissions.role !== 'host') { onNotify('Bạn không có quyền quản lý phòng này.'); return false }
     const result = await fn()
     if (!result.ok) {
       onNotify(result.error.message)
       return false
     }
     return true
-  }, [onNotify])
+  }, [onNotify, permissions.role])
 
   const handleConfirm = async (request: ConfirmRequest) => {
+    if (request.kind !== 'leave' && !permissions[request.kind]) { setConfirm(null); onNotify('Bạn không có quyền quản lý phòng này.'); return }
     if (request.kind === 'kick') await runAction(() => actions.kick(request.memberId))
     else if (request.kind === 'requeue') await runAction(() => actions.requeue(request.memberId))
-    else if (request.kind === 'leave') await runAction(() => actions.leave())
+    else if (request.kind === 'leave') await runAction(() => actions.leave(), false)
     else if (request.kind === 'close') await runAction(() => actions.close())
     setConfirm(null)
   }
@@ -174,7 +179,7 @@ export function SupabaseRoomSnapshot({
         styleLocked={snapshot.room.status !== 'open' || snapshot.room.current_round_state === 'active'}
         allocationLocked={snapshot.room.status !== 'open' || snapshot.room.current_round_state === 'active' || snapshot.selected.some(player => player.team)}
         onUpdate={async editable => {
-          if (configBusy.current) return
+          if (configBusy.current || permissions.role !== 'host') return
           configBusy.current = true
           setConfigPending(true)
           try { await updateConfiguredRoom(snapshot.room.id, editable, snapshot.version) }
@@ -190,7 +195,7 @@ export function SupabaseRoomSnapshot({
         onPrepare={() => void runAction(() => actions.prepare())}
         onStart={() => void runAction(() => actions.start())}
         onEnd={() => void runAction(() => actions.end())}
-        onContinueQueue={() => void runAction(() => actions.continueQueue())}
+        onContinueQueue={() => void runAction(() => actions.continueQueue(), false)}
         onRequestLeave={() => setConfirm({ kind: 'leave' })}
         onRequestClose={() => setConfirm({ kind: 'close' })}
         onNotify={onNotify}

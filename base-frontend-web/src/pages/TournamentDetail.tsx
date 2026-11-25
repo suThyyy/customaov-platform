@@ -124,7 +124,7 @@ function TournamentView({ d, load }: { d: Detail; load: HookResult<Detail | unde
   const tab: DetailTab = isTab(rawTab) ? rawTab : 'info'
   const setTab = (t: DetailTab) => setParams(t === 'info' ? {} : { tab: t })
   const [following, setFollowing] = useState(false)
-  const { loggedIn, user } = useAuth()
+  const { loggedIn, user, canOrganize } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -273,7 +273,7 @@ function TournamentView({ d, load }: { d: Detail; load: HookResult<Detail | unde
         />
       )}
 
-      {d.myRole === 'organizer' && (
+      {isOrganizer && canOrganize && (
         <div className="mt-6">
           <OrganizerPanel d={d} onChanged={load.reload} />
         </div>

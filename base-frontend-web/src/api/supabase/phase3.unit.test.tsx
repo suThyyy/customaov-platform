@@ -6,7 +6,8 @@ import { configFromRoom, createSeriesRoom, discoverSeriesRooms } from './configu
 import { assignSeriesGame, assignmentError, readPublicGameResults, readSeriesState, reportSeriesResult, startSeriesGame, type SeriesPlayer } from './series'
 import { supabaseRoomsAdapter } from './index'
 import { mapRoomMutationError } from './roomMutations'
-import { openRoomPermissions, useOpenRoomActions } from './roomActions'
+import { openRoomPermissions as permissionsForRole, useOpenRoomActions } from './roomActions'
+const openRoomPermissions = (snapshot: Parameters<typeof permissionsForRole>[0], id: string) => permissionsForRole(snapshot, id, true)
 import type { OpenRoomSnapshot } from './types'
 import { resolveDataSource } from '../source'
 

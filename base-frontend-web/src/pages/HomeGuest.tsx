@@ -155,13 +155,13 @@ export default function HomeGuest() {
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <ButtonLink
-                to={loginHref('start')}
+                to="/quick-team"
                 pill
                 size="lg"
                 className="px-8"
                 rightIcon={<ArrowRight size={20} aria-hidden />}
               >
-                Bắt đầu ngay
+                Chia đội ngay
               </ButtonLink>
               <ButtonLink to="/#how-it-works" pill size="lg" variant="outline" className="px-8">
                 Tìm hiểu thêm
@@ -181,7 +181,7 @@ export default function HomeGuest() {
               icon={<Scale strokeWidth={1.6} />}
               title="Chia đội công bằng"
               description="Cân bằng trình độ, xếp đội hợp lý cho trận đấu hấp dẫn."
-              to="/#preview"
+              to="/quick-team"
             />
             <FeatureCard
               icon={<Box strokeWidth={1.6} />}
