@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { TeamReveal } from './TeamReveal'
+import { revealKeyOf, type RevealEntry, type RevealVariant } from './revealPlan'
 import { assignSeriesGame, assignmentError, readHeroCatalog, reportSeriesResult, startSeriesGame, type GameAssignment, type GameLane, type SeriesGame, type Side } from '../../../api/supabase/series'
 import { requestOpenRoomRefetch } from '../../../api/supabase/realtime'
 import type { OpenRoomSnapshot } from '../../../api/supabase/types'
@@ -8,18 +10,20 @@ import { Card } from '../../ui/primitives'
 
 const inputClass = 'w-full min-w-0 rounded-btn border border-line bg-surface px-3 py-2 text-sm'
 
-export function SeriesPanel({ snapshot, isHost, canPrepareNext, onPrepareNext, notify }: {
+export function SeriesPanel({ snapshot, isHost, canPrepareNext, onPrepareNext, notify, revealVariant = 'roulette' }: {
   snapshot: OpenRoomSnapshot
   isHost: boolean
   canPrepareNext: boolean
   onPrepareNext: () => Promise<RoomMutationResult<unknown>>
   notify: (message: string) => void
+  /** Kiểu công bố đội sau START (Random → roulette, Tier/Rank → meteor). Chỉ là trình diễn. */
+  revealVariant?: RevealVariant
 }) {
   const state = snapshot.seriesState
   const current = state?.series.find(row => !row.complete) ?? state?.series.at(-1)
   const games = state?.games.filter(game => game.series_id === current?.id) ?? []
   const game = games.at(-1)
-  const roster = state?.players.filter(player => player.series_id === current?.id) ?? []
+  const roster = useMemo(() => state?.players.filter(player => player.series_id === current?.id) ?? [], [state?.players, current?.id])
   const [heroes, setHeroes] = useState<string[]>([])
   const [catalogError, setCatalogError] = useState('')
   const [catalogAttempt, setCatalogAttempt] = useState(0)
@@ -64,6 +68,21 @@ export function SeriesPanel({ snapshot, isHost, canPrepareNext, onPrepareNext, n
     const next = { ...old, [field]: value || null }
     return [...rows.filter(row => row.member_id !== memberId), next].filter(row => row.hero || row.lane)
   })
+  // Reveal chỉ đọc roster bất biến và phân công đã persist của Game hiện tại; không gửi mutation nào.
+  const liveGame = game && !game.ended_at ? game : undefined
+  const teamEntries = useMemo<RevealEntry[]>(() => liveGame && roster.length === 10
+    ? roster.map(player => ({ id: player.member_id, team: player.team, slot: player.slot, primary: player.display_name }))
+    : [], [liveGame, roster])
+  const heroEntries = useMemo<RevealEntry[]>(() => {
+    const rows = liveGame?.assignments ?? []
+    if (rows.length !== 10 || rows.some(row => !row.hero || !row.lane)) return []
+    return rows.flatMap(row => {
+      const player = roster.find(item => item.member_id === row.member_id)
+      return player ? [{ id: player.member_id, team: player.team, slot: player.slot, primary: row.hero!, secondary: `${player.display_name} · ${row.lane}` }] : []
+    })
+  }, [liveGame, roster])
+  const teamRevealKey = liveGame ? revealKeyOf(`start:${liveGame.id}`, teamEntries) : null
+  const heroRevealKey = liveGame && heroEntries.length === 10 ? revealKeyOf(`heroes:${liveGame.id}`, heroEntries) : null
   const beginReport = (target: SeriesGame) => { setEditing(target); setMatchId(target.match_id ?? ''); setWinner(target.winner ?? 'a'); setConfirmed(false) }
 
   return <Card className="min-w-0 space-y-4 p-4">
@@ -71,6 +90,8 @@ export function SeriesPanel({ snapshot, isHost, canPrepareNext, onPrepareNext, n
     {!current ? <p>Chọn mười người, lưu đội hình 5v5 rồi bắt đầu Game 1.</p> : <>
       <p className="text-lg">Series {current.round_no}: Xanh {current.blue_wins} – {current.red_wins} Đỏ · {current.complete ? 'Đã hoàn tất' : `Game ${game?.game_no ?? 1}`}</p>
       <p className="text-sm text-fg-muted">Đội hình được khóa trong toàn bộ Series. Kết quả do chủ phòng báo cáo, chưa xác minh với nhà phát hành.</p>
+      <TeamReveal entries={teamEntries} revealKey={teamRevealKey} variant={revealVariant} title={`đội hình Game ${liveGame?.game_no ?? ''}`}>
+      <TeamReveal entries={heroEntries} revealKey={heroRevealKey} variant="roulette" pool={heroes} title={`tướng và đường Game ${liveGame?.game_no ?? ''}`}>
       <div className="grid min-w-0 gap-4 md:grid-cols-2">
         {(['a', 'b'] as const).map(side => <section key={side} aria-label={side === 'a' ? 'Đội Xanh đã khóa' : 'Đội Đỏ đã khóa'} className="min-w-0 space-y-3 rounded-card border border-line p-3">
           <h3 className={side === 'a' ? 'text-team-blue-fg' : 'text-team-red-fg'}>{side === 'a' ? 'Xanh' : 'Đỏ'}</h3>
@@ -86,6 +107,8 @@ export function SeriesPanel({ snapshot, isHost, canPrepareNext, onPrepareNext, n
           })}
         </section>)}
       </div>
+      </TeamReveal>
+      </TeamReveal>
       {catalogError && <p role="alert">{catalogError} <Button variant="outline" onClick={() => setCatalogAttempt(value => value + 1)}>Tải lại danh mục</Button></p>}
       {canAssign && <div className="flex flex-wrap gap-2">
         <Button variant="outline" disabled={pending || game.auto_generated} onClick={() => void run(() => assignSeriesGame(snapshot.room.id, snapshot.version, game.id, 'automatic'))}>{game.auto_generated ? 'Đã tạo tự động' : 'Tự động chọn tướng / đường'}</Button>

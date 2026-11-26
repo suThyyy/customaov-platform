@@ -64,6 +64,22 @@ describe('Series UI (offline)', () => {
     await waitFor(() => expect((screen.getByLabelText('Tướng cho Player 0') as HTMLSelectElement).value).toBe('Krixi'))
     expect(mocks.assign).not.toHaveBeenCalled()
   })
+  it('reveals teams after START, then the persisted heroes, without any mutation', async () => {
+    window.sessionStorage.clear()
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} }))
+    const lanes = ['top', 'jungle', 'mid', 'adc', 'support'] as const
+    const assignments = Array.from({ length: 10 }, (_, i) => ({ member_id: `m${i}`, hero: i % 2 ? 'Krixi' : 'Valhein', lane: lanes[i % 5] }))
+    try {
+      renderPanel(fixture({ id: 'game-reveal', auto_generated: true, assignment_mode: 'automatic', assignments }))
+      expect(screen.getByRole('region', { name: /Công bố đội hình Game 1/ })).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: 'Bỏ qua hiệu ứng' }))
+      expect(screen.getByRole('region', { name: /Công bố tướng và đường Game 1/ }).dataset.reveal).toBe('roulette')
+      fireEvent.click(screen.getByRole('button', { name: 'Bỏ qua hiệu ứng' }))
+      await waitFor(() => expect((screen.getByLabelText('Tướng cho Player 1') as HTMLSelectElement).value).toBe('Krixi'))
+      expect(mocks.assign).not.toHaveBeenCalled()
+      expect(mocks.start).not.toHaveBeenCalled()
+    } finally { vi.unstubAllGlobals() }
+  })
   it('starts the next numbered game with no roster payload', async () => {
     mocks.start.mockResolvedValue({ ok: true, data: {} })
     renderPanel(fixture({ ended_at: 'now', winner: 'a', loser: 'b', match_id: 'match' }))
