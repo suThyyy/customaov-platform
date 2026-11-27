@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeftRight, Shuffle } from 'lucide-react'
 import {
   type OpenRoomLineupPlayer,
@@ -13,6 +13,8 @@ import { Button } from '../../ui/Button'
 import { Card } from '../../ui/primitives'
 import { buildLineupFromSelected, buildRandomLineup } from './helpers'
 import { ParticipantMenu } from './ParticipantMenu'
+import { TeamReveal } from './TeamReveal'
+import { revealKeyOf, type RevealEntry } from './revealPlan'
 import { DEFAULT_TIER_SCORES, splitTeams5v5 } from '@customaov/team-core'
 
 export function OpenRoomLineup({
@@ -41,15 +43,20 @@ export function OpenRoomLineup({
   const [selectedA, setSelectedA] = useState<string | null>(null)
   const [selectedB, setSelectedB] = useState<string | null>(null)
   const [skills, setSkills] = useState<Record<string, { value: string; score: string }>>({})
-  const [reveal, setReveal] = useState(false)
-  const lineupKey = snapshot.selected.map(player => `${player.memberId}:${player.team}:${player.slot}`).join('|')
-  const hasLineup = snapshot.selected.length === 10 && snapshot.selected.every(player => player.team)
-  useEffect(() => {
-    if (!hasLineup || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
-    setReveal(true)
-    const timer = setTimeout(() => setReveal(false), 1800)
-    return () => clearTimeout(timer)
-  }, [lineupKey, hasLineup])
+  // Reveal chỉ đọc đội hình đã lưu trên server; nó không quyết định thành viên đội.
+  const hasLineup = snapshot.selected.length === 10 && snapshot.selected.every(player => player.team === 'a' || player.team === 'b')
+  const revealVariant = splitTool === 'random' ? 'roulette' : 'meteor'
+  const revealEntries = useMemo<RevealEntry[]>(() => hasLineup
+    ? snapshot.selected.map(player => ({
+      id: player.memberId,
+      team: player.team as 'a' | 'b',
+      slot: player.slot ?? 0,
+      primary: player.displayName,
+      secondary: revealVariant === 'meteor' && player.skillValue ? String(player.skillValue) : undefined,
+      score: revealVariant === 'meteor' && player.skillScore != null ? Number(player.skillScore) : undefined,
+    }))
+    : [], [hasLineup, snapshot.selected, revealVariant])
+  const revealKey = revealKeyOf(`lineup:${snapshot.room.id}:${snapshot.room.current_round_no ?? 0}:${revealVariant}`, revealEntries)
 
   useEffect(() => {
     setSelectedA(null)
@@ -212,10 +219,13 @@ export function OpenRoomLineup({
         </div>
       )}
 
-      {reveal && <div className="mt-4 flex flex-wrap items-center gap-3 text-sm" role="status">Đang công bố đội hình đã lưu<Button variant="ghost" onClick={() => setReveal(false)}>Bỏ qua hiệu ứng</Button></div>}
-      <div className={cn('mt-4 grid min-w-0 gap-4 md:grid-cols-2', reveal && (splitTool === 'random' ? 'room-reveal-roulette' : 'room-reveal-meteor'))}>
-        {renderTeamColumn('Team A', teamA, 'a', selectedA, (id) => { if (!selectedA || selectedA === id) setSelectedA(id || null); else setSelectedB(id || null) }, 'text-team-blue-fg')}
-        {renderTeamColumn('Team B', teamB, 'b', selectedB, (id) => { if (!selectedA || selectedA === id) setSelectedA(id || null); else setSelectedB(id || null) }, 'text-team-red-fg')}
+      <div className="mt-4 min-w-0">
+        <TeamReveal entries={revealEntries} revealKey={revealKey} variant={revealVariant} title="đội hình 5v5 đã lưu">
+          <div className="grid min-w-0 gap-4 md:grid-cols-2">
+            {renderTeamColumn('Team A', teamA, 'a', selectedA, (id) => { if (!selectedA || selectedA === id) setSelectedA(id || null); else setSelectedB(id || null) }, 'text-team-blue-fg')}
+            {renderTeamColumn('Team B', teamB, 'b', selectedB, (id) => { if (!selectedA || selectedA === id) setSelectedA(id || null); else setSelectedB(id || null) }, 'text-team-red-fg')}
+          </div>
+        </TeamReveal>
       </div>
 
       {unassigned.length > 0 && (

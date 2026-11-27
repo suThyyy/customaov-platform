@@ -1,5 +1,14 @@
 # CHANGELOG – UI/UX refactor (11/2026)
 
+## HUY-23 Team Reveal — Roulette & Meteor (26/11/2026)
+
+- File mới: `open-room/revealPlan.ts` (kế hoạch trình diễn thuần: thứ tự, reel xác định, thời lượng, khoá), `open-room/TeamReveal.tsx` (sân khấu Xanh/VS/Đỏ, Skip, live region, reduced-motion, phát một lần/khoá qua sessionStorage), `revealPlan.test.ts`, `TeamReveal.test.tsx`.
+- File sửa: `OpenRoomLineup.tsx` (Random → Roulette, Tier/Rank → Meteor, thay class `room-reveal-*` cũ), `SeriesPanel.tsx` (+ prop `revealVariant`: công bố đội sau START, rồi roulette tướng/đường khi phân công đã lưu đủ 10), `SupabaseRoomView.tsx` (truyền `revealVariant`), `SeriesPanel.test.tsx` (+1 test), `index.css` (thay keyframes `room-roulette/meteor` bằng `reveal-*`, thêm `--ease-reel/fall/spring`, spring bằng `linear()` có fallback).
+- Nguyên tắc: reveal chỉ đọc dữ liệu authoritative, không gọi mutation; kết thúc bằng hẹn giờ JS (không dựa animationend); chỉ animate transform/opacity; trong lúc phát, sân khấu thay chỗ danh sách thật (không lộ kết quả), Skip trả focus về vùng nội dung.
+- Kiểm tra: typecheck OK; lint 0 lỗi (2 cảnh báo cũ); 56 file / 357 test pass; build OK; Playwright preview roulette/meteor ở 1280 và 375: không cuộn ngang, không lỗi console.
+- Hoàn tác: xoá 4 file mới, khôi phục 5 file sửa từ commit trước nhánh `oqnvuz0704/huy-23-herolane-assignment-team-reveal`.
+- Còn tồn: chưa có âm thanh; Cinematic Ultimate Impact là việc tương lai (ngoài phạm vi); hosted Realtime/hai client vẫn chờ HUY-21.
+
 ## Role Foundation — 25/11/2026
 
 - AuthContext, role utilities, route/action guards, navigation and Mock persona selector integrated; existing shell/theme retained. Room ownership still required. Community fixture controls cannot elevate platform USER. Details and file groups: `docs/product/PLATFORM_ROLE_FOUNDATION.md`.
