@@ -226,6 +226,7 @@ export function SupabaseRoomSnapshot({
         canPrepareNext={permissions.prepare}
         onPrepareNext={() => prepareNextOpenRoomRound(snapshot.room.id)}
         notify={onNotify}
+        revealVariant={(roomConfig?.splitTool ?? 'random') === 'random' ? 'roulette' : 'meteor'}
       />}
 
       <OpenRoomQueue

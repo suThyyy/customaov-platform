@@ -205,19 +205,122 @@
   from { opacity: 0; transform: translateY(8px) scale(0.98); }
   to { opacity: 1; transform: none; }
 }
-@media (prefers-reduced-motion: no-preference) {
-  .room-reveal-roulette li { animation: room-roulette 1.4s ease-out both; }
-  .room-reveal-meteor li { animation: room-meteor 1.4s ease-out both; }
+/*
+ * TEAM REVEAL (HUY-23) — chỉ trình diễn, dữ liệu đã chốt từ server.
+ * Nhịp lấy từ biến do TeamReveal đặt: --reveal-stagger, --reveal-duration, --reveal-total, --i.
+ * Chỉ animate transform/opacity. Kết thúc do bộ hẹn giờ JS, không dựa vào animationend.
+ */
+:root {
+  --ease-reel: cubic-bezier(0.25, 0.55, 0.1, 1);      /* lao nhanh rồi giảm tốc dài như máy xèng */
+  --ease-fall: cubic-bezier(0.55, 0, 1, 0.45);        /* rơi có gia tốc = "có trọng lượng" */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);   /* fallback cho trình duyệt chưa có linear() */
 }
-@keyframes room-roulette {
-  0% { opacity: 0.4; transform: translateY(-16px); }
-  40% { transform: translateY(8px); }
-  70% { transform: translateY(-4px); }
+@supports (animation-timing-function: linear(0, 1)) {
+  :root {
+    --ease-spring: linear(0, 0.009, 0.035 2.1%, 0.141, 0.281 6.7%, 0.723 12.9%, 0.938 16.7%, 1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%, 1.129 32.8%, 1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%, 0.974 53.8%, 0.975 57.1%, 0.997 69.8%, 1.003 76.9%, 1.004 83.8%, 1);
+  }
+}
+/* Màu đội của từng cột: dùng cho số slot, viền khoá, sóng va chạm */
+.reveal-column-blue { --team: var(--color-team-blue); --team-fg: var(--color-team-blue-fg); background-image: linear-gradient(180deg, rgb(59 140 240 / 0.12), transparent 60%); }
+.reveal-column-red { --team: var(--color-team-red); --team-fg: var(--color-team-red-fg); background-image: linear-gradient(180deg, rgb(226 69 63 / 0.12), transparent 60%); }
+.reveal-slot-no { border-color: var(--team); color: var(--team-fg); background: color-mix(in srgb, var(--team) 16%, transparent); }
+/* Reel như trống quay: mép trên/dưới mờ dần, nên dòng đang trôi qua trông có chủ đích */
+.reveal-reel { mask-image: linear-gradient(180deg, transparent 0, #000 22%, #000 78%, transparent 100%); }
+/* Viền + quầng màu đội khi ô đã khoá (chỉ animate opacity) */
+.reveal-roulette-slot,
+.reveal-meteor-body { position: relative; }
+.reveal-roulette-slot::after,
+.reveal-meteor-body::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border: 1px solid var(--team);
+  border-radius: inherit;
+  box-shadow: 0 10px 28px -14px var(--team);
+  pointer-events: none;
+}
+.reveal-roulette-slot { --lock-at: calc(var(--reveal-duration) + var(--i) * var(--reveal-stagger)); }
+.reveal-meteor-slot { --land-at: calc(var(--i) * var(--reveal-stagger) + var(--reveal-duration)); }
+.reveal-vs { box-shadow: 0 0 24px -6px rgb(242 180 99 / 0.6); }
+.reveal-meteor-shock { display: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .reveal-stage { animation: reveal-rise 300ms var(--ease-out-soft) both; }
+  .reveal-handoff { animation: reveal-rise 360ms var(--ease-out-soft) both; }
+  .reveal-vs { animation: reveal-vs-hit 700ms var(--ease-spring) var(--reveal-total) none; }
+
+  /* Roulette: cả 10 reel quay cùng lúc, dừng lần lượt; ô khoá bằng spring + viền màu đội */
+  .reveal-strip {
+    will-change: transform;
+    animation: reveal-reel-spin var(--lock-at) var(--ease-reel) both;
+  }
+  .reveal-roulette-slot { animation: reveal-lock 600ms var(--ease-spring) var(--lock-at) none; }
+  .reveal-roulette-slot::after { opacity: 0; animation: reveal-glow 360ms ease-out var(--lock-at) forwards; }
+  .reveal-roulette-slot .reveal-caption { animation: reveal-rise 320ms var(--ease-out-soft) var(--lock-at) both; }
+
+  /* Meteor: thẻ rơi thẳng có gia tốc, kéo theo vệt sáng, chạm đất nén lại, sóng mảnh lan dưới đáy */
+  .reveal-meteor-body {
+    animation: reveal-fall var(--reveal-duration) var(--ease-fall) calc(var(--i) * var(--reveal-stagger)) both;
+  }
+  .reveal-meteor-body::after { opacity: 0; animation: reveal-glow 360ms ease-out var(--land-at) forwards; }
+  .reveal-meteor-slot { transform-origin: 50% 100%; animation: reveal-impact 600ms var(--ease-spring) var(--land-at) none; }
+  .reveal-meteor-shock {
+    display: block;
+    position: absolute;
+    left: 6%;
+    right: 6%;
+    bottom: -4px;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--team);
+    box-shadow: 0 0 12px var(--team);
+    opacity: 0;
+    pointer-events: none;
+    animation: reveal-shock 650ms var(--ease-out-soft) var(--land-at) forwards;
+  }
+  .reveal-meteor-slot .reveal-badge { animation: reveal-pop 500ms var(--ease-spring) var(--land-at) both; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal-strip { transform: translateY(calc(var(--steps) * -2rem)); }
+}
+
+@keyframes reveal-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes reveal-reel-spin {
+  /* Mỗi dòng reel cao 2rem (h-8); dừng ở dòng cuối = đáp án authoritative */
+  from { transform: translateY(0); }
+  to { transform: translateY(calc(var(--steps) * -2rem)); }
+}
+@keyframes reveal-lock {
+  0% { transform: scale(1.035); }
+  100% { transform: none; }
+}
+@keyframes reveal-glow {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes reveal-fall {
+  0% { opacity: 0; transform: translateY(-32px) scale(0.97); }
+  50% { opacity: 1; }
   100% { opacity: 1; transform: none; }
 }
-@keyframes room-meteor {
-  from { opacity: 0; transform: translateY(-24px) scale(0.9); filter: brightness(2); }
-  to { opacity: 1; transform: none; filter: brightness(1); }
+@keyframes reveal-vs-hit {
+  0% { transform: scale(1.3); }
+  100% { transform: none; }
+}
+@keyframes reveal-impact {
+  0% { transform: scale(1.025, 0.92); }
+  100% { transform: none; }
+}
+@keyframes reveal-shock {
+  0% { opacity: 1; transform: scaleX(0.2); }
+  100% { opacity: 0; transform: scaleX(1.08); }
+}
+@keyframes reveal-pop {
+  0% { opacity: 0; transform: scale(0.5); }
+  100% { opacity: 1; transform: none; }
 }
 @keyframes fade-in {
   from { opacity: 0; }

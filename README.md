@@ -180,6 +180,8 @@ Mọi tích hợp bên ngoài phải được đánh giá về quyền truy cậ
 
 ## 5. Đóng góp và cộng tác
 
+Xem [hướng dẫn CI/CD và triển khai trên Vercel](docs/VERCEL_CI_CD.md) để đưa thay đổi từ `feat/*` qua `dev` lên `main`.
+
 - **GitHub:** Quản lý source code, pull request và code review.
 - **Linear:** Quản lý backlog, issue và milestone.
 - **AI coding agents:** Hỗ trợ phân tích, phát triển, kiểm thử và review trong phạm vi task được giao.
